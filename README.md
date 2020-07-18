@@ -1,6 +1,10 @@
 # Custom Dictionary Class
 
 Convert Dictionary to Object style Dictionary
+## Contents
+I. Create tree type items 
+I. New commands
+I. Added property at each key
 
 - Initialize dictionary 
 
