@@ -25,7 +25,6 @@ def peeling(v,ignore=[],collect=[],jump=None):
 
 class kDict(dict):
     MARKER = {}
-    aaa=[]
     _p_='._p'
     _d_='._d'
     _n_=True
@@ -39,6 +38,43 @@ class kDict(dict):
         else:
             raise TypeError('expected dict')
 
+    def __getitem__(self, key):
+        try:
+            found = dict.__getitem__(self,key)
+        except:
+            found=kDict.MARKER
+        #found=self.get(key,kDict.MARKER)
+        if found is kDict.MARKER:
+            found = kDict()
+            super(kDict, self).__setitem__(key, found)
+# Property setting issue
+        # If the data is not kDict type data then convert the data to kDict type
+        # for example: root.abc.test=[1,2,3] => root.abc.PUT('test',[1,2,3]
+
+        #    new_found=kDict({self._d_:found}) # Remove property. because, can known that is fake data or not in the call function.
+#            new_found=kDict({self._d_:found, self._p_:{}})
+#            super(kDict, self).__setitem__(key,new_found) # If you want change original data then enable
+        #    return new_found # it just reutn fake data for ignore error for GET() when the data is not kDict type data.
+        return found
+
+    def __setitem__(self, key, value):
+        found=self.get(key,None)
+        if self._is_ro(found):
+            return False
+        if isinstance(found,dict) and self._p_ in found:
+            found[self._d_]=value
+            super(kDict, self).__setitem__(key, found)
+        else:
+            if isinstance(value, dict) and not isinstance(value, kDict):
+                value = kDict(value)
+            super(kDict, self).__setitem__(key, value)
+
+    # del dictionary[key]
+    def __delitem__(self, key):
+        if self._is_ro(self.get(key,None)):
+            return False
+        super(kDict, self).__delitem__(key) # delete data
+
     def _is_ro(self,found):
         if isinstance(found, dict) and self._p_ in found and 'readonly' in found[self._p_] and found[self._p_]['readonly']:
             if self._n_:
@@ -47,19 +83,7 @@ class kDict(dict):
             return True
         return False
 
-    def __setitem__(self, key, value):
-        if self._is_ro(self):
-            return False
-        if isinstance(value, dict) and not isinstance(value, kDict):
-            value = kDict(value)
-        super(kDict, self).__setitem__(key, value)
-
-    # del dictionary[key]
-    def __delitem__(self, key):
-        if self._is_ro(self.__getitem__(key)):
-            return False
-        super(kDict, self).__delitem__(key) # delete data
-
+        
     # dictionary.pop(key)
     def POP(self,key):
         if self._is_ro(self.__getitem__(key)):
@@ -94,23 +118,6 @@ class kDict(dict):
             else:
                 return None
 
-    def __getitem__(self, key):
-        try:
-            found = dict.__getitem__(self,key)
-        except:
-            found=kDict.MARKER
-        if found is kDict.MARKER:
-            found = kDict()
-            super(kDict, self).__setitem__(key, found)
-# Property setting issue
-#        # If the data is not kDict type data then convert the data to kDict type
-#        # for example: root.abc.test=[1,2,3] => root.abc.PUT('test',[1,2,3])
-#        if not isinstance(found,dict):
-#            new_found=kDict({self._d_:found}) # Remove property. because, can known that is fake data or not in the call function.
-##            new_found=kDict({self._d_:found, self._p_:{}})
-##            super(kDict, self).__setitem__(key,new_found) # If you want change original data then enable
-#            return new_found # it just reutn fake data for ignore error for GET() when the data is not kDict type data.
-        return found
 
     def GET(self,key=None,default=None,raw=False):
         try:
@@ -202,4 +209,3 @@ class kDict(dict):
         pprint.pprint(self)
 
     __setattr__, __getattr__ = __setitem__, __getitem__
-
