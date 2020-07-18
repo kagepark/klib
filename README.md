@@ -5,25 +5,18 @@ Convert Dictionary to Object style Dictionary
 - Initialize dictionary 
 
 
-> test={
-
->      'a':123,
-
->      'b':{
-
->         'c':{'ddd'},
-
->         'e':{}
-
->      }
-
->     }
->
-> root=kDict(test)
+```>>> test={
+      'a':123,
+      'b':{
+         'c':{'ddd'},
+         'e':{}
+      }
+    }
+>>> root=kDict(test)```
 
 or 
 
-> root=kDict()
+```>>> root=kDict()```
 
 - Add new data
 
