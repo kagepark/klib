@@ -19,14 +19,20 @@ or
 
 - Add new data
 > root.tree.apple.color='red'
+
 or
+
 > root.tree.apple.PUT('color','red')
+
 or
+
 > root.tree.apple['color']='red'
 
 - Get data
 > root.tree.apple.color.GET()
+
 or
+
 > root.tree.apple.GET('color')
 
 - Print dictionary
@@ -34,12 +40,17 @@ or
 > root.tree.PRINT()
 
 - Set property at Apple's color
+
  - Set readonly
 > root.tree.apple.color.PROPER('readonly',True)
+
  - Try change data
 > root.tree.apple.PUT('color','white')
+
 item is readonly
+
 >root.tree.PRINT()
+
 {'color': {'._d': 'red', '._p': {'readonly': True}}}
 
  - Unset readonly
@@ -47,4 +58,5 @@ item is readonly
  - Try change data
 > root.tree.apple.PUT('color','white')
 > root.tree.PRINT()
+
 {'color': {'._d': 'red', '._p': {'readonly': True}}}
