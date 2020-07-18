@@ -24,12 +24,14 @@ root=kDict()
 
 - Add new data
 
+```
 > root.tree.apple.color='red'
-
+```
 or
 
+```
 > root.tree.apple.PUT('color','red')
-
+```
 or
 
 > root.tree.apple['color']='red'
