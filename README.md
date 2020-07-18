@@ -11,23 +11,23 @@ Convert Dictionary to Object style Dictionary
       }
      }
 
->> root=kDict(test)
+> root=kDict(test)
 
 or 
 
->> root=kDict()
+> root=kDict()
 
 - Add new data
->> root.tree.apple.color='red'
+> root.tree.apple.color='red'
 or
->> root.tree.apple.PUT('color','red')
+> root.tree.apple.PUT('color','red')
 or
->> root.tree.apple['color']='red'
+> root.tree.apple['color']='red'
 
 - Get data
->> root.tree.apple.color.GET()
+> root.tree.apple.color.GET()
 or
->> root.tree.apple.GET('color')
+> root.tree.apple.GET('color')
 
 - Print dictionary
 >> root.PRINT()
