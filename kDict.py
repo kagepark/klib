@@ -102,13 +102,14 @@ class kDict(dict):
         if found is kDict.MARKER:
             found = kDict()
             super(kDict, self).__setitem__(key, found)
-        # If the data is not kDict type data then convert the data to kDict type
-        # for example: root.abc.test=[1,2,3] => root.abc.PUT('test',[1,2,3])
-        if not isinstance(found,dict):
-            new_found=kDict({self._d_:found}) # Remove property. because, can known that is fake data or not in the call function.
-#            new_found=kDict({self._d_:found, self._p_:{}})
-#            super(kDict, self).__setitem__(key,new_found) # If you want change original data then enable
-            return new_found # it just reutn fake data for ignore error for GET() when the data is not kDict type data.
+# Property setting issue
+#        # If the data is not kDict type data then convert the data to kDict type
+#        # for example: root.abc.test=[1,2,3] => root.abc.PUT('test',[1,2,3])
+#        if not isinstance(found,dict):
+#            new_found=kDict({self._d_:found}) # Remove property. because, can known that is fake data or not in the call function.
+##            new_found=kDict({self._d_:found, self._p_:{}})
+##            super(kDict, self).__setitem__(key,new_found) # If you want change original data then enable
+#            return new_found # it just reutn fake data for ignore error for GET() when the data is not kDict type data.
         return found
 
     def GET(self,key=None,default=None,raw=False):
