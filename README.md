@@ -3,7 +3,7 @@
 Convert Dictionary to Object style Dictionary
 ## Contents
 1. Create tree type items 
-1. New commands
+1. Added New commands
    1. PUT()    : Put value at a item
    1. GET()    : Get value of item
    1. DEL()    : Delete item
