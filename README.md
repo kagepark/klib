@@ -2,9 +2,17 @@
 
 Convert Dictionary to Object style Dictionary
 ## Contents
--. Create tree type items 
--. New commands
--. Added property at each key
+1. Create tree type items 
+1. New commands
+  1. PUT()
+  1. GET()
+  1. DEL()
+  1. UPDATE()
+  1. PRINT()
+  1. DIFF()
+  1. CHECK()
+  1. LIST()
+1. Added property at each key
 
 - Initialize dictionary 
 
