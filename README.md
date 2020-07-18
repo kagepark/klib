@@ -1,8 +1,9 @@
-Custom Dictionary Class
+# Custom Dictionary Class
 
 Convert Dictionary to Object style Dictionary
 
-test={
+- Initialize dictionary 
+>> test={
       'a':123,
       'b':{
          'c':{'ddd'},
@@ -10,36 +11,40 @@ test={
       }
      }
 
-root=kDict(test)
+>> root=kDict(test)
 
-## Add new data
-root.tree.apple.color='red'
-#or
-root.tree.apple.PUT('color','red')
-#or
-root.tree.apple['color']='red'
+or 
 
-## Get data
-root.tree.apple.color.GET()
-#or
-root.tree.apple.GET('color')
+>> root=kDict()
 
-## Print dictionary
-root.PRINT()
-root.tree.PRINT()
+- Add new data
+>> root.tree.apple.color='red'
+or
+>> root.tree.apple.PUT('color','red')
+or
+>> root.tree.apple['color']='red'
 
-### Set property at Apple's color
-## Set readonly
-root.tree.apple.color.PROPER('readonly',True)
-## Try change data
-root.tree.apple.PUT('color','white')
-#item is readonly
-root.tree.PRINT()
-#{'color': {'._d': 'red', '._p': {'readonly': True}}}
+- Get data
+>> root.tree.apple.color.GET()
+or
+>> root.tree.apple.GET('color')
 
-## Unset readonly
-root.tree.apple.color.PROPER('readonly',False)
-## Try change data
-root.tree.apple.PUT('color','white')
-root.tree.PRINT()
-#{'color': {'._d': 'red', '._p': {'readonly': True}}}
+- Print dictionary
+>> root.PRINT()
+>> root.tree.PRINT()
+
+- Set property at Apple's color
+ - Set readonly
+>> root.tree.apple.color.PROPER('readonly',True)
+ - Try change data
+>> root.tree.apple.PUT('color','white')
+item is readonly
+>>root.tree.PRINT()
+{'color': {'._d': 'red', '._p': {'readonly': True}}}
+
+ - Unset readonly
+>> root.tree.apple.color.PROPER('readonly',False)
+ - Try change data
+>> root.tree.apple.PUT('color','white')
+>> root.tree.PRINT()
+{'color': {'._d': 'red', '._p': {'readonly': True}}}
