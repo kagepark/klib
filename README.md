@@ -12,11 +12,11 @@ Convert Dictionary to Object style Dictionary
          'e':{}
       }
     }
- root=kDict(test)
+ root=kDict(test)```
 
 or 
 
-```>>> root=kDict()```
+```root=kDict()
 
 - Add new data
 
