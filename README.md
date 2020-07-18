@@ -6,7 +6,7 @@ Convert Dictionary to Object style Dictionary
 
 
 ```javascript
-test={
+>>> test={
       'a':123,
       'b':{
          'c':{'ddd'},
@@ -19,61 +19,57 @@ root=kDict(test)
 or 
 
 ```javascript
-root=kDict()
+>>> root=kDict()
 ```
 
 - Add new data
 
 ```
-> root.tree.apple.color='red'
+>>> root.tree.apple.color='red'
 ```
 or
 
 ```
-> root.tree.apple.PUT('color','red')
+>>> root.tree.apple.PUT('color','red')
 ```
 or
-
-> root.tree.apple['color']='red'
-
+```
+>>> root.tree.apple['color']='red'
+```
 - Get data
-
-> root.tree.apple.color.GET()
-
+```
+>>> root.tree.apple.color.GET()
+```
 or
-
-> root.tree.apple.GET('color')
-
+```
+>>> root.tree.apple.GET('color')
+```
 - Print dictionary
-
-> root.PRINT()
-
-> root.tree.PRINT()
-
+```
+>>> root.PRINT()
+>>> root.tree.PRINT()
+```
 - Set property at Apple's color
 
-  -- Set readonly
-
-> root.tree.apple.color.PROPER('readonly',True)
-
-  -- Try change data
-
-> root.tree.apple.PUT('color','white')
-
+  - Set readonly
+```
+>>> root.tree.apple.color.PROPER('readonly',True)
+```
+  - Try change data
+```
+>>> root.tree.apple.PUT('color','white')
 item is readonly
 
-> root.tree.PRINT()
-
+>>> root.tree.PRINT()
 {'color': {'._d': 'red', '._p': {'readonly': True}}}
-
-  = Unset readonly
-
-> root.tree.apple.color.PROPER('readonly',False)
-
-  = Try change data
-
+```
+  - Unset readonly
+```
+>>> root.tree.apple.color.PROPER('readonly',False)
+```
+  - Try change data
+```
 > root.tree.apple.PUT('color','white')
-
 > root.tree.PRINT()
-
 {'color': {'._d': 'red', '._p': {'readonly': True}}}
+```
