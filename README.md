@@ -4,14 +4,15 @@ Convert Dictionary to Object style Dictionary
 ## Contents
 1. Create tree type items 
 1. New commands
-   1. PUT()
-   1. GET()
-   1. DEL()
-   1. UPDATE()
-   1. PRINT()
-   1. DIFF()
-   1. CHECK()
-   1. LIST()
+   1. PUT()    : Put value at a item
+   1. GET()    : Get value of item
+   1. DEL()    : Delete item
+   1. UPDATE() : Update value at item
+   1. PRINT()  : Print dictionary 
+   1. DIFF()   : Compare two dictionary
+   1. CHECK()  : Check put the value is same as the item(key)'s value
+   1. LIST()   : Return list of keys value 
+   1. PROPER() : Show/Set/Update property at the item.
 1. Added property at each key
 
 - Initialize dictionary 
