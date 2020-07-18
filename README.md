@@ -42,10 +42,10 @@ or
 
 - Set property at Apple's color
 
-  - Set readonly
+  + Set readonly
 > root.tree.apple.color.PROPER('readonly',True)
 
-  - Try change data
+  + Try change data
 > root.tree.apple.PUT('color','white')
 
 item is readonly
@@ -54,10 +54,10 @@ item is readonly
 
 {'color': {'._d': 'red', '._p': {'readonly': True}}}
 
-  - Unset readonly
+  + Unset readonly
 > root.tree.apple.color.PROPER('readonly',False)
 
-  - Try change data
+  + Try change data
 > root.tree.apple.PUT('color','white')
 > root.tree.PRINT()
 
