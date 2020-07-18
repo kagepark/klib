@@ -3,7 +3,7 @@
 Convert Dictionary to Object style Dictionary
 
 - Initialize dictionary 
->> test={
+> test={
       'a':123,
       'b':{
          'c':{'ddd'},
@@ -30,21 +30,21 @@ or
 > root.tree.apple.GET('color')
 
 - Print dictionary
->> root.PRINT()
->> root.tree.PRINT()
+> root.PRINT()
+> root.tree.PRINT()
 
 - Set property at Apple's color
  - Set readonly
->> root.tree.apple.color.PROPER('readonly',True)
+> root.tree.apple.color.PROPER('readonly',True)
  - Try change data
->> root.tree.apple.PUT('color','white')
+> root.tree.apple.PUT('color','white')
 item is readonly
->>root.tree.PRINT()
+>root.tree.PRINT()
 {'color': {'._d': 'red', '._p': {'readonly': True}}}
 
  - Unset readonly
->> root.tree.apple.color.PROPER('readonly',False)
+> root.tree.apple.color.PROPER('readonly',False)
  - Try change data
->> root.tree.apple.PUT('color','white')
->> root.tree.PRINT()
+> root.tree.apple.PUT('color','white')
+> root.tree.PRINT()
 {'color': {'._d': 'red', '._p': {'readonly': True}}}
