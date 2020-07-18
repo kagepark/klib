@@ -5,14 +5,14 @@ Convert Dictionary to Object style Dictionary
 - Initialize dictionary 
 
 
-```>>> test={
+``` test={
       'a':123,
       'b':{
          'c':{'ddd'},
          'e':{}
       }
     }
->>> root=kDict(test)```
+ root=kDict(test)
 
 or 
 
