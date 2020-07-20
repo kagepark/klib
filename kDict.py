@@ -129,7 +129,7 @@ class kDict(dict):
                 found=dict.__getitem__(self,key)
                 if isinstance(found,dict):
                     if raw:
-                        return peeling(self)
+                        return peeling(found)
                     return peeling(found,ignore=[self._p_],jump=self._d_)
                 return found
         except:
