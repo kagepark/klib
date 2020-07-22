@@ -8,7 +8,7 @@ import time
 import sys
 import kmisc as km
 
-class kBMC:
+class BMC:
     def __init__(self,root,ipmi_ip=None,ipmi_user=None,ipmi_pass=None,uniq_ipmi_pass=None,log=None,timeout=1800,tool_path=None,mode=None,smc_file=None,test_user=[],test_pass=[]):
         # Initial Dictionary
         self.root=root

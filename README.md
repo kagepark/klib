@@ -119,7 +119,7 @@ def log(msg,**opts):
         else:
             sys.stdout.write(msg+'\n')
         sys.stdout.flush()
-bmc=kBmc.kBMC(root,'192.168.1.100',ipmi_user='ADMIN',ipmi_pass='ADMIN',tool_path='/usr/local/bin',log=log)
+bmc=kBmc.BMC(root,'192.168.1.100',ipmi_user='ADMIN',ipmi_pass='ADMIN',tool_path='/usr/local/bin',log=log)
 print(bmc.info())
 print(bmc.power_handle('status'))
 print(bmc.power_handle('off_on'))
