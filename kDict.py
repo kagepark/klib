@@ -135,11 +135,18 @@ class kDict(dict):
         except:
             return default
 
-    def CHECK(self,value):
+    def CHECK(self,value,idx=0):
         try:
             found=peeling(self,ignore=[self._p_],jump=self._d_)
             type_found=type(found)
-            if type_found in [list,tuple,dict]:
+            if type_found in [list,tuple]:
+                if idx in [None,False,'all','any','*']:
+                    if value in found:
+                        return True
+                else:
+                    if value == found[idx]:
+                        return True
+            elif type_found in [dict]:
                 if value in found:
                     return True
             else:
