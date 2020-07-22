@@ -138,8 +138,13 @@ class kDict(dict):
     def CHECK(self,value):
         try:
             found=peeling(self,ignore=[self._p_],jump=self._d_)
-            if found == value:
-                return True
+            type_found=type(found)
+            if type_found in [list,tuple,dict]:
+                if value in found:
+                    return True
+            else:
+                if value == found:
+                    return True
         except:
             pass
         return False
