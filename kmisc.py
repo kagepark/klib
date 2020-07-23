@@ -50,6 +50,7 @@ def error_exit(msg=None):
        print(msg)
     sys.exit(-1)
 
+
 def std_err(msg,direct=False):
     if direct:
         sys.stderr.write(msg)
@@ -57,19 +58,6 @@ def std_err(msg,direct=False):
         sys.stderr.write('{}\n'.format(msg))
     sys.stderr.flush()
     
-def get_caller_fcuntion_name(detail=False):
-    try:
-        dep=len(inspect.stack())-2
-        if detail:
-            return sys._getframe(dep).f_code.co_name,sys._getframe(dep).f_lineno,sys._getframe(dep).f_code.co_filename
-        else:
-            name=sys._getframe(dep).f_code.co_name
-            if name == '_bootstrap_inner' or name == '_run_code':
-                return sys._getframe(3).f_code.co_name
-            return name
-    except:
-        return False
-
 def timechk(time='0',wait='0',tformat=None):
     if tformat is None:
         now=int(datetime.now().strftime('%s'))
@@ -86,6 +74,19 @@ def timechk(time='0',wait='0',tformat=None):
             return True
     else:
         return now
+
+def get_caller_fcuntion_name(detail=False):
+    try:
+        dep=len(inspect.stack())-2
+        if detail:
+            return sys._getframe(dep).f_code.co_name,sys._getframe(dep).f_lineno,sys._getframe(dep).f_code.co_filename
+        else:
+            name=sys._getframe(dep).f_code.co_name
+            if name == '_bootstrap_inner' or name == '_run_code':
+                return sys._getframe(3).f_code.co_name
+            return name
+    except:
+        return False
 
 def log_format(*msg,**opts):
     log_date_format=opts.get('log_date_format','[%m/%d/%Y %H:%M:%S]')
@@ -115,47 +116,65 @@ def log_format(*msg,**opts):
         return m_str
 
 def logging(*msg,**opts):
-    date=opts.get('date',True)
-    logfile=opts.get('logfile',None)
-    msg=list(msg)
-    if logfile is None:
-        logfile=[]
-        for ii in msg:
-            if ii.split(':')[0] == 'log_file':
-                for jj in ii.split(':')[1:]:
-                    logfile.append(jj)
-                msg.remove(ii)
-                break
+    log_p=False
     log=opts.get('log',None)
-    log_type=type(log).__name__
+    log_level=opts.get('log_level',8)
     dsp=opts.get('dsp','a')
-    new_line=opts.get('new_line','\n')
+    date=opts.get('date',False)
     date_format=opts.get('date_format','%m/%d/%Y %H:%M:%S')
     intro=opts.get('intro',None)
     caller=opts.get('caller',False)
     caller_detail=opts.get('caller_detail',False)
-    def get_caller_fcuntion_name(detail=caller_detail):
-        try:
-            dep=len(inspect.stack())-2
-            if detail:
-                return '{}({}:{})'.format(sys._getframe(dep).f_code.co_name,sys._getframe(dep).f_lineno,sys._getframe(dep).f_code.co_filename)
-            else:
-                name=sys._getframe(dep).f_code.co_name
-                if name == '_bootstrap_inner' or name == '_run_code':
-                    return '{}()'.format(sys._getframe(3).f_code.co_name)
-                return '{}()'.format(name)
-        except:
-            return False
+    msg=list(msg)
+    direct=opts.get('direct',False)
+    if direct:
+        new_line=opts.get('new_line','')
+    else:
+        new_line=opts.get('new_line','\n')
+    logfile=opts.get('logfile',None)
+    logfile_type=type(logfile)
+    if logfile_type is str:
+        logfile=logfile.split(',')
+    elif logfile_type in [list,tuple]:
+        logfile=list(logfile)
+    else:
+        logfile=[]
+    for ii in msg:
+        if type(ii) is str and ':' in ii:
+            logfile_list=ii.split(':')
+            if logfile_list[0] in ['log_file','logfile']:
+                if len(logfile_list) > 2:
+                    for jj in logfile_list[1:]:
+                        logfile.append(jj)
+                else:
+                    logfile=logfile+logfile_list[1].split(',')
+                msg.remove(ii)
+
+#    def get_caller_fcuntion_name(detail=caller_detail):
+#        try:
+#            dep=len(inspect.stack())-2
+#            if detail:
+#                return '{}({}:{})'.format(sys._getframe(dep).f_code.co_name,sys._getframe(dep).f_lineno,sys._getframe(dep).f_code.co_filename)
+#            else:
+#                name=sys._getframe(dep).f_code.co_name
+#                if name == '_bootstrap_inner' or name == '_run_code':
+#                    return '{}()'.format(sys._getframe(3).f_code.co_name)
+#                return '{}()'.format(name)
+#        except:
+#            return False
 
     # Make a Intro
     intro_msg=''
-    if date and log is None:
+    if date:
         intro_msg='[{0}] '.format(datetime.now().strftime(date_format))
     if caller:
-        call_name=get_caller_fcuntion_name()
+        call_name=get_caller_fcuntion_name(detail=caller_detail)
         if call_name:
-            intro_msg=intro_msg+call_name+': '
-    if intro:
+            if len(call_name) == 3:
+                intro_msg=intro_msg+'{}({}:{}): '.format(call_name[0],call_name[1],call_name[2])
+            else:
+                intro_msg=intro_msg+'{}(): '.format(call_name)
+    if intro is not None:
         intro_msg=intro_msg+intro+': '
     # Make a Tap
     tap=''
@@ -172,7 +191,6 @@ def logging(*msg,**opts):
         else:
             msg_str=intro_msg+'{}'.format(ii)
     # Save msg to file
-    log_p=False
     if type(logfile) is str:
         logfile=logfile.split(',')
     if type(logfile) in [list,tuple] and ('f' in dsp or 'a' in dsp):
@@ -181,12 +199,23 @@ def logging(*msg,**opts):
                 log_p=True
                 with open(ii,'a+') as f:
                     f.write(msg_str+new_line)
-    if log_type == 'function':
+    if type(log).__name__ == 'function':
          log_p=True
-         log(msg_str)
+         log_func_arg=get_function_args(log)
+         if 'direct' in log_func_arg and 'log_level' in log_func_arg:
+             log(msg_str,direct=direct,log_level=log_level)
+         elif 'log_level' in log_func_arg:
+             log(msg_str,log_level=log_level)
+         elif 'direct' in log_func_arg:
+             log(msg_str,direct=direct)
+         else:
+             log(msg_str)
     # print msg to screen
-    if (log_p is False and 'a' in dsp) or 's' in dsp:
-         sys.stdout.write(msg_str+new_line)
+    if (log_p is False and 'a' in dsp) or 's' in dsp or 'e' in dsp:
+         if 'e' in dsp:
+             sys.stderr.write(msg_str+new_line)
+         else:
+             sys.stdout.write(msg_str+new_line)
          sys.stdout.flush()
     # return msg
     if 'r' in dsp:

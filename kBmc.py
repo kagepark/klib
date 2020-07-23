@@ -68,7 +68,7 @@ class BMC:
         elif self.smc_file:
             self.root.bmc.PUT('mode',['smc'],{'readonly':True})
         else:
-            print("SMCIPMITool and ipmitool not found")
+            km.logging("SMCIPMITool and ipmitool not found",log=self.log,log_level=6,dsp='e')
             os._exit(1)
 
     def get_ipmi_iup(self,**opts):
@@ -441,20 +441,14 @@ class BMC:
                         if tmp == 'No Reading':
                             if keep_up > 0 and up_time > 0:
                                 up_time=0
-                            if self.log:
-                                self.log('?',direct=True,log_level=2) # Unknown state
-                            else:
-                                sys.stdout.write('?')
+                            km.logging('?',log=self.log,direct=True,log_level=2)
                         elif tmp in ['N/A','Disabled','0C/32F']:
                             down_chk=True
                             if state == 'down': 
                                 return True,'down'
                             if keep_up > 0 and up_time > 0:
                                 up_time=0
-                            if self.log:
-                                self.log('-',direct=True,log_level=2) # Down
-                            else:
-                                sys.stdout.write('-')
+                            km.logging('-',log=self.log,direct=True,log_level=2)
                         else:
                             if state == 'up': 
                                 if keep_up > 0:
@@ -468,17 +462,11 @@ class BMC:
                                      if down_monitor and down_chk is False: #check down but not down then keep check down
                                          continue
                                      return True,'up'
-                            if self.log:
-                                self.log('+',direct=True,log_level=2) # Up
-                            else:
-                                sys.stdout.write('+')
+                            km.logging('+',log=self.log,direct=True,log_level=2)
             else:
                 if keep_up > 0 and up_time > 0:
                     up_time=0
-                if self.log:
-                    self.log('!',direct=True,log_level=2) # Command Error
-                else:
-                    sys.stdout.write('!') 
+                km.logging('!',log=self.log,direct=True,log_level=2)
                 ok,ipmi_user,ipmi_pass=self.find_user_pass(ipmi_user,ipmi_pass,mode=mode)
             sys.stdout.flush()
             time.sleep(interval)
@@ -509,10 +497,7 @@ class BMC:
                 boot_mode_state=km.get_boot_mode(ipmi_ip,ipmi_user,ipmi_pass,log_file=log_file,log=log)
                 if (boot_mode == 'pxe' and boot_mode_state[0] is not False and 'PXE' in boot_mode_state[0]) and ipxe == boot_mode_state[1] and order == boot_mode_state[2]:
                     break
-                if self.log:
-                     self.log(' retry boot mode set {} (ipxe:{},force:{})[{}/5]'.format(boot_mode,ipxe,order,ii),log_level=6)
-                else:
-                     print(' retry boot mode set {} (ipxe:{},force:{})[{}/5]'.format(boot_mode,ipxe,order,ii))
+                km.logging(' retry boot mode set {} (ipxe:{},force:{})[{}/5]'.format(boot_mode,ipxe,order,ii),log=self.log,log_level=6)
                 time.sleep(2)
         sys.stdout.write('Do power {} '.format(cmd))
         sys.stdout.flush()
@@ -531,10 +516,7 @@ class BMC:
 
         power_step=len(power_mode[cmd])-1
         for ii in range(1,int(retry)+1):
-            if self.log:
-                 self.log('Power {} at {} (try:{}/{})'.format(cmd,self.root.bmc.ipmi_ip.GET(),ii,retry),log_level=6)
-            else:
-                 print('Power {} at {} (try:{}/{})'.format(cmd,self.root.bmc.ipmi_ip.GET(),ii,retry))
+            km.logging('Power {} at {} (try:{}/{})'.format(cmd,self.root.bmc.ipmi_ip.GET(),ii,retry),log=self.log,log_level=6)
             init_rc=self.do_cmd('ipmi power status',ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,mode=mode)
             init_status=init_rc[1].split()[-1]
             chk=1
@@ -547,25 +529,16 @@ class BMC:
                     continue
                 if verify_status in ['reset','cycle']:
                      if self.is_down(ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,mode=mode)[0]:
-                         if self.log:
-                             self.log(' ! can not {} the power at {} status'.format(verify_status,sys_status[1]),log_level=6)
-                         else:
-                             print(' ! can not {} the power at {} status'.format(verify_status,sys_status[1]))
+                         km.logging(' ! can not {} the power at {} status'.format(verify_status,sys_status[1]),log=self.log,log_level=6)
                          return [False,'can not {} at {} status'.format(verify_status,sys_status[1])]
                 rc=self.do_cmd(rr,ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,mode=mode,retry=retry)
                 if rc[0] in [0,True]:
-                    if self.log:
-                        self.log(' + Do power {}'.format(verify_status),log_level=6)
-                    else:
-                        print(' + Do power {} '.format(verify_status))
+                    km.logging(' + Do power {}'.format(verify_status),log=self.log,log_level=6)
                     if verify_status in ['reset','cycle']:
                         verify_status='on'
                         time.sleep(10)
                 else:
-                    if self.log:
-                        self.log(' ! power {} fail'.format(verify_status),log_level=6)
-                    else:
-                        print(' ! power {} fail'.format(verify_status))
+                    km.logging(' ! power {} fail'.format(verify_status),log=self.log,log_level=6)
                     time.sleep(5)
                     break
                 if verify_status == 'on':
