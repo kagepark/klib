@@ -171,9 +171,12 @@ class kDict(dict):
         return value
 
     def UPDATE(self,data):
-        if self._is_ro(self.__getitem__(key)):
+        if self._is_ro(self):
             return False
-        super(kDict, self).update(data)
+        if isinstance(self,dict) and self._d_ in self:
+            self[self._d_].update(data)
+        else:
+            super(kDict, self).update(data)
 
     def DEL(self,key):
         if self._is_ro(self.__getitem__(key)):
