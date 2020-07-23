@@ -59,7 +59,7 @@ class kDict(dict):
 
     def __setitem__(self, key, value):
         found=self.get(key,None)
-        if self._is_ro(found):
+        if self._is_ro(found,key=key):
             return False
         if isinstance(found,dict) and self._p_ in found:
             if isinstance(value, dict) and self._d_ in value:
@@ -74,14 +74,17 @@ class kDict(dict):
 
     # del dictionary[key]
     def __delitem__(self, key):
-        if self._is_ro(self.get(key,None)):
+        if self._is_ro(self.get(key,None),key=key):
             return False
         super(kDict, self).__delitem__(key) # delete data
 
-    def _is_ro(self,found):
+    def _is_ro(self,found,key=None):
         if isinstance(found, dict) and self._p_ in found and 'readonly' in found[self._p_] and found[self._p_]['readonly']:
             if self._n_:
-                sys.stderr.write('item is readonly\n')
+                if key:
+                    sys.stderr.write('item({}) is readonly\n'.format(key))
+                else:
+                    sys.stderr.write('item is readonly\n')
                 sys.stderr.flush()
             return True
         return False
@@ -89,7 +92,7 @@ class kDict(dict):
         
     # dictionary.pop(key)
     def POP(self,key):
-        if self._is_ro(self.__getitem__(key)):
+        if self._is_ro(self.__getitem__(key),key=key):
             return False
         #found = self.get(key, default=None)
         found = self.GET(key, default=None)
@@ -162,7 +165,7 @@ class kDict(dict):
     def PUT(self,key,value,proper={}):
         if value is None:
             return
-        if self._is_ro(self.__getitem__(key)):
+        if self._is_ro(self.__getitem__(key),key=key):
             return False
         if proper is {}:
             self.__setitem__(key, value)
@@ -179,7 +182,7 @@ class kDict(dict):
             super(kDict, self).update(data)
 
     def DEL(self,key):
-        if self._is_ro(self.__getitem__(key)):
+        if self._is_ro(self.__getitem__(key),key=key):
             return False
         super(kDict, self).__delitem__(key) # delete data
 
