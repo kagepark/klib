@@ -50,6 +50,13 @@ def error_exit(msg=None):
        print(msg)
     sys.exit(-1)
 
+def std_err(msg,direct=False):
+    if direct:
+        sys.stderr.write(msg)
+    else:
+        sys.stderr.write('{}\n'.format(msg))
+    sys.stderr.flush()
+    
 def get_caller_fcuntion_name(detail=False):
     try:
         dep=len(inspect.stack())-2
