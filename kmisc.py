@@ -1765,31 +1765,46 @@ def web_req(host_url,**opts):
     requests.packages.urllib3.disable_warnings() 
 
     mode=opts.get('mode','get')
-    max_try=opts.get('max_try',1)
+    max_try=opts.get('max_try',3)
     auth=opts.get('auth',None)
     user=opts.get('user',None)
     passwd=opts.get('passwd',None)
     timeout=opts.get('timeout',None)
+    https=opts.get('https',False)
+    verify=opts.get('verify',True)
+    request_url=opts.get('request_url',None)
+    log=opts.get('log',None)
+    log_level=opts.get('log_level',8)
+    logfile=opts.get('logfile',None)
+    if https:
+        verify=False
     if auth is None and user and passwd:
         if type(user) is not str or type(passwd) is not str:
-            print("user='<user>',passwd='<pass>' : format(each string)")
-            return False
+            printf("user='<user>',passwd='<pass>' : format(each string)",dsp='e',log=log,log_level=log_level,logfile=logfile)
+            return False,"user='<user>',passwd='<pass>' : format(each string)"
         auth=(user,passwd)
     if auth and type(auth) is not tuple:
-        print("auth=('<user>','<pass>') : format(tuple)")
-        return False
+        printf("auth=('<user>','<pass>') : format(tuple)",dsp='e',log=log,log_level=log_level,logfile=logfile)
+        return False,"auth=('<user>','<pass>') : format(tuple)"
     data=opts.get('data',None) # dictionary format
     if data and type(data) is not dict:
-        print("data={'<key>':'<val>',...} : format(dict)")
-        return False
+        printf("data={'<key>':'<val>',...} : format(dict)",dsp='e',log=log,log_level=log_level,logfile=logfile)
+        return False,"data={'<key>':'<val>',...} : format(dict)"
     files=opts.get('files',None) # dictionary format
     if files and type(files) is not dict:
-        print("files = { '<file parameter name>': (<filename>, open(<filename>,'rb'))} : format(dict)")
-        return False
-    if host_url.find('https://') == 0:
-        verify=False
+        printf("files = { '<file parameter name>': (<filename>, open(<filename>,'rb'))} : format(dict)",dsp='e',log=log,log_level=log_level,logfile=logfile)
+        return False,"files = { '<file parameter name>': (<filename>, open(<filename>,'rb'))} : format(dict)"
+    if type(host_url) is str:
+        if host_url.find('https://') == 0:
+            verify=False
     else:
-        verify=True
+        if verify:
+            host_url='http://{}:{}'.format(self.ip,self.port)
+        else:
+            host_url='https://{}:{}'.format(self.ip,self.port)
+        if request_url:
+            host_url='{}/{}'.format(host_url,request_url)
+            
     ss = requests.Session()
     for j in range(0,max_try):
         try:
@@ -1797,16 +1812,16 @@ def web_req(host_url,**opts):
                 r =ss.post(host_url,verify=verify,auth=auth,data=data,files=files,timeout=timeout)
             else:
                 r =ss.get(host_url,verify=verify,auth=auth,data=data,files=files,timeout=timeout)
-            return r
+            return True,r
         except requests.exceptions.RequestException as e:
             host_url_a=host_url.split('/')[2]
             server_a=host_url_a.split(':')
             if len(server_a) == 1:
-                print("Server({}) has no response (wait {}/{} (10s))".format(server_a[0],j,max_try))
+                printf("Server({}) has no response (wait {}/{} (10s))".format(server_a[0],j,max_try),dsp='e',log=log,log_level=log_level,logfile=logfile)
             else:
-                print("Server({}:{}) has no response (wait {}/{} (10s))".format(server_a[0],server_a[1],j,max_try))
+                printf("Server({}:{}) has no response (wait {}/{} (10s))".format(server_a[0],server_a[1],j,max_try),dsp='e',log=log,log_level=log_level,logfile=logfile)
         time.sleep(10)
-    return False
+    return False,'TimeOut'
 
 def remove_end_new_line(data,new_line='\n'):
     if type(data) is str:
