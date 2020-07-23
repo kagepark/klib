@@ -148,6 +148,8 @@ class BMC:
                 if self.log:
                     self.log(' !! Try BMC password({}) and User({})'.format(pp,uu),log_level=6)
                 if self.check_passwd(ipmi_user=uu,ipmi_pass=pp):
+                    self.root.bmc.PUT('cur_user',uu)
+                    self.root.bmc.PUT('cur_pass',pp)
                     if self.log:
                         self.log(' !! Found working BMC password({}) and User({})'.format(pp,uu),log_level=7)
                     return True,uu,pp
@@ -160,6 +162,8 @@ class BMC:
                     if self.check_passwd(ipmi_user=uu,ipmi_pass=pp):
                         if self.log:
                             self.log(' !! Found working BMC password({}) and User({})'.format(pp,uu),log_level=7)
+                        self.root.bmc.PUT('cur_user',uu)
+                        self.root.bmc.PUT('cur_pass',pp)
                         return True,uu,pp
         if self.log:
             self.log(' Can not find working BMC User and password',log_level=1)
