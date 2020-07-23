@@ -62,7 +62,10 @@ class kDict(dict):
         if self._is_ro(found):
             return False
         if isinstance(found,dict) and self._p_ in found:
-            found[self._d_]=value
+            if isinstance(value, dict) and self._d_ in value:
+                found[self._d_]=value[self._d_]
+            else:
+                found[self._d_]=value
             super(kDict, self).__setitem__(key, found)
         else:
             if isinstance(value, dict) and not isinstance(value, kDict):
