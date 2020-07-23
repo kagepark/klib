@@ -1768,6 +1768,8 @@ def web_req(host_url,**opts):
     max_try=opts.get('max_try',3)
     auth=opts.get('auth',None)
     user=opts.get('user',None)
+    ip=opts.get('ip',None)
+    port=opts.get('port',None)
     passwd=opts.get('passwd',None)
     timeout=opts.get('timeout',None)
     https=opts.get('https',False)
@@ -1797,14 +1799,17 @@ def web_req(host_url,**opts):
     if type(host_url) is str:
         if host_url.find('https://') == 0:
             verify=False
-    else:
+    elif ip:
         if verify:
-            host_url='http://{}:{}'.format(self.ip,self.port)
+            host_url='http://{}'.format(ip)
         else:
-            host_url='https://{}:{}'.format(self.ip,self.port)
+            host_url='https://{}'.format(ip)
+        if port:
+            host_url='{}:{}'.format(port)
         if request_url:
             host_url='{}/{}'.format(host_url,request_url)
-            
+    else:
+        return False,'host_url or ip not found'    
     ss = requests.Session()
     for j in range(0,max_try):
         try:
