@@ -9,7 +9,7 @@ import sys
 import kmisc as km
 
 class BMC:
-    def __init__(self,root,ipmi_ip=None,ipmi_user=None,ipmi_pass=None,uniq_ipmi_pass=None,log=None,timeout=1800,tool_path=None,mode=None,smc_file=None,test_user=[],test_pass=[]):
+    def __init__(self,root,ipmi_ip=None,ipmi_user=None,ipmi_pass=None,uniq_ipmi_pass=None,log=None,timeout=1800,tool_path=None,mode='ipmitool',smc_file=None,test_user=[],test_pass=[]):
         # Initial Dictionary
         self.root=root
         self.test_user=['ADMIN','Admin']
@@ -70,12 +70,20 @@ class BMC:
             os._exit(1)
 
     def bmc_cmd(self,cmd,**opts):
-        ipmi_ip=opts.get('ipmi_ip',self.root.bmc.ipmi_ip.GET())
-        ipmi_user=opts.get('ipmi_user',self.root.bmc.ipmi_user.GET())
-        ipmi_pass=opts.get('ipmi_pass',self.root.bmc.ipmi_pass.GET())
+        ipmi_ip=opts.get('ipmi_ip',None)
+        if ipmi_ip is None:
+            ipmi_ip=self.root.bmc.ipmi_ip.GET()
+        ipmi_user=opts.get('ipmi_user',None)
+        if ipmi_user is None:
+            ipmi_user=self.root.bmc.ipmi_user.GET()
+        ipmi_pass=opts.get('ipmi_pass',None)
+        if ipmi_pass is None:
+            ipmi_pass=self.root.bmc.ipmi_pass.GET()
         mode=opts.get('mode',None)
         option=opts.get('option','lanplus')
         cmd_a=cmd.split()
+        if isinstance(mode,list):
+            mode=mode[0]
         if mode == 'smc':
             if self.smc_file is None:
                 return False,'SMCIPMITool file not found'
@@ -100,6 +108,7 @@ class BMC:
             elif km.value_check(cmd_a,'ipmi',0) and km.value_check(cmd_a,'sensor',1):
                 cmd_a=['sdr','type','Temperature']
             return True,'''ipmitool -I {} -H {} -U {} -P '{}' {}'''.format(option,ipmi_ip,ipmi_user,ipmi_pass,' '.join(cmd_a))
+        return False,'''Unknown mode({})'''.format(mode)
 
     def check_passwd(self,**opts):
         ipmi_user=opts.get('ipmi_user',self.root.bmc.ipmi_user.GET())
@@ -205,17 +214,21 @@ class BMC:
             return False,ipmi_user,ipmi_pass
 
     def do_cmd(self,cmd,path=None,ipmi_user=None,ipmi_pass=None,retry=2,mode=None):
-        bmc_cmd=[]
-        if mode in ['all','*']:
-            for ii in self.bmc.mode.GET():
-                chk_cmd=self.bmc_cmd(cmd,ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,mode=ii)
+        def get_bmc_cmd(ipmi_user,ipmi_pass,mode):
+            bmc_cmd=[]
+            if mode in ['all','*']:
+                for ii in self.bmc.mode.GET():
+                    chk_cmd=self.bmc_cmd(cmd,ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,mode=ii)
+                    if chk_cmd[0]:
+                        bmc_cmd.append(chk_cmd[1])
+            else:
+                chk_cmd=self.bmc_cmd(cmd,ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,mode=mode)
                 if chk_cmd[0]:
                     bmc_cmd.append(chk_cmd[1])
-        else:
-            chk_cmd=self.bmc_cmd(cmd,ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,mode=mode)
-            if chk_cmd[0]:
-                bmc_cmd.append(chk_cmd[1])
-        if not bmc_cmd:
+            return bmc_cmd
+
+        bmc_cmd=get_bmc_cmd(ipmi_user,ipmi_pass,mode)
+        if len(bmc_cmd) == 0:
             return False,'SMCIPMITool and ipmitool package not found'
         for bmc_cmd_do in bmc_cmd:
             for i in range(0,retry):
@@ -227,7 +240,9 @@ class BMC:
                     return True,rc[1]
                 else:
                     ok,ipmi_user,ipmi_pass=self.find_user_pass(ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,mode=mode)
-                    if ok is False:
+                    if ok is True:
+                        bmc_cmd=get_bmc_cmd(ipmi_user,ipmi_pass,mode)
+                    else:
                         return False,'Can not find working IPMI USER and PASSWORD'
         return False,'Timeout'
 
@@ -313,12 +328,28 @@ class BMC:
                         return True,ii_a[-1]
         return False,None
 
-    def bootorder(self,state=None,ipxe=False,persistent=False):
+    def bootorder(self,mode=None,ipxe=False,persistent=False,force=False,boot_mode=['pxe','ipxe','bios','hdd']):
         for i in range(0,2):
-            if state is None:
-                rc=km.get_boot_mode(self.root.bmc.ipmi_ip.GET(),self.root.bmc.ipmi_user.GET(),self.root.bmc.ipmi_pass.GET(),log=self.log)
+            if mode is None:
+#                rc=km.get_boot_mode(self.root.bmc.ipmi_ip.GET(),self.root.bmc.ipmi_user.GET(),self.root.bmc.ipmi_pass.GET(),log=self.log)
+                rc=self.do_cmd('chassis bootparam get 5',mode='ipmitool')
             else:
-                rc=km.set_boot_mode(self.root.bmc.ipmi_ip.GET(),self.root.bmc.ipmi_user.GET(),self.root.bmc.ipmi_pass.GET(),state,ipxe=ipxe,persistent=persistent,log=self.log)
+                #rc=km.set_boot_mode(self.root.bmc.ipmi_ip.GET(),self.root.bmc.ipmi_user.GET(),self.root.bmc.ipmi_pass.GET(),state,ipxe=ipxe,persistent=persistent,log=self.log)
+                if not mode in boot_mode:
+                    return False,'Unknown boot mode({})'.format(mode)
+                if persistent:
+                    if mode == 'pxe' and ipxe in ['on','ON','On',True,'True']:
+                        rc=self.do_cmd(cmd='raw 0x00 0x08 0x05 0xe0 0x04 0x00 0x00 0x00',mode='ipmitool')
+                    else:
+                        rc=self.do_cmd('chassis bootdev {0} options=persistent'.format(mode),mode='ipmitool')
+                else:
+                    if mode == 'pxe' and ipxe in ['on','ON','On',True,'True']:
+                        rc=self.do_cmd('chassis bootdev {0} options=efiboot'.format(mode),mode='ipmitool')
+                    else:
+                        if force and boot_mode == 'pxe':
+                            rc=self.do_cmd('chassis bootparam set bootflag force_pxe'.format(mode),mode='ipmitool')
+                        else:
+                            rc=self.do_cmd('chassis bootdev {0}'.format(mode),mode='ipmitool')
             if rc[0]:
                 return True,rc[1]
             else:
@@ -366,7 +397,7 @@ class BMC:
         ok,eth_mac=self.get_eth_mac(mode=mode)
         if ok:
             print('%10s : %s'%("Eth Mac",'{}'.format(eth_mac)))
-        print('%10s : %s'%("Power",'{}'.format(self.do_power('status',ipmi_user=ipmi_user,ipmi_pass=ipmi_pass)[1])))
+        print('%10s : %s'%("Power",'{}'.format(self.power('status',ipmi_user=ipmi_user,ipmi_pass=ipmi_pass)[1])))
         print('%10s : %s'%("DHCP",'{}'.format(self.dhcp(mode=mode)[1])))
         print('%10s : %s'%("Gateway",'{}'.format(self.gateway(mode=mode)[1])))
         print('%10s : %s'%("Netmask",'{}'.format(self.netmask(mode=mode)[1])))
