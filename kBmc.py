@@ -180,48 +180,43 @@ class BMC:
             if self.log:
                 self.log(' - Can not find working User and Password (Input:({},{}), ({},{}))'.format(cur_user,cur_pass,self.root.bmc.ipmi_user.GET(),self.root.bmc.ipmi_pass.GET()),log_level=1)
                 return False,cur_user,cur_pass
-        if self.root.bmc.ipmi_user.CHECK(cur_user) is False or self.root.bmc.ipmi_pass.CHECK(cur_pass) is False:
+        if cur_user and cur_pass and ( cur_user != ipmi_user or cur_pass != ipmi_pass ):
             if self.log:
-                self.log(' - Found New BMC Info from User({}) and Password({}) to User({}) and Password({})'.format(cur_user,cur_pass,self.root.bmc.ipmi_user.GET(),self.root.bmc.ipmi_pass.GET()),log_level=1)
+                self.log(' - Found New BMC Info (User({}) and Password({})) from User({}) and Password({})'.format(ipmi_user,ipmi_pass,cur_user,cur_pass),log_level=1)
 
-        if ipmi_user and ipmi_pass:
-            if ipmi_user == self.root.bmc.ipmi_user.GET() and ipmi_pass == self.root.bmc.ipmi_pass.GET():
-                if self.log:
-                    self.log(' - Same user and passwrd. Do not need recover',log_level=6)
-                return True,ipmi_user,ipmi_pass
-            if ipmi_user == self.root.bmc.ipmi_user.GET():
-                #SMCIPMITool.jar IP ID PASS user setpwd 2 <New Pass>
-                bmc_cmd=self.bmc_cmd("""user setpwd 2 '{}'""".format(self.root.bmc.ipmi_pass.GET()),ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,mode='smc')
-            else:
-                #SMCIPMITool.jar IP ID PASS user add 2 <New User> <New Pass> 4
-                bmc_cmd=self.bmc_cmd("""user add 2 {} '{}' 4""".format(self.root.bmc.ipmi_user.GET(),self.root.bmc.ipmi_pass.GET()),ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,mode='smc')
-            if bmc_cmd[0] is False:
-                return bmc_cmd
-            rc=km.rshell(bmc_cmd[1])
-            if rc[0] == 0:
-                if self.log:
-                    self.log(' - Recovered BMC: from User({}) and Password({}) to User({}) and Password({})'.format(ipmi_user,ipmi_pass,self.root.bmc.ipmi_user.GET(),self.root.bmc.ipmi_pass.GET()),log_level=6)
-                return True,self.root.bmc.ipmi_user.GET(),self.root.bmc.ipmi_pass.GET()
-            else:
-                if self.log:
-                    log(' - Not support {}. Looks need more length. So Try again with Super123'.format(ipmi_pass),log_level=6)
-                if ipmi_user == self.root.bmc.ipmi_user.GET():
-                    bmc_cmd=self.smc_cmd("""user setpwd 2 Super123""",ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,mode='smc')
-                else:
-                    bmc_cmd=self.smc_cmd("""user add 2 {} Super123 4""".format(self.root.bmc.ipmi_user.GET()),ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,mode='smc')
-                rc=km.rshell(smc_cmd[1])
-                if rc[0] == 0:
-                    if self.log:
-                        self.log(' - Recovered BMC with Super123: from User({}) and Password({}) to User({}) and Password(Super123)'.format(ipmi_user,ipmi_pass,self.root.bmc.ipmi_user.GET()),log_level=6)
-                    return True,self.root.bmc.ipmi_user.GET(),'Super123'
-                else:
-                    if self.log:
-                        self.log(' - Recover BMC ERROR !!! : from User({}) and Password ({}) to User({}) and Password({})\n{}'.format(ipmi_user,ipmi_pass,self.root.bmc.ipmi_user.GET(),self.root.bmc.ipmi_pass.GET(),rc),log_level=6)
-                    return False,ipmi_user,ipmi_pass
+        if self.root.bmc.ipmi_user.CHECK(ipmi_user) and self.root.bmc.ipmi_pass.CHECK(ipmi_pass):
+            if self.log:
+                self.log(' - Same user and passwrd. Do not need recover',log_level=6)
+            return True,ipmi_user,ipmi_pass
+        if self.root.bmc.ipmi_user.CHECK(ipmi_user): # same user but changed password
+            #SMCIPMITool.jar IP ID PASS user setpwd 2 <New Pass>
+            bmc_cmd=self.bmc_cmd("""user setpwd 2 '{}'""".format(self.root.bmc.ipmi_pass.GET()),ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,mode='smc')
+        else: # changed user and password
+            #SMCIPMITool.jar IP ID PASS user add 2 <New User> <New Pass> 4
+            bmc_cmd=self.bmc_cmd("""user add 2 {} '{}' 4""".format(self.root.bmc.ipmi_user.GET(),self.root.bmc.ipmi_pass.GET()),ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,mode='smc')
+        if bmc_cmd[0] is False:
+            return bmc_cmd
+        rc=km.rshell(bmc_cmd[1])
+        if rc[0] == 0:
+            if self.log:
+                self.log(' - Recovered BMC: from User({}) and Password({}) to User({}) and Password({})'.format(ipmi_user,ipmi_pass,self.root.bmc.ipmi_user.GET(),self.root.bmc.ipmi_pass.GET()),log_level=6)
+            return True,self.root.bmc.ipmi_user.GET(),self.root.bmc.ipmi_pass.GET()
         else:
             if self.log:
-                self.log(' - Recover BMC ERROR !!! : Can not find acceptable user and password. (current user({}), password({}))'.format(ipmi_user,ipmi_pass),log_level=6)
-            return False,ipmi_user,ipmi_pass
+                log(' - Not support {}. Looks need more length. So Try again with Super123'.format(ipmi_pass),log_level=6)
+            if self.root.bmc.ipmi_user.CHECK(ipmi_user): # SAME user 
+                bmc_cmd=self.smc_cmd("""user setpwd 2 Super123""",ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,mode='smc')
+            else: # different user and password
+                bmc_cmd=self.smc_cmd("""user add 2 {} Super123 4""".format(self.root.bmc.ipmi_user.GET()),ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,mode='smc')
+            rc=km.rshell(smc_cmd[1])
+            if rc[0] == 0:
+                if self.log:
+                    self.log(' - Recovered BMC with Super123: from User({}) and Password({}) to User({}) and Password(Super123)'.format(ipmi_user,ipmi_pass,self.root.bmc.ipmi_user.GET()),log_level=6)
+                return True,self.root.bmc.ipmi_user.GET(),'Super123'
+            else:
+                if self.log:
+                    self.log(' - Recover BMC ERROR !!! : from User({}) and Password ({}) to User({}) and Password({})\n{}'.format(ipmi_user,ipmi_pass,self.root.bmc.ipmi_user.GET(),self.root.bmc.ipmi_pass.GET(),rc),log_level=6)
+                return False,ipmi_user,ipmi_pass
 
     def do_cmd(self,cmd,path=None,ipmi_user=None,ipmi_pass=None,retry=2,mode=None):
         ipmi_ip,ipmi_user,ipmi_pass=self.get_ipmi_iup(ipmi_user=ipmi_user,ipmi_pass=ipmi_pass)
