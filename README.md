@@ -13,6 +13,7 @@ Convert Dictionary to Object style Dictionary
    1. CHECK()  : Check put the value is same as the item(key)'s value
    1. LIST()   : Return list of keys value 
    1. PROPER() : Show/Set/Update property at the item.
+   1. FIND()   : Find data in the dictionary
 1. Added property at each key
 
 - Initialize dictionary 
@@ -85,6 +86,30 @@ item is readonly
 >>> root.tree.apple.PUT('color','white')
 >>> root.tree.PRINT()
 {'color': {'._d': 'red', '._p': {'readonly': True}}}
+```
+Sample Dictionary:
+```javascript
+{'a': 123,
+ 'b': {'c': set(['ddd']), 'e': {}},
+ 'tree': {'apple': {'color': {'._d': 'white', '._p': {'readonly': False}}},
+          'banana': {'banana2': {'._d': 'white', '._p': {}},
+                     'banana3': {'._d': 'yellow', '._p': {}},
+                     'color': {'._d': 'yellow', '._p': {'readonly': True}}}}}
+```
+  - Find readonly property item path
+```javascript
+>>> root.FIND('readonly',property=True)
+['tree/banana/color']
+```
+  - Find apple key path
+```javascript
+>>> root.FIND('apple',mode='key')
+['tree/apple']
+```
+  - Find white color data path
+```javascript
+>>> root.FIND('white')
+['tree/apple/color', 'tree/banana/banana2']
 ```
 
 # Bmc handle Class

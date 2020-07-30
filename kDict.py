@@ -195,6 +195,35 @@ class kDict(dict):
                 return False
         return self
 
+    def FIND(self,value,proper=None,mode='value'):
+        path=[]
+        if proper:
+            dep=self._p_
+        else:
+            dep=self._d_
+        if isinstance(self,dict):
+            for key in self:
+                if mode in ['key']: # find in key only
+                    if value == key:
+                        path.append(key)
+                found=self.get(key,None)
+                if isinstance(found,dict):
+                    if dep in found:
+                         if mode == 'value' and value in found[dep]: # find in value only
+                              # Proper find
+                              if proper:
+                                  if found[dep][value] == proper:
+                                      path.append(key)
+                              else:
+                              # Value find
+                                  path.append(key)
+                         elif isinstance(found[dep], dict): # recursing
+                              found[dep].FIND(value,proper=proper,mode=mode)
+                    else:
+                         for kk in self[key].FIND(value,proper=proper,mode=mode): # recursing
+                             path.append(key+'/'+kk)
+        return path
+
     def DIFF(self,oo,proper=False):
         if proper:
             diff1=self.copy()
