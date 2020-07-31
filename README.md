@@ -90,11 +90,12 @@ item is readonly
 Sample Dictionary:
 ```javascript
 {'a': 123,
- 'b': {'c': set(['ddd']), 'e': {}},
+ 'b': {'c': set(['ddd']), 'e': {}, 'z': 123},
  'tree': {'apple': {'color': {'._d': 'white', '._p': {'readonly': False}}},
           'banana': {'banana2': {'._d': 'white', '._p': {}},
                      'banana3': {'._d': 'yellow', '._p': {}},
-                     'color': {'._d': 'yellow', '._p': {'readonly': True}}}}}
+                     'color': {'._d': 'yellow', '._p': {'readonly': True}}},
+          'yellow': {'monkey': {'._d': 'white', '._p': {}}}}}
 ```
   - Find readonly property item path
 ```javascript
@@ -109,7 +110,17 @@ Sample Dictionary:
   - Find white color data path
 ```javascript
 >>> root.FIND('white')
-['tree/apple/color', 'tree/banana/banana2']
+['tree/apple/color', 'tree/yellow/monkey', 'tree/banana/banana2']
+```
+  - Find 123 data path
+```javascript
+>>> root.FIND('white')
+['a', 'b/z']
+```
+  - Find white color data path in key and value
+```javascript
+>>> root.FIND('yellow',mode='all')
+['tree/yellow', 'tree/banana/color', 'tree/banana/banana3']
 ```
 
 # Bmc handle Class

@@ -3,7 +3,8 @@ test={
       'a':123,
       'b':{
          'c':{'ddd'},
-         'e':{}
+         'e':{},
+         'z':123,
       }
     }
 root=kDict.kDict(test)
@@ -11,6 +12,7 @@ root.tree.apple.color='red'
 root.tree.apple.PUT('color','red')
 root.tree.banana.PUT('color','yellow')
 root.tree.banana.PUT('banana2','white')
+root.tree.yellow.PUT('monkey','white')
 root.tree.banana.PUT('banana3','yellow')
 root.tree.banana.color.PROPER('readonly',True)
 root.tree.apple['color']='red'
@@ -24,3 +26,5 @@ root.PRINT()
 print(root.FIND('readonly',proper=True))
 print(root.FIND('apple',mode='key'))
 print(root.FIND('white'))
+print(root.FIND(123))
+print(root.FIND('yellow',mode='*'))

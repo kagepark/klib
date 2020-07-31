@@ -203,13 +203,14 @@ class kDict(dict):
             dep=self._d_
         if isinstance(self,dict):
             for key in self:
-                if mode in ['key']: # find in key only
+                if mode in ['key','*','all']: # find in key only
                     if value == key:
                         path.append(key)
                 found=self.get(key,None)
                 if isinstance(found,dict):
                     if dep in found:
-                         if mode == 'value' and value in found[dep]: # find in value only
+                         if mode in ['value','*','all'] and (value == found[dep] or (type(found[dep]) in [kDict,dict,list,tuple] and value in found[dep]) or (type(value) is str and type(found[dep]) is str and value in found[dep])): # find in value only
+                         #if mode == 'value' and value in found[dep]: # find in value only
                               # Proper find
                               if proper:
                                   if found[dep][value] == proper:
@@ -220,8 +221,14 @@ class kDict(dict):
                          elif isinstance(found[dep], dict): # recursing
                               found[dep].FIND(value,proper=proper,mode=mode)
                     else:
-                         for kk in self[key].FIND(value,proper=proper,mode=mode): # recursing
-                             path.append(key+'/'+kk)
+                         if mode in ['value','*','all'] and value == found or (type(found) in [list,tuple] and value in found) or (type(value) is str and type(found) is str and value in found):
+                             path.append(key)
+                         else:
+                             for kk in self[key].FIND(value,proper=proper,mode=mode): # recursing
+                                 path.append(key+'/'+kk)
+                else:
+                    if mode in ['value','*','all'] and value == found or (type(found) in [list,tuple] and value in found) or (type(value) is str and type(found) is str and value in found):
+                        path.append(key)
         return path
 
     def DIFF(self,oo,proper=False):
