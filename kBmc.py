@@ -84,6 +84,9 @@ class BMC:
         return ipmi_ip,ipmi_user,ipmi_pass
 
     def bmc_cmd(self,cmd,**opts):
+        error=self.root.bmc.GET('error',default=None)
+        if error:
+            return False,'''BMC Error: {}'''.format(error)
         ipmi_ip,ipmi_user,ipmi_pass=self.get_ipmi_iup(**opts)
         mode=opts.get('mode',None)
         option=opts.get('option','lanplus')
@@ -167,6 +170,7 @@ class BMC:
                         return True,uu,pp
         if self.log:
             self.log(' Can not find working BMC User and password',log_level=1)
+            self.root.bmc.UPDATE('error',{'user_pass':{int(datetime.datetime.now().strftime('%s')):'Can not find working BMC User or password'}})
         return False,None,None
 ###########################
 
@@ -219,6 +223,9 @@ class BMC:
                 return False,ipmi_user,ipmi_pass
 
     def do_cmd(self,cmd,path=None,ipmi_user=None,ipmi_pass=None,retry=2,mode=None):
+        error=self.root.bmc.GET('error',default=None)
+        if error:
+            return False,'''BMC Error: {}'''.format(error)
         ipmi_ip,ipmi_user,ipmi_pass=self.get_ipmi_iup(ipmi_user=ipmi_user,ipmi_pass=ipmi_pass)
         def get_bmc_cmd(ipmi_user,ipmi_pass,mode):
             bmc_cmd=[]
@@ -415,6 +422,7 @@ class BMC:
         init_time=int(datetime.datetime.now().strftime('%s'))
         up_time=0
         down_chk=False
+        tmp=''
         while True:
             if stop_func and type(stop_arg) is dict:
                 if stop_func(**stop_arg) is True:
@@ -470,6 +478,8 @@ class BMC:
                 ok,ipmi_user,ipmi_pass=self.find_user_pass(ipmi_user,ipmi_pass,mode=mode)
             sys.stdout.flush()
             time.sleep(interval)
+        if tmp == 'No Reading':
+            self.root.bmc.UPDATE('error',{'sensor':{int(datetime.datetime.now().strftime('%s')):tmp}})
         return False,'timeout'
 
     def is_up(self,ipmi_user=None,ipmi_pass=None,mode=None,timeout=1200,keep_up=40,interval=8): # Node state
