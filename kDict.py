@@ -79,26 +79,23 @@ class kDict(dict):
         super(kDict, self).__delitem__(key) # delete data
 
     def _is_ro(self,found,key=None):
-        if isinstance(found, dict) and self._p_ in found and 'readonly' in found[self._p_] and found[self._p_]['readonly']:
-            if self._n_:
-                if key:
-                    sys.stderr.write('item({}) is readonly\n'.format(key))
-                else:
-                    sys.stderr.write('item is readonly\n')
-                sys.stderr.flush()
-            return True
+        if isinstance(found, dict):
+            if key and key in found:
+                found=found[key]
+            if self._p_ in found and 'readonly' in found[self._p_] and found[self._p_]['readonly']:
+                if 'force' in found[self._p_]:
+                    found[self._p_].__delitem__('force')
+                    return False
+                if self._n_:
+                    if key:
+                        sys.stderr.write('item({}) is readonly\n'.format(key))
+                    else:
+                        sys.stderr.write('item is readonly\n')
+                    sys.stderr.flush()
+                return True
         return False
 
         
-    # dictionary.pop(key)
-    def POP(self,key):
-        if self._is_ro(self.__getitem__(key),key=key):
-            return False
-        #found = self.get(key, default=None)
-        found = self.GET(key, default=None)
-        super(kDict, self).__delitem__(key) # delete data
-        return found
-
     def PROPER(self, key=None, value=None):
         if value is not None and key is not None:
             if self._p_ in self:
@@ -162,29 +159,48 @@ class kDict(dict):
             pass
         return False
 
-    def PUT(self,key,value,proper={}):
+    # Good
+    def PUT(self,key,value,proper={},force=False):
         if value is None:
             return
-        if self._is_ro(self.__getitem__(key),key=key):
-            return False
+        if force:
+            self.__getitem__(key).PROPER('force',True)
         if proper is {}:
             self.__setitem__(key, value)
         else:
             self.__setitem__(key, {self._d_:value,self._p_:proper})
         return value
 
-    def UPDATE(self,data):
-        if self._is_ro(self):
-            return False
+    # Good proper issue
+    def UPDATE(self,data,force=False):
+        if force is False and isinstance(data,dict):
+            for ii in data:
+                if self._is_ro(self,ii):
+                    return False
         if isinstance(self,dict) and self._d_ in self:
             self[self._d_].update(data)
         else:
             super(kDict, self).update(data)
 
-    def DEL(self,key):
-        if self._is_ro(self.__getitem__(key),key=key):
-            return False
-        super(kDict, self).__delitem__(key) # delete data
+    # Good dictionary.pop(key)
+    def POP(self,key,force=False):
+        if force:
+            self.__getitem__(key).PROPER('force',True)
+        found = self.GET(key, default=None)
+        #super(kDict, self).__delitem__(key) # delete data
+        rc=self.__delitem__(key) # delete data with __delitem() in this class
+        if rc is None:
+            return found
+        return rc
+
+    # Good
+    def DEL(self,key,force=False):
+        #if self._is_ro(self.__getitem__(key),key=key):
+        #    return False
+        #super(kDict, self).__delitem__(key) # delete data without __delitem() in this class
+        if force:
+            self.__getitem__(key).PROPER('force',True)
+        self.__delitem__(key) # delete data with __delitem() in this class
 
     def CD(self,path):
         path_a=path.split('/')
