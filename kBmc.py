@@ -220,7 +220,7 @@ class BMC:
                     self.log(' - Recover BMC ERROR !!! : from User({}) and Password ({}) to User({}) and Password({})\n{}'.format(ipmi_user,ipmi_pass,self.root.bmc.ipmi_user.GET(),self.root.bmc.ipmi_pass.GET(),rc),log_level=6)
                 return False,ipmi_user,ipmi_pass
 
-    def run_cmd(self,cmd,append=None,path=None,ipmi_user=None,ipmi_pass=None,retry=0,mode=None,rc_ok=[0,True]):
+    def run_cmd(self,cmd,append=None,path=None,ipmi_user=None,ipmi_pass=None,retry=0,mode=None,rc_ok=[0,True],timeout=None):
         # cmd format: <string> {ipmi_ip} <string2> {ipmi_user} <string3> {ipmi_pass} <string4>
         if type(append) is not str:
             append=''
@@ -229,7 +229,8 @@ class BMC:
             return False,'''BMC Error: {}'''.format(error)
         ipmi_ip,ipmi_user,ipmi_pass=self.get_ipmi_iup(ipmi_user=ipmi_user,ipmi_pass=ipmi_pass)
         for i in range(0,2+retry):
-            rc=km.rshell(cmd.format(ipmi_ip=ipmi_ip,ipmi_user=ipmi_user,ipmi_pass=ipmi_pass)+append,path=path)
+            cmd_str=cmd.format(ipmi_ip=ipmi_ip,ipmi_user=ipmi_user,ipmi_pass=ipmi_pass)+append
+            rc=km.rshell(cmd_str,path=path,timeout=timeout)
             if rc[0] in rc_ok:
                 return True,rc
             else:
@@ -238,7 +239,7 @@ class BMC:
                     return False,'Can not find working IPMI USER and PASSWORD'
         return False,'Timeout'
 
-    def do_cmd(self,cmd,path=None,ipmi_user=None,ipmi_pass=None,retry=0,mode=None,rc_ok=[0,True]):
+    def do_cmd(self,cmd,path=None,ipmi_user=None,ipmi_pass=None,retry=0,mode=None,rc_ok=[0,True],timeout=None):
         def get_bmc_cmd(mode):
             bmc_cmd=[]
             if mode in ['all','*']:
@@ -256,7 +257,7 @@ class BMC:
         if len(bmc_cmd) == 0:
             return False,'SMCIPMITool and ipmitool package not found'
         for bmc_cmd_do in bmc_cmd:
-            rc=self.run_cmd(bmc_cmd_do,path=path,ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,retry=retry,mode=mode,rc_ok=rc_ok)
+            rc=self.run_cmd(bmc_cmd_do,path=path,ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,retry=retry,mode=mode,rc_ok=rc_ok,timeout=timeout)
             if rc[0]:
                 return True,rc[1][1]
         return False,'Timeout'
