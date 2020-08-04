@@ -87,7 +87,6 @@ class BMC:
         error=self.root.bmc.GET('error',default=None)
         if error:
             return False,'''BMC Error: {}'''.format(error)
-        ipmi_ip,ipmi_user,ipmi_pass=self.get_ipmi_iup(**opts)
         mode=opts.get('mode',None)
         option=opts.get('option','lanplus')
         cmd_a=cmd.split()
@@ -104,7 +103,7 @@ class BMC:
                 cmd_a=['ipmi','lan','mac']
             elif km.value_check(cmd_a,'sdr',0) and km.value_check(cmd_a,'Temperature',2):
                 cmd_a=['ipmi','sensor']
-            return True,'''sudo java -jar {} {} {} '{}' {}'''.format(self.smc_file,ipmi_ip,ipmi_user,ipmi_pass,' '.join(cmd_a))
+            return True,'''sudo java -jar %s {ipmi_ip} {ipmi_user} '{ipmi_pass}' %s'''%(self.smc_file,' '.join(cmd_a))
         elif mode in ['ipmitool',None]:
             if self.ipmitool is False:
                 return False,'ipmitool package not found'
@@ -116,15 +115,14 @@ class BMC:
                 cmd_a=['lan','print']
             elif km.value_check(cmd_a,'ipmi',0) and km.value_check(cmd_a,'sensor',1):
                 cmd_a=['sdr','type','Temperature']
-            return True,'''ipmitool -I {} -H {} -U {} -P '{}' {}'''.format(option,ipmi_ip,ipmi_user,ipmi_pass,' '.join(cmd_a))
+            return True,'''ipmitool -I %s -H {ipmi_ip} -U {ipmi_user} -P '{ipmi_pass}' %s'''%(option,' '.join(cmd_a))
         return False,'''Unknown mode({})'''.format(mode)
 
     def check_passwd(self,**opts):
         ipmi_ip,ipmi_user,ipmi_pass=self.get_ipmi_iup(**opts)
         bmc_cmd=self.bmc_cmd('ipmi power status',ipmi_user=ipmi_user,ipmi_pass=ipmi_pass)
         if bmc_cmd[0]:
-            rc=km.rshell(bmc_cmd[1])
-            if rc[0] == 0:
+            if self.run_cmd(bmc_cmd[1])[0]:
                 return True
         return False
 
@@ -194,13 +192,13 @@ class BMC:
             return True,ipmi_user,ipmi_pass
         if self.root.bmc.ipmi_user.CHECK(ipmi_user): # same user but changed password
             #SMCIPMITool.jar IP ID PASS user setpwd 2 <New Pass>
-            bmc_cmd=self.bmc_cmd("""user setpwd 2 '{}'""".format(self.root.bmc.ipmi_pass.GET()),ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,mode='smc')
+            bmc_cmd=self.bmc_cmd("""user setpwd 2 '{}'""".format(self.root.bmc.ipmi_pass.GET()),mode='smc')
         else: # changed user and password
             #SMCIPMITool.jar IP ID PASS user add 2 <New User> <New Pass> 4
-            bmc_cmd=self.bmc_cmd("""user add 2 {} '{}' 4""".format(self.root.bmc.ipmi_user.GET(),self.root.bmc.ipmi_pass.GET()),ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,mode='smc')
+            bmc_cmd=self.bmc_cmd("""user add 2 {} '{}' 4""".format(self.root.bmc.ipmi_user.GET(),self.root.bmc.ipmi_pass.GET()),mode='smc')
         if bmc_cmd[0] is False:
             return bmc_cmd
-        rc=km.rshell(bmc_cmd[1])
+        rc=self.do_cmd(bmc_cmd[1])
         if rc[0] == 0:
             if self.log:
                 self.log(' - Recovered BMC: from User({}) and Password({}) to User({}) and Password({})'.format(ipmi_user,ipmi_pass,self.root.bmc.ipmi_user.GET(),self.root.bmc.ipmi_pass.GET()),log_level=6)
@@ -209,10 +207,10 @@ class BMC:
             if self.log:
                 log(' - Not support {}. Looks need more length. So Try again with Super123'.format(ipmi_pass),log_level=6)
             if self.root.bmc.ipmi_user.CHECK(ipmi_user): # SAME user 
-                bmc_cmd=self.smc_cmd("""user setpwd 2 Super123""",ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,mode='smc')
+                bmc_cmd=self.smc_cmd("""user setpwd 2 Super123""",mode='smc')
             else: # different user and password
-                bmc_cmd=self.smc_cmd("""user add 2 {} Super123 4""".format(self.root.bmc.ipmi_user.GET()),ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,mode='smc')
-            rc=km.rshell(smc_cmd[1])
+                bmc_cmd=self.smc_cmd("""user add 2 {} Super123 4""".format(self.root.bmc.ipmi_user.GET()),mode='smc')
+            rc=km.do_cmd(smc_cmd[1])
             if rc[0] == 0:
                 if self.log:
                     self.log(' - Recovered BMC with Super123: from User({}) and Password({}) to User({}) and Password(Super123)'.format(ipmi_user,ipmi_pass,self.root.bmc.ipmi_user.GET()),log_level=6)
@@ -222,41 +220,45 @@ class BMC:
                     self.log(' - Recover BMC ERROR !!! : from User({}) and Password ({}) to User({}) and Password({})\n{}'.format(ipmi_user,ipmi_pass,self.root.bmc.ipmi_user.GET(),self.root.bmc.ipmi_pass.GET(),rc),log_level=6)
                 return False,ipmi_user,ipmi_pass
 
-    def do_cmd(self,cmd,path=None,ipmi_user=None,ipmi_pass=None,retry=2,mode=None):
+    def run_cmd(self,cmd,append=None,path=None,ipmi_user=None,ipmi_pass=None,retry=0,mode=None,rc_ok=[0,True]):
+        # cmd format: <string> {ipmi_ip} <string2> {ipmi_user} <string3> {ipmi_pass} <string4>
+        if type(append) is not str:
+            append=''
         error=self.root.bmc.GET('error',default=None)
         if error:
             return False,'''BMC Error: {}'''.format(error)
         ipmi_ip,ipmi_user,ipmi_pass=self.get_ipmi_iup(ipmi_user=ipmi_user,ipmi_pass=ipmi_pass)
-        def get_bmc_cmd(ipmi_user,ipmi_pass,mode):
+        for i in range(0,2+retry):
+            rc=km.rshell(cmd.format(ipmi_ip=ipmi_ip,ipmi_user=ipmi_user,ipmi_pass=ipmi_pass)+append,path=path)
+            if rc[0] in rc_ok:
+                return True,rc
+            else:
+                ok,ipmi_user,ipmi_pass=self.find_user_pass(ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,mode=mode)
+                if ok is False:
+                    return False,'Can not find working IPMI USER and PASSWORD'
+        return False,'Timeout'
+
+    def do_cmd(self,cmd,path=None,ipmi_user=None,ipmi_pass=None,retry=0,mode=None,rc_ok=[0,True]):
+        def get_bmc_cmd(mode):
             bmc_cmd=[]
             if mode in ['all','*']:
                 for ii in self.bmc.mode.GET():
-                    chk_cmd=self.bmc_cmd(cmd,ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,mode=ii)
+                    chk_cmd=self.bmc_cmd(cmd,mode=ii)
                     if chk_cmd[0]:
                         bmc_cmd.append(chk_cmd[1])
             else:
-                chk_cmd=self.bmc_cmd(cmd,ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,mode=mode)
+                chk_cmd=self.bmc_cmd(cmd,mode=mode)
                 if chk_cmd[0]:
                     bmc_cmd.append(chk_cmd[1])
             return bmc_cmd
 
-        bmc_cmd=get_bmc_cmd(ipmi_user,ipmi_pass,mode)
+        bmc_cmd=get_bmc_cmd(mode)
         if len(bmc_cmd) == 0:
             return False,'SMCIPMITool and ipmitool package not found'
         for bmc_cmd_do in bmc_cmd:
-            for i in range(0,retry):
-                if path:
-                    rc=km.rshell(bmc_cmd_do,path=path)
-                else:
-                    rc=km.rshell(bmc_cmd_do)
-                if rc[0] == 0:
-                    return True,rc[1]
-                else:
-                    ok,ipmi_user,ipmi_pass=self.find_user_pass(ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,mode=mode)
-                    if ok is True:
-                        bmc_cmd=get_bmc_cmd(ipmi_user,ipmi_pass,mode)
-                    else:
-                        return False,'Can not find working IPMI USER and PASSWORD'
+            rc=self.run_cmd(bmc_cmd_do,path=path,ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,retry=retry,mode=mode,rc_ok=rc_ok)
+            if rc[0]:
+                return True,rc[1][1]
         return False,'Timeout'
 
     def reset(self,cmd,mode=None,retry=2):
@@ -377,7 +379,12 @@ class BMC:
         return km.ping(ip,test_num=test_num,retry=retry,wait=wait,keep=keep,log=self.log)
 
     def info(self,ipmi_ip=None,ipmi_user=None,ipmi_pass=None,mode=None): # BMC is ready(hardware is ready)
-        ipmi_ip,ipmi_user,ipmi_pass=self.get_ipmi_iup(ipmi_user=ipmi_user,ipmi_pass=ipmi_pass)
+        if ipmi_ip is None:
+            ipmi_ip=self.root.bmc.ipmi_ip.GET()
+        if ipmi_user is None:
+            ipmi_user=self.root.bmc.ipmi_user.GET()
+        if ipmi_pass is None:
+            ipmi_pass=self.root.bmc.ipmi_pass.GET()
         if mode is None:
             mode=self.root.bmc.mode.GET()
         print('%10s : %s'%("IP",ipmi_ip))
@@ -385,27 +392,14 @@ class BMC:
             print('%10s : %s'%("Ping","Fail"))
             return False
         print('%10s : %s'%("Ping","OK"))
-        ok,ipmi_user,ipmi_pass=self.find_user_pass(ipmi_user,ipmi_pass,mode=mode)
-        if ok:
-            if ipmi_user == self.root.bmc.ipmi_user.GET():
-                print('%10s : %s'%("User",ipmi_user))
-            else:
-                print('%10s : %s => %s'%("User",self.root.bmc.ipmi_user.GET(),ipmi_user))
-            if ipmi_pass == self.root.bmc.ipmi_pass.GET():
-                print('%10s : %s'%("Password",ipmi_pass))
-            else:
-                print('%10s : %s => %s'%("Password",self.root.bmc.ipmi_pass.GET(),ipmi_pass))
-        else:
-            print('%10s : %s'%("User",ipmi_user))
-            print('%10s : %s'%("Password",ipmi_pass))
-            print('But, can not access with above user and password')
-            return False
+        print('%10s : %s'%("User",ipmi_user))
+        print('%10s : %s'%("Password",ipmi_pass))
         ok,mac=self.get_mac(mode=mode)
         print('%10s : %s'%("Bmc Mac",'{}'.format(mac)))
         ok,eth_mac=self.get_eth_mac(mode=mode)
         if ok:
             print('%10s : %s'%("Eth Mac",'{}'.format(eth_mac)))
-        print('%10s : %s'%("Power",'{}'.format(self.power('status',ipmi_user=ipmi_user,ipmi_pass=ipmi_pass)[1])))
+        print('%10s : %s'%("Power",'{}'.format(self.power('status',ipmi_user=ipmi_user,ipmi_pass=ipmi_pass))))
         print('%10s : %s'%("DHCP",'{}'.format(self.dhcp(mode=mode)[1])))
         print('%10s : %s'%("Gateway",'{}'.format(self.gateway(mode=mode)[1])))
         print('%10s : %s'%("Netmask",'{}'.format(self.netmask(mode=mode)[1])))
@@ -431,10 +425,7 @@ class BMC:
                     return False,'Got STOP signal'
             if int(datetime.datetime.now().strftime('%s')) - init_time > timeout:
                 break
-            bmc_cmd=self.bmc_cmd('ipmi sensor',ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,mode=mode)
-            if bmc_cmd[0] is False:
-                return bmc_cmd 
-            krc=km.rshell(bmc_cmd[1])
+            krc=self.do_cmd('ipmi sensor',mode=mode)
             if krc[0] == 0:
                 for ii in krc[1].split('\n'):
                     ii_a=ii.split('|')
@@ -475,7 +466,6 @@ class BMC:
                 if keep_up > 0 and up_time > 0:
                     up_time=0
                 km.logging('!',log=self.log,direct=True,log_level=2)
-                ok,ipmi_user,ipmi_pass=self.find_user_pass(ipmi_user,ipmi_pass,mode=mode)
             sys.stdout.flush()
             time.sleep(interval)
         if tmp == 'No Reading':
@@ -489,7 +479,6 @@ class BMC:
         return self.node_state(state='down',ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,mode=mode,timeout=timeout,keep_up=0,interval=interval) # Node state
 
     def power_handle(self,cmd='status',retry=2,ipmi_user=None,ipmi_pass=None,boot_mode=None,order=False,ipxe=False,log_file=None,log=None,force=False,mode=None,verify=True):
-        ipmi_ip,ipmi_user,ipmi_pass=self.get_ipmi_iup(ipmi_user=ipmi_user,ipmi_pass=ipmi_pass)
         if cmd == 'status':
             return self.power('status',ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,mode=mode,verify=verify)
         if boot_mode:
@@ -502,6 +491,8 @@ class BMC:
                 ipxe=True
                 boot_mode='pxe'
             for ii in range(0,retry):
+                # Find ipmi information
+                ipmi_ip,ipmi_user,ipmi_pass=self.get_ipmi_iup(ipmi_user=ipmi_user,ipmi_pass=ipmi_pass)
                 km.set_boot_mode(ipmi_ip,ipmi_user,ipmi_pass,boot_mode,persistent=order,ipxe=ipxe,log_file=log_file,log=log,force=force)
                 boot_mode_state=km.get_boot_mode(ipmi_ip,ipmi_user,ipmi_pass,log_file=log_file,log=log)
                 if (boot_mode == 'pxe' and boot_mode_state[0] is not False and 'PXE' in boot_mode_state[0]) and ipxe == boot_mode_state[1] and order == boot_mode_state[2]:
@@ -519,7 +510,7 @@ class BMC:
         if verify is False or cmd == 'status':
             rc=self.do_cmd('ipmi power {}'.format(cmd),ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,mode=mode,retry=retry)
             if cmd == 'status':
-                return rc
+                return rc[1]
             return rc[0]
 
         power_step=len(power_mode[cmd])-1
