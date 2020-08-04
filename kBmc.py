@@ -524,7 +524,7 @@ class BMC:
 
         power_step=len(power_mode[cmd])-1
         for ii in range(1,int(retry)+1):
-            km.logging('Power {} at {} (try:{}/{})'.format(cmd,self.root.bmc.ipmi_ip.GET(),ii,retry),log=self.log,log_level=3)
+            km.logging('Power {} at {} (try:{}/{}) (limit:{} sec)'.format(cmd,self.root.bmc.ipmi_ip.GET(),ii,retry,self.root.bmc.timeout.GET()),log=self.log,log_level=3)
             init_rc=self.do_cmd('ipmi power status',ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,mode=mode)
             init_status=init_rc[1].split()[-1]
             chk=1
