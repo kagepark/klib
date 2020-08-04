@@ -493,8 +493,7 @@ class BMC:
         if cmd == 'status':
             return self.power('status',ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,mode=mode,verify=verify)
         if boot_mode:
-            sys.stdout.write('Set Boot mode to {}\n'.format(boot_mode))
-            sys.stdout.flush()
+            km.logging('Set Boot mode to {}\n'.format(boot_mode),log_level=3)
             if ipxe in ['on','On',True,'True']:
                 ipxe=True
             else:
@@ -509,24 +508,23 @@ class BMC:
                     break
                 km.logging(' retry boot mode set {} (ipxe:{},force:{})[{}/5]'.format(boot_mode,ipxe,order,ii),log=self.log,log_level=6)
                 time.sleep(2)
-        sys.stdout.write('Do power {} '.format(cmd))
-        sys.stdout.flush()
+        km.logging('Do power {} '.format(cmd),log_level=3)
         return self.power(cmd,ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,retry=retry,mode=mode,verify=verify)
 
     def power(self,cmd,ipmi_user=None,ipmi_pass=None,retry=2,verify=True,mode=None):
-        power_mode=self.root.bmc.power_mode.GET()
+        power_mode=self.root.bmc.power_mode.GET(default=[])
         if cmd not in ['status','off_on'] + list(power_mode):
             return False,'Unknown command({})'.format(cmd)
 
         if verify is False or cmd == 'status':
             rc=self.do_cmd('ipmi power {}'.format(cmd),ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,mode=mode,retry=retry)
             if cmd == 'status':
-                return rc[1]
+                return rc
             return rc[0]
 
         power_step=len(power_mode[cmd])-1
         for ii in range(1,int(retry)+1):
-            km.logging('Power {} at {} (try:{}/{})'.format(cmd,self.root.bmc.ipmi_ip.GET(),ii,retry),log=self.log,log_level=6)
+            km.logging('Power {} at {} (try:{}/{})'.format(cmd,self.root.bmc.ipmi_ip.GET(),ii,retry),log=self.log,log_level=3)
             init_rc=self.do_cmd('ipmi power status',ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,mode=mode)
             init_status=init_rc[1].split()[-1]
             chk=1

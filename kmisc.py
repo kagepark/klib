@@ -230,15 +230,16 @@ def printf(*msg,**opts):
                     f.write(msg_str+new_line)
     if type(log).__name__ == 'function':
          log_p=True
-         log_func_arg=get_function_args(log)
-         if 'direct' in log_func_arg and 'log_level' in log_func_arg:
-             log(msg_str,direct=direct,log_level=log_level)
-         elif 'log_level' in log_func_arg:
-             log(msg_str,log_level=log_level)
-         elif 'direct' in log_func_arg:
-             log(msg_str,direct=direct)
-         else:
-             log(msg_str)
+         log_func_arg=get_function_args(log,mode='all')
+         if 'args' in log_func_arg or 'varargs' in log_func_arg:
+             if 'varargs' in log_func_arg or ('direct' in log_func_arg['defaults'] and 'log_level' in log_func_arg['defaults']):
+                 log(msg_str,direct=direct,log_level=log_level)
+             elif 'log_level' in log_func_arg['defaults']:
+                 log(msg_str,log_level=log_level)
+             elif 'direct' in log_func_arg['defaults']:
+                 log(msg_str,direct=direct)
+             else:
+                 log(msg_str)
     # print msg to screen
     if (log_p is False and 'a' in dsp) or 's' in dsp or 'e' in dsp:
          if 'e' in dsp:
@@ -801,10 +802,23 @@ def ping(host,test_num=3,retry=1,wait=1,keep=0, timeout=60,lost_mon=False,log=No
     return False
 
 
-def get_function_args(func):
+def get_function_args(func,mode='defaults'):
+    rc={}
     args, varargs, keywords, defaults = inspect.getargspec(func)
     if defaults is not None:
-        return dict(zip(args[-len(defaults):], defaults))
+        defaults=dict(zip(args[-len(defaults):], defaults))
+        del args[-len(defaults):]
+        rc['defaults']=defaults
+    if args:
+        rc['args']=args
+    if varargs:
+        rc['varargs']=varargs
+    if keywords:
+        rc['keywards']=keywords
+    if mode in ['*','all']:
+        return rc
+    if mode in rc:
+        return rc[mode]
 
 def get_function_list(objName=None,obj=None):
     aa={}

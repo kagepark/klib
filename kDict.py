@@ -124,12 +124,16 @@ class kDict(dict):
 
     def GET(self,key=None,default=None,raw=False):
         try:
+            if len(self) == 0:
+                return default
             if key is None:
                 if raw:
                     return peeling(self)
                 return peeling(self,ignore=[self._p_],jump=self._d_)
             else:
                 found=dict.__getitem__(self,key)
+                if len(found) == 0:
+                    return default
                 if isinstance(found,dict):
                     if raw:
                         return peeling(found)
