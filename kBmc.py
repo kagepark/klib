@@ -220,7 +220,7 @@ class BMC:
                     self.log(' - Recover BMC ERROR !!! : from User({}) and Password ({}) to User({}) and Password({})\n{}'.format(ipmi_user,ipmi_pass,self.root.bmc.ipmi_user.GET(),self.root.bmc.ipmi_pass.GET(),rc),log_level=6)
                 return False,ipmi_user,ipmi_pass
 
-    def run_cmd(self,cmd,append=None,path=None,ipmi_user=None,ipmi_pass=None,retry=0,mode=None,rc_ok=[0,True],timeout=None):
+    def run_cmd(self,cmd,append=None,path=None,ipmi_user=None,ipmi_pass=None,retry=0,mode=None,rc_ok=[0,True],rc_wrong=[],timeout=None):
         # cmd format: <string> {ipmi_ip} <string2> {ipmi_user} <string3> {ipmi_pass} <string4>
         if type(append) is not str:
             append=''
@@ -233,6 +233,8 @@ class BMC:
             rc=km.rshell(cmd_str,path=path,timeout=timeout)
             if rc[0] in rc_ok:
                 return True,rc
+            elif rc[0] in rc_wrong:
+                return False,rc
             else:
                 ok,ipmi_user,ipmi_pass=self.find_user_pass(ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,mode=mode)
                 if ok is False:
@@ -262,7 +264,7 @@ class BMC:
                 return True,rc[1][1]
         return False,'Timeout'
 
-    def reset(self,cmd,mode=None,retry=2):
+    def reset(self,cmd,mode=None,retry=0):
         rc=self.do_cmd('ipmi reset',mode=mode,retry=retry)
         return rc[0]
 
@@ -479,7 +481,7 @@ class BMC:
     def is_down(self,ipmi_user=None,ipmi_pass=None,mode=None,timeout=240,interval=8): # Node state
         return self.node_state(state='down',ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,mode=mode,timeout=timeout,keep_up=0,interval=interval) # Node state
 
-    def power_handle(self,cmd='status',retry=2,ipmi_user=None,ipmi_pass=None,boot_mode=None,order=False,ipxe=False,log_file=None,log=None,force=False,mode=None,verify=True):
+    def power_handle(self,cmd='status',retry=0,ipmi_user=None,ipmi_pass=None,boot_mode=None,order=False,ipxe=False,log_file=None,log=None,force=False,mode=None,verify=True):
         if cmd == 'status':
             return self.power('status',ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,mode=mode,verify=verify)
         if boot_mode:
@@ -491,7 +493,7 @@ class BMC:
             if boot_mode == 'ipxe':
                 ipxe=True
                 boot_mode='pxe'
-            for ii in range(0,retry):
+            for ii in range(0,retry+1):
                 # Find ipmi information
                 ipmi_ip,ipmi_user,ipmi_pass=self.get_ipmi_iup(ipmi_user=ipmi_user,ipmi_pass=ipmi_pass)
                 km.set_boot_mode(ipmi_ip,ipmi_user,ipmi_pass,boot_mode,persistent=order,ipxe=ipxe,log_file=log_file,log=log,force=force)
@@ -503,7 +505,7 @@ class BMC:
         km.logging('Do power {} '.format(cmd),log_level=3)
         return self.power(cmd,ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,retry=retry,mode=mode,verify=verify)
 
-    def power(self,cmd,ipmi_user=None,ipmi_pass=None,retry=2,verify=True,mode=None):
+    def power(self,cmd,ipmi_user=None,ipmi_pass=None,retry=0,verify=True,mode=None):
         power_mode=self.root.bmc.power_mode.GET(default=[])
         if cmd not in ['status','off_on'] + list(power_mode):
             return False,'Unknown command({})'.format(cmd)
@@ -515,8 +517,8 @@ class BMC:
             return rc[0]
 
         power_step=len(power_mode[cmd])-1
-        for ii in range(1,int(retry)+1):
-            km.logging('Power {} at {} (try:{}/{}) (limit:{} sec)'.format(cmd,self.root.bmc.ipmi_ip.GET(),ii,retry,self.root.bmc.timeout.GET()),log=self.log,log_level=3)
+        for ii in range(1,int(retry)+2):
+            km.logging('Power {} at {} (try:{}/{}) (limit:{} sec)'.format(cmd,self.root.bmc.ipmi_ip.GET(),ii,retry+1,self.root.bmc.timeout.GET()),log=self.log,log_level=3)
             init_rc=self.do_cmd('ipmi power status',ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,mode=mode)
             init_status=init_rc[1].split()[-1]
             chk=1
