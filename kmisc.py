@@ -229,15 +229,20 @@ def printf(*msg,**opts):
                 with open(ii,'a+') as f:
                     f.write(msg_str+new_line)
     if type(log).__name__ == 'function':
-         log_p=True
          log_func_arg=get_function_args(log,mode='all')
-         if 'args' in log_func_arg or 'varargs' in log_func_arg:
-             if 'varargs' in log_func_arg or ('direct' in log_func_arg['defaults'] and 'log_level' in log_func_arg['defaults']):
+         if 'args' in log_func_arg:
+             log_p=True
+             if 'varargs' in log_func_arg:
                  log(msg_str,direct=direct,log_level=log_level)
-             elif 'log_level' in log_func_arg['defaults']:
-                 log(msg_str,log_level=log_level)
-             elif 'direct' in log_func_arg['defaults']:
-                 log(msg_str,direct=direct)
+             elif 'defaults' in log_func_arg:
+                 if 'direct' in log_func_arg['defaults'] and 'log_level' in log_func_arg['defaults']:
+                     log(msg_str,direct=direct,log_level=log_level)
+                 elif 'log_level' in log_func_arg['defaults']:
+                     log(msg_str,log_level=log_level)
+                 elif 'direct' in log_func_arg['defaults']:
+                     log(msg_str,direct=direct)
+                 else:
+                     log(msg_str)
              else:
                  log(msg_str)
     # print msg to screen
