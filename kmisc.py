@@ -317,9 +317,10 @@ def rshell(cmd,timeout=None,ansi=True,path=None):
         return -1,'wrong command information :{0}'.format(cmd),'',start_time,start_time,datetime.now().strftime('%s'),cmd,path
     Popen=subprocess.Popen
     PIPE=subprocess.PIPE
+    cmd_env=''
     if path is not None:
-        cmd='''export PATH=%s:${PATH}\n[ -d %s ] && cd %s\n%s'''%(path,path,path,cmd)
-    p = Popen(cmd , shell=True, stdout=PIPE, stderr=PIPE)
+        cmd_env='''export PATH=%s:${PATH}\n[ -d %s ] && cd %s\n'''%(path,path,path)
+    p = Popen(cmd_env+cmd , shell=True, stdout=PIPE, stderr=PIPE)
     out=None
     err=None
     try:
