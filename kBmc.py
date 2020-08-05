@@ -261,6 +261,7 @@ class BMC:
         for bmc_cmd_do in bmc_cmd:
             rc=self.run_cmd(bmc_cmd_do,path=path,ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,retry=retry,mode=mode,rc_ok=rc_ok,timeout=timeout)
             if rc[0]:
+                # If change this rule then node_state will mixed up
                 return True,rc[1][1]
         return False,'Timeout'
 
@@ -415,7 +416,7 @@ class BMC:
             timeout=int('{}'.format(down_monitor)) + 30
         stop_func=opts.get('stop_func',None)
         stop_stop_arg=opts.get('stop_arg',{})
-        # *: Down, +: Up, -: Get error
+        # -: Down, +: Up, ?: Unknown sensor data, !: ipmi sensor command error
         init_time=int(datetime.datetime.now().strftime('%s'))
         up_time=0
         down_chk=False
@@ -429,7 +430,7 @@ class BMC:
             if int(datetime.datetime.now().strftime('%s')) - init_time > timeout:
                 break
             krc=self.do_cmd('ipmi sensor',mode=mode)
-            if krc[0] == 0:
+            if krc[0]:
                 for ii in krc[1].split('\n'):
                     ii_a=ii.split('|')
                     find=''
@@ -447,6 +448,7 @@ class BMC:
                         elif tmp in ['N/A','Disabled','0C/32F']:
                             down_chk=True
                             if state == 'down': 
+                                km.logging(' ',log=self.log,log_level=2)
                                 return True,'down'
                             if keep_up > 0 and up_time > 0:
                                 up_time=0
@@ -459,10 +461,12 @@ class BMC:
                                      if int(datetime.datetime.now().strftime('%s')) - up_time > keep_up:
                                          if down_monitor and down_chk is False: #check down but not down then keep check down
                                              continue
+                                         km.logging(' ',log=self.log,log_level=2)
                                          return True,'up'
                                 else:
                                      if down_monitor and down_chk is False: #check down but not down then keep check down
                                          continue
+                                     km.logging(' ',log=self.log,log_level=2)
                                      return True,'up'
                             km.logging('+',log=self.log,direct=True,log_level=2)
             else:
@@ -471,6 +475,7 @@ class BMC:
                 km.logging('!',log=self.log,direct=True,log_level=2)
             sys.stdout.flush()
             time.sleep(interval)
+        km.logging(' ',log=self.log,log_level=2)
         if tmp == 'No Reading':
             self.root.bmc.UPDATE('error',{'sensor':{int(datetime.datetime.now().strftime('%s')):tmp}})
         return False,'timeout'
