@@ -230,9 +230,23 @@ def printf(*msg,**opts):
                     f.write(msg_str+new_line)
     if type(log).__name__ == 'function':
          log_func_arg=get_function_args(log,mode='all')
-         if 'args' in log_func_arg:
+         if 'args' in log_func_arg or 'varargs' in log_func_arg:
              log_p=True
-             if 'varargs' in log_func_arg:
+             if len(log_func_arg['args']) <= 3 and ('direct' in log_func_arg['args'] or 'log_level' in log_func_arg['args']):
+                 tmp=[]
+                 for i in range(0,len(log_func_arg['args'])):
+                     tmp.append(i)
+                 if 'direct' in log_func_arg['args']:
+                     didx=log_func_arg['args'].index('direct')
+                     del tmp[didx]
+                     log_func_arg['args'][didx]=direct
+                 if 'log_level' in log_func_arg['args']:
+                     lidx=log_func_arg['args'].index('log_level')
+                     del tmp[lidx]
+                     log_func_arg['args'][lidx]=log_level
+                 log_func_arg['args'][tmp[0]]=msg_str
+                 log(*log_func_arg['args'])
+             elif 'keywards' in log_func_arg:
                  log(msg_str,direct=direct,log_level=log_level)
              elif 'defaults' in log_func_arg:
                  if 'direct' in log_func_arg['defaults'] and 'log_level' in log_func_arg['defaults']:
