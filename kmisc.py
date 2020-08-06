@@ -1308,11 +1308,22 @@ def list2str(arr):
 
 
 def findstr(string,find,prs=None,split_symbol='\n',patern=True):
+    # Patern return selection (^: First(0), $: End(-1), <int>: found item index)
     found=[]
-    if patern:
-        if split_symbol:
-            for nn in string.split(split_symbol):
-                aa=re.compile(find).findall(nn)
+    if type(string) is not str:
+        return found
+    if split_symbol:
+        string_a=string.split(split_symbol)
+    else:
+        string_a=[string]
+    for nn in string_a:
+        if type(find) in [list,tuple]:
+            find=list(find)
+        else:
+            find=[find]
+        for ff in find:
+            if patern:
+                aa=re.compile(ff).findall(nn)
                 for mm in aa:
                     if type(mm) is tuple:
                         if prs == '^':
@@ -1325,23 +1336,19 @@ def findstr(string,find,prs=None,split_symbol='\n',patern=True):
                             found.append(mm)
                     else:
                         found.append(mm)
-        else:
-            return re.compile(find).findall(string)
-    else:
-        for nn in string.split(split_symbol):
-            chk=True
-            find_a=find.split('*')
-            if len(find_a[0]) > 0:
-                if find_a[0] != nn[:len(find_a[0])]:
-                    chk=False
-            if len(find_a[-1]) > 0:
-                if find_a[-1] != nn[-len(find_a[-1]):]:
-                    chk=False
-            for ii in find_a[1:-1]:
-                if ii not in nn:
-                    chk=False
-            if chk:
-                found.append(nn)
+            else:
+                find_a=ff.split('*')
+                if len(find_a[0]) > 0:
+                    if find_a[0] != nn[:len(find_a[0])]:
+                        chk=False
+                if len(find_a[-1]) > 0:
+                    if find_a[-1] != nn[-len(find_a[-1]):]:
+                        chk=False
+                for ii in find_a[1:-1]:
+                    if ii not in nn:
+                        chk=False
+                if chk:
+                    found.append(nn)
     return found
 
 def find_cdrom_dev():
