@@ -207,10 +207,10 @@ class BMC:
             if self.log:
                 log(' - Not support {}. Looks need more length. So Try again with Super123'.format(ipmi_pass),log_level=6)
             if self.root.bmc.ipmi_user.CHECK(ipmi_user): # SAME user 
-                bmc_cmd=self.smc_cmd("""user setpwd 2 Super123""",mode='smc')
+                bmc_cmd=self.bmc_cmd("""user setpwd 2 Super123""",mode='smc')
             else: # different user and password
-                bmc_cmd=self.smc_cmd("""user add 2 {} Super123 4""".format(self.root.bmc.ipmi_user.GET()),mode='smc')
-            rc=km.do_cmd(smc_cmd[1])
+                bmc_cmd=self.bmc_cmd("""user add 2 {} Super123 4""".format(self.root.bmc.ipmi_user.GET()),mode='smc')
+            rc=km.do_cmd(bmc_cmd[1])
             if rc[0] == 0:
                 if self.log:
                     self.log(' - Recovered BMC with Super123: from User({}) and Password({}) to User({}) and Password(Super123)'.format(ipmi_user,ipmi_pass,self.root.bmc.ipmi_user.GET()),log_level=6)
@@ -407,6 +407,7 @@ class BMC:
         print('%10s : %s'%("DHCP",'{}'.format(self.dhcp(mode=mode)[1])))
         print('%10s : %s'%("Gateway",'{}'.format(self.gateway(mode=mode)[1])))
         print('%10s : %s'%("Netmask",'{}'.format(self.netmask(mode=mode)[1])))
+        print('%10s : %s'%("LanMode",'{}'.format(self.lanmode()[1])))
         print('%10s : %s'%("BootOrder",'{}'.format(self.bootorder()[1])))
 
     def node_state(self,state='up',ipmi_user=None,ipmi_pass=None,mode=None,timeout=600,keep_up=40,interval=8, down_monitor=0,**opts): # Node state
@@ -562,3 +563,15 @@ class BMC:
             time.sleep(3)
         return [False,'time out',ii]
 
+    def lanmode(self):
+        if self.smc_file is None:
+            if self.log:
+                self.log(' - {} not found'.format(self.smc_file))
+                return False,'SMCIPMITool not found'
+        bmc_cmd=self.bmc_cmd("""ipmi oem lani""",mode='smc')
+        lanmode_info=self.run_cmd(bmc_cmd[1],path=self.root.bmc.tool_path.GET(),mode='smc',rc_ok=[144])
+        if lanmode_info[0]:
+            a=km.findstr(lanmode_info[1][1],'Current LAN interface is \[ (\w.*) \]')
+            if len(a) == 1:
+                return True,a[0]
+        return False,None
