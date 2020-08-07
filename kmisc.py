@@ -800,9 +800,6 @@ def isfile(filename=None):
    return False
 
 
-def int_sec():
-    return int(datetime.now().strftime('%s'))
-
 def ping(host,test_num=3,retry=1,wait=1,keep=0, timeout=60,lost_mon=False,log=None,stop_func=None,stop_arg={}):
     init_sec=int_sec()
     chk_sec=int_sec()
@@ -1692,8 +1689,18 @@ def get_node_info():
          'ipmi_mac':get_ipmi_mac()[1],
          }
 
-def now():
+def int_sec():
     return int(datetime.now().strftime('%s'))
+
+def now():
+    return int_sec()
+
+def timeout(timeout,init_time=None):
+    if init_time is None:
+        init_time=int_sec()
+    if int_sec() - init_time >  timeout:
+        return True,init_time
+    return False,init_time
 
 def kmp(mp={},func=None,name=None,timeout=0,quit=False,log_file=None,log_screen=True,log_raw=False, argv=[],queue=None):
     # Clean
@@ -1704,7 +1711,7 @@ def kmp(mp={},func=None,name=None,timeout=0,quit=False,log_file=None,log_screen=
                 if 'log' in mp:
                     mp['log']['queue'].put('\nterminate function {}'.format(n))
         else:
-            if mp[n]['timeout'] > 0 and now() > mp[n]['timeout']:
+            if mp[n]['timeout'] > 0 and int_sec() > mp[n]['timeout']:
                 mp[n]['mp'].terminate()
                 if 'log' in mp:
                     mp['log']['queue'].put('\ntimeout function {}'.format(n))
@@ -1741,7 +1748,7 @@ def kmp(mp={},func=None,name=None,timeout=0,quit=False,log_file=None,log_screen=
         log=multiprocessing.Queue()
         lqp=multiprocessing.Process(name='log',target=logging,args=(log,log_file,log_screen,log_raw,))
         lqp.daemon = True
-        mp.update({'log':{'mp':lqp,'start':now(),'timeout':0,'queue':log}})
+        mp.update({'log':{'mp':lqp,'start':int_sec(),'timeout':0,'queue':log}})
         lqp.start()
 
     # Functions
@@ -1754,16 +1761,16 @@ def kmp(mp={},func=None,name=None,timeout=0,quit=False,log_file=None,log_screen=
             else:
                 mf=multiprocessing.Process(name=name,target=func)
             if timeout > 0:
-                timeout=now()+timeout
+                timeout=int_sec()+timeout
             
 #            for aa in argv:
 #                if type(aa).__name__ == 'Queue':
 #                    mp.update({name:{'mp':mf,'timeout':timeout,'start':now(),'queue':aa}})
             if name not in mp:
                 if queue and type(queue).__name__ == 'Queue':
-                    mp.update({name:{'mp':mf,'timeout':timeout,'start':now(),'queue':queue}})
+                    mp.update({name:{'mp':mf,'timeout':timeout,'start':int_sec(),'queue':queue}})
                 else:
-                    mp.update({name:{'mp':mf,'timeout':timeout,'start':now()}})
+                    mp.update({name:{'mp':mf,'timeout':timeout,'start':int_sec()}})
             mf.start()
     return mp
 
