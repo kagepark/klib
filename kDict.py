@@ -1,5 +1,7 @@
 import pprint
+import pickle
 import sys
+import os
 
 def peeling(v,ignore=[],collect=[],jump=None):
   if isinstance(v,dict):
@@ -28,6 +30,7 @@ class kDict(dict):
     _p_='._p'
     _d_='._d'
     _n_=True
+    _dfile_=None
 
     def __init__(self, value=None):
         if value is None:
@@ -284,5 +287,26 @@ class kDict(dict):
 
     def PRINT(self):
         pprint.pprint(self)
+
+    def SAVE(self):
+        if self._dfile_ :
+            try:
+                with open(self._dfile_,'wb') as dd:
+                    pickle.dump(peeling(self),dd,protocol=2)
+                    return True
+            except:
+                pass
+        return False
+
+    def LOAD(self):
+        if self._dfile_ :
+            with open(self._dfile_,'rb') as dd:
+                try:
+                    mm=pickle.load(dd)
+                    self.UPDATE(mm)
+                    return True
+                except:
+                    pass
+        return False
 
     __setattr__, __getattr__ = __setitem__, __getitem__

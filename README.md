@@ -14,6 +14,8 @@ Convert Dictionary to Object style Dictionary
    1. LIST()   : Return list of keys value 
    1. PROPER() : Show/Set/Update property at the item.
    1. FIND()   : Find data in the dictionary
+   1. LOAD()   : Load saved data from file
+   1. SAVE()   : dictionary save to file
 1. Added property at each key
 
 - Initialize dictionary 
@@ -121,6 +123,16 @@ Sample Dictionary:
 ```javascript
 >>> root.FIND('yellow',mode='all')
 ['tree/yellow', 'tree/banana/color', 'tree/banana/banana3']
+```
+  - Save Data (always use root if not then save partial data)
+```javascript
+>>> kDict.kDict._dfile_='<dict file name>'
+>>> root.SAVE()
+```
+  - Load Data (always use root if not then load at key)
+```javascript
+>>> kDict.kDict._dfile_='<dict file name>'
+>>> root.LOAD()
 ```
 
 # Bmc handle Class
