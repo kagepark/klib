@@ -270,6 +270,9 @@ class BMC:
         return rc[0]
 
     def get_mac(self,mode=None):
+        ipmi_mac=self.root.bmc.ipmi_mac.GET(default=None)
+        if ipmi_mac:
+            return ipmi_mac
         if mode is None:
             mode=self.mode
         rc=self.do_cmd('ipmi lan mac',mode=mode)
@@ -280,6 +283,7 @@ class BMC:
                 for ii in rc[1].split('\n'):
                     ii_a=ii.split()
                     if ii_a[0] == 'MAC' and ii_a[1] == 'Address' and ii_a[2] == ':':
+                        self.root.bmc.PUT('ipmi_mac',ii_a[-1].lower(),{'readonly':True})
                         return True,[ii_a[-1].lower()]
         return False,[]
 
@@ -403,7 +407,7 @@ class BMC:
         ok,eth_mac=self.get_eth_mac(mode=mode)
         if ok:
             print('%10s : %s'%("Eth Mac",'{}'.format(eth_mac)))
-        print('%10s : %s'%("Power",'{}'.format(self.power('status',ipmi_user=ipmi_user,ipmi_pass=ipmi_pass))))
+        print('%10s : %s'%("Power",'{}'.format(self.power('status',ipmi_user=ipmi_user,ipmi_pass=ipmi_pass)[1])))
         print('%10s : %s'%("DHCP",'{}'.format(self.dhcp(mode=mode)[1])))
         print('%10s : %s'%("Gateway",'{}'.format(self.gateway(mode=mode)[1])))
         print('%10s : %s'%("Netmask",'{}'.format(self.netmask(mode=mode)[1])))
@@ -516,23 +520,25 @@ class BMC:
         if cmd not in ['status','off_on'] + list(power_mode):
             return False,'Unknown command({})'.format(cmd)
 
-        if verify is False or cmd == 'status':
-            rc=self.do_cmd('ipmi power {}'.format(cmd),ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,mode=mode,retry=retry)
-            if cmd == 'status':
-                return rc[1]
-            return rc[0]
-
         power_step=len(power_mode[cmd])-1
         for ii in range(1,int(retry)+2):
-            km.logging('Power {} at {} (try:{}/{}) (limit:{} sec)'.format(cmd,self.root.bmc.ipmi_ip.GET(),ii,retry+1,self.root.bmc.timeout.GET()),log=self.log,log_level=3)
             init_rc=self.do_cmd('ipmi power status',ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,mode=mode)
+            if verify is False or cmd == 'status':
+                if init_rc[0]:
+                    if cmd == 'status':
+                        return True,init_rc[1],ii
+                    return True,rc[1],ii
+                time.sleep3
+                continue
+            # keep command
             init_status=init_rc[1].split()[-1]
+            km.logging('Power {} at {} (try:{}/{}) (limit:{} sec)'.format(cmd,self.root.bmc.ipmi_ip.GET(),ii,retry+1,self.root.bmc.timeout.GET()),log=self.log,log_level=3)
             chk=1
             for rr in list(power_mode[cmd]):
                 verify_status=rr.split(' ')[-1]
                 if chk == 1 and init_rc[0] and init_status == verify_status:
                     if chk == len(power_mode[cmd]):
-                        return [True,verify_status,0]
+                        return True,verify_status,0
                     chk+=1
                     continue
                 if verify_status in ['reset','cycle']:
@@ -552,16 +558,16 @@ class BMC:
                 if verify_status == 'on':
                     if self.is_up(ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,mode=mode)[0]:
                         if chk == len(power_mode[cmd]):
-                            return [True,'on',ii]
+                            return True,'on',ii
                     time.sleep(3)
                 elif verify_status == 'off':
                     if self.is_down(ipmi_user=ipmi_user,ipmi_pass=ipmi_pass)[0]:
                         if chk == len(power_mode[cmd]):
-                            return [True,'off',ii]
+                            return True,'off',ii
                     time.sleep(3)
                 chk+=1
             time.sleep(3)
-        return [False,'time out',ii]
+        return False,'time out',ii
 
     def lanmode(self):
         if self.smc_file is None:
