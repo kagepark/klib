@@ -11,7 +11,7 @@ import time
 from datetime import datetime
 from os import close, remove
 import random
-import socket, struct
+import fcntl,socket, struct
 import pickle
 from threading import Thread
 import base64
@@ -19,6 +19,7 @@ import hashlib
 import multiprocessing
 import requests
 import json
+import uuid
 from pprint import pprint
 
 ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
@@ -506,13 +507,25 @@ def get_host_ip(ifname=None):
     else:
         return socket.gethostbyname(socket.gethostname())
 
-def get_host_mac(ip=None):
-    if ip is None:
-        ip=get_host_ip()
-    dev_info=get_net_device()
-    for dev in dev_info.keys():
-        if get_net_dev_ip(dev) == ip:
-            return dev_info[dev]['mac']
+def get_dev_mac(ifname):
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        info = fcntl.ioctl(s.fileno(), 0x8927,  struct.pack('256s', ifname[:15]))
+        return ':'.join(['%02x' % ord(char) for char in info[18:24]])
+    except:
+        return
+
+def get_host_mac(ip=None,dev=None):
+    if is_ipv4(ip):
+        dev_info=get_net_device()
+        for dev in dev_info.keys():
+            if get_net_dev_ip(dev) == ip:
+                return dev_info[dev]['mac']
+    elif dev:
+        return get_dev_mac(dev)
+    else:
+        #return ':'.join(['{:02x}'.format((uuid.getnode() >> ele) & 0xff) for ele in range(0,8*6,8)][::-1])
+        return str2mac('%012x' % uuid.getnode())
 
 def get_net_dev_ip(ifname):
     if os.path.isdir('/sys/class/net/{}'.format(ifname)) is False:
