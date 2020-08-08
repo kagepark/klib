@@ -167,9 +167,12 @@ class kDict(dict):
         return False
 
     # Good
-    def PUT(self,key,value,proper={},force=False):
+    def PUT(self,key,value,proper={},force=False,new=False):
         if value is None:
             return
+        if new:
+            if self.__getitem__(key):
+                return
         if force:
             self.__getitem__(key).PROPER('force',True)
         if proper is {}:
@@ -290,23 +293,16 @@ class kDict(dict):
 
     def SAVE(self):
         if self._dfile_ :
-            try:
-                with open(self._dfile_,'wb') as dd:
-                    pickle.dump(peeling(self),dd,protocol=2)
-                    return True
-            except:
-                pass
-        return False
+            with open(self._dfile_,'wb') as dd:
+                pickle.dump(peeling(self),dd,protocol=2)
 
     def LOAD(self):
         if self._dfile_ :
             with open(self._dfile_,'rb') as dd:
                 try:
                     mm=pickle.load(dd)
-                    self.UPDATE(mm)
-                    return True
                 except:
-                    pass
-        return False
+                    return
+                self.UPDATE(mm)
 
     __setattr__, __getattr__ = __setitem__, __getitem__
