@@ -19,11 +19,11 @@ class BMC:
         self.log=self.root.log.write.GET()
         self.root.bmc.PUT('timeout',timeout,{'readonly':True})
         self.root.bmc.PUT('power_mode',{'on':['chassis power on'],'off':['chassis power off'],'reset':['chassis power reset'],'off_on':['chassis power off','chassis power on'],'on_off':['chassis power on','chassis power off'],'cycle':['chassis power cycle'],'status':['chassis power status']},{'readonly':True})
-        self.root.bmc.PUT('ipmi_ip',ipmi_ip)
+        self.root.bmc.PUT('ipmi_ip',ipmi_ip,new=True)
         self.root.bmc.PUT('ipmi_user',ipmi_user,{'readonly':True})
         self.root.bmc.PUT('ipmi_pass',ipmi_pass,{'readonly':True})
-        self.root.bmc.PUT('cur_user',ipmi_user)
-        self.root.bmc.PUT('cur_pass',ipmi_pass)
+        self.root.bmc.PUT('cur_user',ipmi_user,new=True)
+        self.root.bmc.PUT('cur_pass',ipmi_pass,new=True)
         for ii in test_user:
             if ii not in self.test_user:
                 self.test_user.append(ii)
@@ -32,7 +32,7 @@ class BMC:
                 self.test_pass.append(ii)
         if self.root.bmc.ipmi_user.GET() in self.test_user:
             self.test_user.remove(self.root.bmc.ipmi_user.GET())
-        self.root.bmc.PUT('test_user',[self.root.bmc.ipmi_user.GET()]+self.test_user)
+        self.root.bmc.PUT('test_user',[self.root.bmc.ipmi_user.GET()]+self.test_user,new=True)
         if uniq_ipmi_pass:
             self.root.bmc.PUT('uniq_pass',uniq_ipmi_pass,{'readonly':True})
             if uniq_ipmi_pass in self.test_pass:
@@ -40,7 +40,7 @@ class BMC:
             self.test_pass=[uniq_ipmi_pass]+self.test_pass
         if self.root.bmc.ipmi_pass.GET() in self.test_pass:
             self.test_pass.remove(self.root.bmc.ipmi_pass.GET())
-        self.root.bmc.PUT('test_pass',[self.root.bmc.ipmi_pass.GET()]+self.test_pass)
+        self.root.bmc.PUT('test_pass',[self.root.bmc.ipmi_pass.GET()]+self.test_pass,new=True)
         self.root.bmc.PUT('tool_path',tool_path,{'readonly':True})
         self.root.bmc.PUT('smc_file',smc_file,{'readonly':True})
         self.smc_file='/'.join(self.root.bmc.LIST(['tool_path','smc_file']))
