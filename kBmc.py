@@ -168,7 +168,7 @@ class BMC:
                         return True,uu,pp
         if self.log:
             self.log(' Can not find working BMC User and password',log_level=1)
-            self.root.bmc.UPDATE('error',{'user_pass':{int(datetime.datetime.now().strftime('%s')):'Can not find working BMC User or password'}})
+            self.root.bmc.UPDATE({'error':{'user_pass':{int(datetime.datetime.now().strftime('%s')):'Can not find working BMC User or password'}}})
         return False,None,None
 ###########################
 
@@ -482,7 +482,7 @@ class BMC:
             time.sleep(interval)
         km.logging(' ',log=self.log,log_level=2)
         if tmp == 'No Reading':
-            self.root.bmc.UPDATE('error',{'sensor':{int(datetime.datetime.now().strftime('%s')):tmp}})
+            self.root.bmc.UPDATE({'error':{'sensor':{int(datetime.datetime.now().strftime('%s')):tmp}}})
         return False,'timeout'
 
     def is_up(self,ipmi_user=None,ipmi_pass=None,mode=None,timeout=1200,keep_up=40,interval=8): # Node state
@@ -491,7 +491,7 @@ class BMC:
     def is_down(self,ipmi_user=None,ipmi_pass=None,mode=None,timeout=240,interval=8): # Node state
         return self.node_state(state='down',ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,mode=mode,timeout=timeout,keep_up=0,interval=interval) # Node state
 
-    def power_handle(self,cmd='status',retry=0,ipmi_user=None,ipmi_pass=None,boot_mode=None,order=False,ipxe=False,log_file=None,log=None,force=False,mode=None,verify=True):
+    def power_handle(self,cmd='status',retry=0,ipmi_user=None,ipmi_pass=None,boot_mode=None,order=False,ipxe=False,log_file=None,log=None,force=False,mode=None,verify=True,keep_up=40,timeout=1200):
         if cmd == 'status':
             return self.power('status',ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,mode=mode,verify=verify)
         if boot_mode:
@@ -513,9 +513,9 @@ class BMC:
                 km.logging(' retry boot mode set {} (ipxe:{},force:{})[{}/5]'.format(boot_mode,ipxe,order,ii),log=self.log,log_level=6)
                 time.sleep(2)
         km.logging('Do power {} '.format(cmd),log_level=3)
-        return self.power(cmd,ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,retry=retry,mode=mode,verify=verify)
+        return self.power(cmd,ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,retry=retry,mode=mode,verify=verify,timeout=timeout,keep_up=keep_up)
 
-    def power(self,cmd,ipmi_user=None,ipmi_pass=None,retry=0,verify=True,mode=None):
+    def power(self,cmd,ipmi_user=None,ipmi_pass=None,retry=0,verify=True,mode=None,timeout=1200,keep_up=40):
         power_mode=self.root.bmc.power_mode.GET(default=[])
         if cmd not in ['status','off_on'] + list(power_mode):
             return False,'Unknown command({})'.format(cmd)
@@ -556,7 +556,7 @@ class BMC:
                     time.sleep(5)
                     break
                 if verify_status == 'on':
-                    if self.is_up(ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,mode=mode)[0]:
+                    if self.is_up(ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,mode=mode,timeout=timeout,keep_up=keep_up)[0]:
                         if chk == len(power_mode[cmd]):
                             return True,'on',ii
                     time.sleep(3)
