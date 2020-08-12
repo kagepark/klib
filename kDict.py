@@ -303,6 +303,6 @@ class kDict(dict):
                     mm=pickle.load(dd)
                 except:
                     return
-                self.UPDATE(mm)
+                self.__init__(mm)
 
     __setattr__, __getattr__ = __setitem__, __getitem__
