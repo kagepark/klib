@@ -2062,16 +2062,10 @@ def value_get(src,key=None,default=None):
     elif type_src.__name__ in ['instance','classobj']:
         if type_key in [list,tuple]:
             for kk in key:
-                try:
-                    rc.append(getattr(src,kk))
-                except:
-                    rc.append(default)
+                rc.append(getattr(src,kk,default))
             if type_key is tuple:
                 return tuple(rc)
-        try:
-            return getattr(src,key)
-        except:
-            pass
+        return getattr(src,key,default)
     return default
 
 if __name__ == "__main__":
