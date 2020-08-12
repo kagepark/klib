@@ -297,7 +297,7 @@ class kDict(dict):
                 pickle.dump(peeling(self),dd,protocol=2)
 
     def LOAD(self):
-        if self._dfile_ :
+        if self._dfile_ and os.path.isfile(self._dfile_):
             with open(self._dfile_,'rb') as dd:
                 try:
                     mm=pickle.load(dd)

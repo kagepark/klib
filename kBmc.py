@@ -274,7 +274,7 @@ class BMC:
         if ipmi_mac:
             return ipmi_mac
         if mode is None:
-            mode=self.mode
+            mode=self.root.bmc.mode.GET()
         rc=self.do_cmd('ipmi lan mac',mode=mode)
         if rc[0]:
             if mode == 'smc':
