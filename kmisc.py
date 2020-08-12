@@ -2027,9 +2027,15 @@ def value_check(src,val,key=None):
                          return True
     return False
 
-def value_get(src,key,default=None):
+def value_get(src,key=None,default=None):
     type_src=type(src)
     type_key=type(key)
+    if type_src is bool:
+        return src
+    elif type_src is int:
+        return src
+    if key is None:
+        return default
     if type_src in [str,list,tuple]:
         if type_key in [list,tuple]:
             rc=[]
@@ -2053,4 +2059,27 @@ def value_get(src,key,default=None):
                 return tuple(rc)
             return rc
         return src.get(key,default)
+    elif type_src.__name__ in ['instance','classobj']:
+        if type_key in [list,tuple]:
+            for kk in key:
+                try:
+                    rc.append(getattr(src,kk))
+                except:
+                    rc.append(default)
+            if type_key is tuple:
+                return tuple(rc)
+        try:
+            return getattr(src,key)
+        except:
+            pass
     return default
+
+if __name__ == "__main__":
+    class ABC:
+        uu=3
+        def __init__(self):
+            self.a=1
+            self.b=2
+    print(value_get(ABC(),'b',default=None))
+    print(value_get(ABC(),'uu',default=None))
+    print(value_get(ABC(),'ux',default=None))
