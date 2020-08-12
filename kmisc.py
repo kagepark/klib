@@ -2029,10 +2029,28 @@ def value_check(src,val,key=None):
 
 def value_get(src,key,default=None):
     type_src=type(src)
-    if type_src is list:
-        if len(src) > key:
-            return src[key]
-        return default
+    type_key=type(key)
+    if type_src in [str,list,tuple]:
+        if type_key in [list,tuple]:
+            rc=[]
+            for kk in key:
+                if type(kk) in int and len(src) > kk:
+                    rc.append(src[kk])
+                else:
+                    rc.append(default)
+            if type_key is tuple:
+                return tuple(rc)
+            return tuple(rc)
+        else:
+            if type(key) is int and len(src) > key:
+                return src[key]
     elif type_src is dict:
+        if type_key in [list,tuple]:
+            rc=[]
+            for kk in key:
+                rc.append(src.get(kk,default))
+            if type_key is tuple:
+                return tuple(rc)
+            return rc
         return src.get(key,default)
     return default
