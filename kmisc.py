@@ -446,6 +446,16 @@ def ipv4(ipaddr=None):
             return new_ip
     return False
 
+def is_ipmi_ip(ipadd):
+    tcp_sk = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    tcp_sk.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    tcp_sk.settimeout(1)
+    try:
+        tcp_sk.connect((ipadd,623))
+        return True
+    except:
+        return False
+
 def is_ipv4(ipadd=None):
     if ipadd is None or type(ipadd) is not str or len(ipadd) == 0:
         return False
@@ -2027,7 +2037,22 @@ def value_check(src,val,key=None):
                          return True
     return False
 
-def value_get(src,key=None,default=None):
+def check_value(val,pool):
+    type_pool=type(pool)
+    if type_pool is dict:
+        pool=list(pool.keys())
+        type_pool=list
+    if type_pool in [list,tuple]:
+        for ii in pool:
+            if isinstance(ii,bool):
+                if isinstance(val,bool) and ii == val:
+                    return True
+            else:
+                if ii == val:
+                    return True
+    return False
+
+def get_value(src,key=None,default=None):
     type_src=type(src)
     type_key=type(key)
     if type_src is bool:
@@ -2074,6 +2099,6 @@ if __name__ == "__main__":
         def __init__(self):
             self.a=1
             self.b=2
-    print(value_get(ABC(),'b',default=None))
-    print(value_get(ABC(),'uu',default=None))
-    print(value_get(ABC(),'ux',default=None))
+    print(get_value(ABC(),'b',default=None))
+    print(get_value(ABC(),'uu',default=None))
+    print(get_value(ABC(),'ux',default=None))
