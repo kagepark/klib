@@ -1831,6 +1831,17 @@ def make_second(try_wait=None):
         wait_time=try_wait
     return wait_time
 
+def web_server_ip(request):
+    return request.get_host().split(':')
+
+def web_client_ip(request):
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        ip = x_forwarded_for.split(',')[0]
+    else:
+        ip = request.META.get('REMOTE_ADDR')
+    return ip
+
 def web_req(host_url,**opts):
     # remove SSL waring error message (test)
     requests.packages.urllib3.disable_warnings() 
@@ -1876,7 +1887,7 @@ def web_req(host_url,**opts):
         else:
             host_url='https://{}'.format(ip)
         if port:
-            host_url='{}:{}'.format(port)
+            host_url='{}:{}'.format(host_url,port)
         if request_url:
             host_url='{}/{}'.format(host_url,request_url)
     else:
