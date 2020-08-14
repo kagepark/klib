@@ -640,6 +640,8 @@ class BMC:
 
 if __name__ == "__main__":
     import kDict
+    import sys
+    import os
     def KLog(msg,**agc):
         direct=agc.get('direct',False)
         if direct:
@@ -648,9 +650,15 @@ if __name__ == "__main__":
         else:
             print(msg)
 
+    if len(sys.argv) == 3:
+        dest_ip=sys.argv[1]
+        tool_path=sys.argv[2]
+    else:
+        print('{} <ipmi ip> <bin dir>'.format(sys.argv[0]))
+        os._exit(1)
+    print('Test at {}'.format(dest_ip))
     root=kDict.kDict()
-    tool_path='/django/sumViewer/tools'
-    bmc=BMC(root,ipmi_ip='172.16.219.108',ipmi_user='ADMIN',ipmi_pass='ADMIN',test_pass=['ADMIN','Admin'],test_user=['ADMIN','Admin'],timeout=1800,log=KLog)
+    bmc=BMC(root,ipmi_ip=dest_ip,ipmi_user='ADMIN',ipmi_pass='ADMIN',test_pass=['ADMIN','Admin'],test_user=['ADMIN','Admin'],timeout=1800,log=KLog,tool_path=tool_path)
     #bmc=BMC(root,ipmi_ip='172.16.220.135',ipmi_user='ADMIN',ipmi_pass='ADMIN',test_pass=['ADMIN','Admin'],test_user=['ADMIN','Admin'],timeout=1800,log=KLog)
     print(bmc.power_handle(cmd='status'))
     #print(bmc.power_handle(cmd='off_on'))
