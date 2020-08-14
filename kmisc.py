@@ -21,6 +21,9 @@ import requests
 import json
 import uuid
 from pprint import pprint
+import ast
+import zlib
+import base64
 
 ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
 url_group = re.compile('^(https|http|ftp)://([^/\r\n]+)(/[^\r\n]*)?')
@@ -2103,6 +2106,23 @@ def get_value(src,key=None,default=None):
                 return tuple(rc)
         return getattr(src,key,default)
     return default
+
+def encode(string):
+    enc='{0}'.format(string)
+    tmp=zlib.compress(enc.encode("utf-8"))
+    return '{0}'.format(base64.b64encode(tmp).decode('utf-8'))
+
+def decode(string):
+    if type(string) is str:
+        dd=zlib.decompress(base64.b64decode(string))
+        return '{0}'.format(dd.decode("utf-8"))
+    return string
+
+def string2data(string):
+    try:
+        return ast.literal_eval(string)
+    except:
+        return string
 
 if __name__ == "__main__":
     class ABC:
