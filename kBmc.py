@@ -79,8 +79,12 @@ class BMC:
             os._exit(1)
 
     def ipmi_info(self,inp=None,**opts):
-        if inp and type(inp) is dict:
-            opts.update(inp)
+        if inp:
+            type_inp=type(inp)
+            if type_inp is tuple and inp[0] is True and type(inp[1]) is dict:
+                opts.update(inp[1])
+            elif type_inp is dict:
+                opts.update(inp)
         rf=opts.get('rf','dict')
         default=opts.get('default',None)
         ipmi_ip=opts.get('ipmi_ip',default)
@@ -109,9 +113,16 @@ class BMC:
         error=self.root.bmc.GET('error',default=None)
         if error:
             return False,'''BMC Error: {}'''.format(error)
-        ipmi_mode=opts.get('ipmi_mode',None)
+        ipmi=opts.get('ipmi',None)
+        if ipmi is not None:
+            type_ipmi=type(ipmi)
+            if type_ipmi is tuple and ipmi[0] is True and type(ipmi[1]) is dict:
+                opts.update(ipmi[1])
+            elif type_ipmi is dict:
+                opts.update(ipmi)
         option=opts.get('option','lanplus')
         cmd_a=cmd.split()
+        ipmi_mode=opts.get('ipmi_mode',None)
         if isinstance(ipmi_mode,list):
             ipmi_mode=ipmi_mode[0]
         if ipmi_mode == 'smc':
@@ -147,9 +158,9 @@ class BMC:
     def check_passwd(self,**opts):
         ipmi=self.ipmi_info(**opts)
         if ipmi[0]:
-            bmc_cmd=self.bmc_cmd('ipmi power status',**ipmi[1])
+            bmc_cmd=self.bmc_cmd('ipmi power status',ipmi_mode=ipmi['ipmi_mode'])
             if bmc_cmd[0]:
-                if self.run_cmd(bmc_cmd[1])[0]:
+                if self.run_cmd(bmc_cmd[1],ipmi=ipmi)[0]:
                     return True
         return False
 
@@ -271,7 +282,7 @@ class BMC:
                         return False,'Can not find working IPMI USER and PASSWORD'
         return False,'Timeout'
 
-    def do_cmd(self,cmd,path=None,ipmi={},retry=0,rc_ok=[0,True],rc_wrong=[1],timeout=None):
+    def do_cmd(self,cmd,path=None,retry=0,rc_ok=[0,True],rc_wrong=[1],timeout=None,ipmi={}):
         def get_bmc_cmd(ipmi_mode):
             bmc_cmd=[]
             if ipmi_mode in ['all','*']:
@@ -295,7 +306,7 @@ class BMC:
                 self.log(' - SMCIPMITool and ipmitool package not found',log_level=5)
             return False,'SMCIPMITool and ipmitool package not found'
         for bmc_cmd_do in bmc_cmd:
-            rc=self.run_cmd(bmc_cmd_do,path=path,ipmi=ipmi[1],retry=retry,rc_ok=rc_ok,rc_wrong=rc_wrong,timeout=timeout)
+            rc=self.run_cmd(bmc_cmd_do,path=path,retry=retry,rc_ok=rc_ok,rc_wrong=rc_wrong,timeout=timeout,ipmi=ipmi[1])
             if rc[0]:
                 # If change this rule then node_state will mixed up
                 return True,rc[1][1]
@@ -329,14 +340,14 @@ class BMC:
         if ipmi[0]:
             ipmi_mode=ipmi[1].get('ipmi_mode',None)
             if ipmi_mode == 'smc':
-                rc=self.do_cmd('ipmi oem summary | grep "System LAN"',ipmi=ipmi[1])
+                rc=self.do_cmd('ipmi oem summary | grep "System LAN"',ipmi=ipmi)
                 if rc[0]:
                     rrc=[]
                     for ii in rc[1].split('\n'):
                         rrc.append(ii.split()[-1].lower())
                     return True,rrc
             else:
-                rc=self.do_cmd('''raw 0x30 0x21 | tail -c 18 | sed "s/ /:/g"''',ipmi=ipmi[1])
+                rc=self.do_cmd('''raw 0x30 0x21 | tail -c 18 | sed "s/ /:/g"''',ipmi=ipmi)
                 if rc[0]:
                     return True,[rc[1].lower()]
         return False,[]
@@ -365,11 +376,11 @@ class BMC:
             return False,'wrong IP'
         ipmi_mode=ipmi[1].get('ipmi_ip',None)
         if ipmi_mode == 'smc':
-            rc=self.do_cmd('ipmi lan gateway',ipmi=ipmi[1])
+            rc=self.do_cmd('ipmi lan gateway',ipmi=ipmi)
             if rc[0]:
                 return True,rc[1]
         else:
-            rc=self.do_cmd('lan print',ipmi=ipmi[1])
+            rc=self.do_cmd('lan print',ipmi=ipmi)
             if rc[0]:
                 for ii in rc[1].split('\n'):
                     ii_a=ii.split()
@@ -383,11 +394,11 @@ class BMC:
             return False,'wrong IP'
         ipmi_mode=ipmi[1].get('ipmi_ip',None)
         if ipmi_mode == 'smc':
-            rc=self.do_cmd('ipmi lan netmask',ipmi=ipmi[1])
+            rc=self.do_cmd('ipmi lan netmask',ipmi=ipmi)
             if rc[0]:
                 return True,rc[1]
         else:
-            rc=self.do_cmd('lan print',ipmi=ipmi[1])
+            rc=self.do_cmd('lan print',ipmi=ipmi)
             if rc[0]:
                 for ii in rc[1].split('\n'):
                     ii_a=ii.split()
@@ -398,23 +409,23 @@ class BMC:
     def bootorder(self,mode=None,ipxe=False,persistent=False,force=False,boot_mode=['pxe','ipxe','bios','hdd']):
         for i in range(0,2):
             if mode is None:
-                rc=self.do_cmd('chassis bootparam get 5',ipmi=self.ipmi_info(ipmi_mode='ipmitool')[1])
+                rc=self.do_cmd('chassis bootparam get 5',ipmi=self.ipmi_info(ipmi_mode='ipmitool'))
             else:
                 if not mode in boot_mode:
                     return False,'Unknown boot mode({})'.format(mode)
                 if persistent:
                     if mode == 'pxe' and ipxe in ['on','ON','On',True,'True']:
-                        rc=self.do_cmd(cmd='raw 0x00 0x08 0x05 0xe0 0x04 0x00 0x00 0x00',ipmi=self.ipmi_info(ipmi_mode='ipmitool')[1])
+                        rc=self.do_cmd(cmd='raw 0x00 0x08 0x05 0xe0 0x04 0x00 0x00 0x00',ipmi=self.ipmi_info(ipmi_mode='ipmitool'))
                     else:
-                        rc=self.do_cmd('chassis bootdev {0} options=persistent'.format(mode),ipmi=self.ipmi_info(ipmi_mode='ipmitool')[1])
+                        rc=self.do_cmd('chassis bootdev {0} options=persistent'.format(mode),ipmi=self.ipmi_info(ipmi_mode='ipmitool'))
                 else:
                     if mode == 'pxe' and ipxe in ['on','ON','On',True,'True']:
-                        rc=self.do_cmd('chassis bootdev {0} options=efiboot'.format(mode),ipmi=self.ipmi_info(ipmi_mode='ipmitool')[1])
+                        rc=self.do_cmd('chassis bootdev {0} options=efiboot'.format(mode),ipmi=self.ipmi_info(ipmi_mode='ipmitool'))
                     else:
                         if force and boot_mode == 'pxe':
-                            rc=self.do_cmd('chassis bootparam set bootflag force_pxe'.format(mode),ipmi=self.ipmi_info(ipmi_mode='ipmitool')[1])
+                            rc=self.do_cmd('chassis bootparam set bootflag force_pxe'.format(mode),ipmi=self.ipmi_info(ipmi_mode='ipmitool'))
                         else:
-                            rc=self.do_cmd('chassis bootdev {0}'.format(mode),ipmi=self.ipmi_info(ipmi_mode='ipmitool')[1])
+                            rc=self.do_cmd('chassis bootdev {0}'.format(mode),ipmi=self.ipmi_info(ipmi_mode='ipmitool'))
             if rc[0]:
                 return True,rc[1]
             else:
@@ -473,7 +484,7 @@ class BMC:
                     return False,'Got STOP signal'
             if int(datetime.datetime.now().strftime('%s')) - init_time > timeout:
                 break
-            krc=self.do_cmd('ipmi sensor',ipmi=self.ipmi_info(ipmi_mode=ipmi_mode)[1])
+            krc=self.do_cmd('ipmi sensor',ipmi=self.ipmi_info(ipmi_mode=ipmi_mode))
             if krc[0]:
                 for ii in krc[1].split('\n'):
                     ii_a=ii.split('|')
@@ -619,8 +630,8 @@ class BMC:
             if self.log:
                 self.log(' - SMCIPMITool({}) not found'.format(self.smc_file),log_level=5)
                 return False,'SMCIPMITool not found'
-        bmc_cmd=self.bmc_cmd("""ipmi oem lani""",ipmi=self.ipmi_info(ipmi_mode='smc')[1])
-        lanmode_info=self.run_cmd(bmc_cmd[1],path=self.root.bmc.tool_path.GET(),ipmi=self.ipmi_info(ipmi_mode='smc')[1],rc_ok=[144])
+        bmc_cmd=self.bmc_cmd("""ipmi oem lani""",ipmi_mode='smc')
+        lanmode_info=self.run_cmd(bmc_cmd[1],path=self.root.bmc.tool_path.GET(),ipmi=self.ipmi_info(ipmi_mode='smc'),rc_ok=[144])
         if lanmode_info[0]:
             a=km.findstr(lanmode_info[1][1],'Current LAN interface is \[ (\w.*) \]')
             if len(a) == 1:
