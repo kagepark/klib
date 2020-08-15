@@ -13,7 +13,7 @@ class BMC:
         self.root=root
         self.log=log
         # Initial Dictionary
-        if ipmi_ip and km.is_ipmi_ip(ipmi_ip) is False:
+        if ipmi_ip and (km.is_ipv4(ipmi_ip) is False or km.is_ipmi_ip(ipmi_ip) is False):
             if self.log:
                 self.log('{} is not IPMI IP\n'.format(ipmi_ip),log_level=1)
             else:
@@ -90,11 +90,11 @@ class BMC:
         ipmi_ip=opts.get('ipmi_ip',default)
         if ipmi_ip is default:
             ipmi_ip=self.root.bmc.ipmi_ip.GET(default=default)
-        else:
-            if km.is_ipmi_ip(ipmi_ip) is False:
+            if ipmi_ip is default:
                 return False,{'err':'{} is not IPMI IP'.format(ipmi_ip)}
-        if ipmi_ip is default:
-            return False,{'err':'{} is not IPMI IP'.format(ipmi_ip)}
+        else:
+            if km.is_ipv4(ipmi_ip) is False or km.is_ipmi_ip(ipmi_ip) is False:
+                return False,{'err':'{} is not IPMI IP'.format(ipmi_ip)}
         ipmi_user=opts.get('ipmi_user',default)
         if ipmi_user is default:
             ipmi_user=self.root.bmc.cur_user.GET()
