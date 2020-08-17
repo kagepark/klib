@@ -78,6 +78,26 @@ class BMC:
             km.logging("SMCIPMITool and ipmitool not found",log=self.log,log_level=6,dsp='e')
             os._exit(1)
 
+    def rc_info(self,inp=None,**opts):
+        chk=True
+        if inp:
+            type_inp=type(inp)
+            if type_inp is tuple and inp[0] is True and type(inp[1]) is dict:
+                chk=False
+                opts.update(inp[1])
+            elif type_inp is dict:
+                opts.update(inp)
+        rf=opts.get('rf','dict')
+        ok=opts.get('ok',[0,True])
+        wrong=opts.get('wrong',[])
+        err_connection=opts.get('err_connection',[])
+        err_key=opts.get('err_key',[])
+        err_bmc_user=opts.get('err_bmc_user',[])
+        if rf == 'tuple':
+            return ok,wrong,err_connection,err_bmc_user,err_key
+        else:
+            return {'ok':ok,'wrong':wrong,'err_connection':err_connection,'err_bmc_user':err_bmc_user,'err_key':err_key}
+
     def ipmi_info(self,inp=None,**opts):
         chk=True
         if inp:
@@ -160,7 +180,7 @@ class BMC:
         if ipmi[0]:
             bmc_cmd=self.bmc_cmd('ipmi power status',ipmi_mode=ipmi[1]['ipmi_mode'])
             if bmc_cmd[0]:
-                if self.run_cmd(bmc_cmd[1],ipmi=ipmi)[0]:
+                if self.run_cmd(bmc_cmd[1],ipmi=ipmi,return_code=self.rc_info(ok=[0],wrong=[1]))[0]: # if remove return_code's wrong=[1] then it will be infinity call looping between check_passwd() and run_cmd()
                     return True
         return False
 
@@ -260,8 +280,13 @@ class BMC:
                     self.log(' - Recover BMC ERROR !!! : from User({}) and Password ({}) to User({}) and Password({})\n{}'.format(ipmi_user,ipmi_pass,self.root.bmc.ipmi_user.GET(),self.root.bmc.ipmi_pass.GET(),rc),log_level=6)
                 return False,ipmi_user,ipmi_pass
 
-    def run_cmd(self,cmd,append=None,path=None,retry=0,rc_ok=[0,True],rc_wrong=[1],timeout=None,ipmi={}):
+    def run_cmd(self,cmd,append=None,path=None,retry=0,timeout=None,ipmi={},return_code={'ok':[0,True],'wrong':[]}):
         # cmd format: <string> {ipmi_ip} <string2> {ipmi_user} <string3> {ipmi_pass} <string4>
+        rc_ok=return_code.get('ok',[0,True])
+        rc_wrong=return_code.get('wrong',[])
+        rc_err_connection=return_code.get('err_connection',[])
+        rc_err_key=return_code.get('err_key',[])
+        rc_err_bmc_user=return_code.get('err_bmc_user',[])
         if type(append) is not str:
             append=''
         error=self.root.bmc.GET('error',default=None)
@@ -275,21 +300,23 @@ class BMC:
                 rc=km.rshell(cmd_str,path=path,timeout=timeout)
                 if km.check_value(rc[0],rc_ok):
                     return True,rc
-                elif km.check_value(rc[0],rc_wrong+[80]): #80: Key error
+                elif km.check_value(rc[0],rc_wrong):
                     return False,rc
-                #else:
-                elif km.check_value(rc[0],[146,87]):
-                    ok,ipmi_user,ipmi_pass=self.find_user_pass(ipmi_user=ipmi_user,ipmi_pass=ipmi_pass)
-                    if ok is False:
-                        return False,'Can not find working IPMI USER and PASSWORD'
-                elif km.check_value(rc[0],[34]):
-                    msg='UDP Connection issue'
-                else:
+                elif km.check_value(rc[0],rc_err_key):
+                    return False,'err_key'
+                elif km.check_value(rc[0],rc_err_connection):
                     # retry again 
-                    pass 
+                    time.sleep(3)
+                    msg='err_connection'
+                else:
+                    if km.check_value(rc[0],rc_err_bmc_user):
+                        ok,ipmi_user,ipmi_pass=self.find_user_pass(ipmi_user=ipmi_user,ipmi_pass=ipmi_pass)
+                        if ok is False:
+                            return False,'Can not find working IPMI USER and PASSWORD'
+                    time.sleep(1)
         return False,msg
 
-    def do_cmd(self,cmd,path=None,retry=0,rc_ok=[0,True],rc_wrong=[1],timeout=None,ipmi={}):
+    def do_cmd(self,cmd,path=None,retry=0,timeout=None,ipmi={},return_code={'ok':[0,True],'wrong':[]}):
         def get_bmc_cmd(ipmi_mode):
             bmc_cmd=[]
             if ipmi_mode in ['all','*']:
@@ -313,7 +340,7 @@ class BMC:
                 self.log(' - SMCIPMITool and ipmitool package not found',log_level=5)
             return False,'SMCIPMITool and ipmitool package not found'
         for bmc_cmd_do in bmc_cmd:
-            rc=self.run_cmd(bmc_cmd_do,path=path,retry=retry,rc_ok=rc_ok,rc_wrong=rc_wrong,timeout=timeout,ipmi=ipmi[1])
+            rc=self.run_cmd(bmc_cmd_do,path=path,retry=retry,timeout=timeout,ipmi=ipmi,return_code=return_code)
             if rc[0]:
                 # If change this rule then node_state will mixed up
                 return True,rc[1][1]
@@ -638,7 +665,7 @@ class BMC:
                 self.log(' - SMCIPMITool({}) not found'.format(self.smc_file),log_level=5)
                 return False,'SMCIPMITool not found'
         bmc_cmd=self.bmc_cmd("""ipmi oem lani""",ipmi_mode='smc')
-        lanmode_info=self.run_cmd(bmc_cmd[1],path=self.root.bmc.tool_path.GET(),ipmi=self.ipmi_info(ipmi_mode='smc'),rc_ok=[144])
+        lanmode_info=self.run_cmd(bmc_cmd[1],path=self.root.bmc.tool_path.GET(),ipmi=self.ipmi_info(ipmi_mode='smc'),return_code={'ok':[144]})
         if lanmode_info[0]:
             a=km.findstr(lanmode_info[1][1],'Current LAN interface is \[ (\w.*) \]')
             if len(a) == 1:
@@ -651,10 +678,12 @@ if __name__ == "__main__":
     import os
     def KLog(msg,**agc):
         direct=agc.get('direct',False)
+        log_level=agc.get('log_level',6)
+        ll=agc.get('log_level',5)
         if direct:
             sys.stdout.write(msg)
             sys.stdout.flush()
-        else:
+        elif log_level < ll:
             print(msg)
 
     if len(sys.argv) == 3:
