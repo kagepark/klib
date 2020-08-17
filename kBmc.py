@@ -659,12 +659,15 @@ class BMC:
             time.sleep(3)
         return False,'time out',ii
 
-    def lanmode(self):
+    def lanmode(self,mode=None):
         if self.smc_file is None:
             if self.log:
                 self.log(' - SMCIPMITool({}) not found'.format(self.smc_file),log_level=5)
                 return False,'SMCIPMITool not found'
-        bmc_cmd=self.bmc_cmd("""ipmi oem lani""",ipmi_mode='smc')
+        if mode in [0,1,2,'0','1','2']:
+            bmc_cmd=self.bmc_cmd("""ipmi oem lani {}""".format(mode),ipmi_mode='smc')
+        else:
+            bmc_cmd=self.bmc_cmd("""ipmi oem lani""",ipmi_mode='smc')
         lanmode_info=self.run_cmd(bmc_cmd[1],path=self.root.bmc.tool_path.GET(),ipmi=self.ipmi_info(ipmi_mode='smc'),return_code={'ok':[144]})
         if lanmode_info[0]:
             a=km.findstr(lanmode_info[1][1],'Current LAN interface is \[ (\w.*) \]')
