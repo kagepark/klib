@@ -79,9 +79,11 @@ class BMC:
             os._exit(1)
 
     def ipmi_info(self,inp=None,**opts):
+        chk=True
         if inp:
             type_inp=type(inp)
             if type_inp is tuple and inp[0] is True and type(inp[1]) is dict:
+                chk=False
                 opts.update(inp[1])
             elif type_inp is dict:
                 opts.update(inp)
@@ -92,18 +94,22 @@ class BMC:
             ipmi_ip=self.root.bmc.ipmi_ip.GET(default=default)
             if ipmi_ip is default:
                 return False,{'err':'{} is not IPMI IP'.format(ipmi_ip)}
-        else:
+        elif chk:
             if km.is_ipv4(ipmi_ip) is False or km.is_ipmi_ip(ipmi_ip) is False:
                 return False,{'err':'{} is not IPMI IP'.format(ipmi_ip)}
-        ipmi_user=opts.get('ipmi_user',default)
-        if ipmi_user is default:
-            ipmi_user=self.root.bmc.cur_user.GET()
-        ipmi_pass=opts.get('ipmi_pass',default)
-        if ipmi_pass is default:
-            ipmi_pass=self.root.bmc.cur_pass.GET()
-        ipmi_mode=opts.get('ipmi_mode',default)
-        if ipmi_mode is default:
-            ipmi_mode=self.root.bmc.ipmi_mode.GET()
+        cur_user=opts.get('cur_user',default)
+        if cur_user:
+            self.root.bmc.PUT('cur_user',cur_user)
+            ipmi_user=cur_user
+        else:
+            ipmi_user=opts.get('ipmi_user',self.root.bmc.cur_user.GET())
+        cur_pass=opts.get('cur_pass',default)
+        if cur_pass:
+            self.root.bmc.PUT('cur_pass',cur_pass)
+            ipmi_pass=cur_pass
+        else:
+            ipmi_pass=opts.get('ipmi_pass',self.root.bmc.cur_pass.GET())
+        ipmi_mode=opts.get('ipmi_mode',self.root.bmc.ipmi_mode.GET())
         if rf == 'tuple':
             return True,ipmi_ip,ipmi_user,ipmi_pass,ipmi_mode
         else:
@@ -113,16 +119,10 @@ class BMC:
         error=self.root.bmc.GET('error',default=None)
         if error:
             return False,'''BMC Error: {}'''.format(error)
-        ipmi=opts.get('ipmi',None)
-        if ipmi is not None:
-            type_ipmi=type(ipmi)
-            if type_ipmi is tuple and ipmi[0] is True and type(ipmi[1]) is dict:
-                opts.update(ipmi[1])
-            elif type_ipmi is dict:
-                opts.update(ipmi)
+        ipmi=self.ipmi_info(opts.get('ipmi',None),**opts)
         option=opts.get('option','lanplus')
         cmd_a=cmd.split()
-        ipmi_mode=opts.get('ipmi_mode',None)
+        ipmi_mode=ipmi[1]['ipmi_mode']
         if isinstance(ipmi_mode,list):
             ipmi_mode=ipmi_mode[0]
         if ipmi_mode == 'smc':
@@ -158,7 +158,7 @@ class BMC:
     def check_passwd(self,**opts):
         ipmi=self.ipmi_info(**opts)
         if ipmi[0]:
-            bmc_cmd=self.bmc_cmd('ipmi power status',ipmi_mode=ipmi['ipmi_mode'])
+            bmc_cmd=self.bmc_cmd('ipmi power status',ipmi_mode=ipmi[1]['ipmi_mode'])
             if bmc_cmd[0]:
                 if self.run_cmd(bmc_cmd[1],ipmi=ipmi)[0]:
                     return True
@@ -217,7 +217,7 @@ class BMC:
             if self.log:
                 self.log(' - SMCIPMITool({}) not found'.format(self.smc_file),log_level=5)
             return False,cur_user,cur_pass
-        ok,ipmi_user,ipmi_pass,ipmi_mode=self.find_user_pass(ipmi_user=cur_user,ipmi_pass=cur_pass,rf='tuple')
+        ok,ipmi_user,ipmi_pass=self.find_user_pass(ipmi_user=cur_user,ipmi_pass=cur_pass)
         if ok is False:
             if self.log:
                 self.log(' - Can not find working User and Password (Input:({},{}), ({},{}))'.format(cur_user,cur_pass,self.root.bmc.ipmi_user.GET(),self.root.bmc.ipmi_pass.GET()),log_level=1)
@@ -268,19 +268,26 @@ class BMC:
         if error:
             return False,'''BMC Error: {}'''.format(error)
         ipmi_ok,ipmi_ip,ipmi_user,ipmi_pass,ipmi_mode=self.ipmi_info(ipmi,rf='tuple')
+        msg='Timeout'
         if ipmi_ok:
             for i in range(0,2+retry):
                 cmd_str=cmd.format(ipmi_ip=ipmi_ip,ipmi_user=ipmi_user,ipmi_pass=ipmi_pass)+append
                 rc=km.rshell(cmd_str,path=path,timeout=timeout)
                 if km.check_value(rc[0],rc_ok):
                     return True,rc
-                elif km.check_value(rc[0],rc_wrong):
+                elif km.check_value(rc[0],rc_wrong+[80]): #80: Key error
                     return False,rc
-                else:
-                    ok,ipmi_user,ipmi_pass,ipmi_mode=self.find_user_pass(ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,ipmi_mode=ipmi_mode)
+                #else:
+                elif km.check_value(rc[0],[146,87]):
+                    ok,ipmi_user,ipmi_pass=self.find_user_pass(ipmi_user=ipmi_user,ipmi_pass=ipmi_pass)
                     if ok is False:
                         return False,'Can not find working IPMI USER and PASSWORD'
-        return False,'Timeout'
+                elif km.check_value(rc[0],[34]):
+                    msg='UDP Connection issue'
+                else:
+                    # retry again 
+                    pass 
+        return False,msg
 
     def do_cmd(self,cmd,path=None,retry=0,rc_ok=[0,True],rc_wrong=[1],timeout=None,ipmi={}):
         def get_bmc_cmd(ipmi_mode):
