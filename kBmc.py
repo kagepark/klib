@@ -78,7 +78,7 @@ class BMC:
             km.logging("SMCIPMITool and ipmitool not found",log=self.log,log_level=6,dsp='e')
             os._exit(1)
 
-    def rc_info(self,inp=None,**opts):
+    def rc_info(self,inp=None,default={},**opts):
         chk=True
         if inp:
             type_inp=type(inp)
@@ -88,11 +88,11 @@ class BMC:
             elif type_inp is dict:
                 opts.update(inp)
         rf=opts.get('rf','dict')
-        ok=opts.get('ok',[0,True])
-        wrong=opts.get('wrong',[])
-        err_connection=opts.get('err_connection',[])
-        err_key=opts.get('err_key',[])
-        err_bmc_user=opts.get('err_bmc_user',[])
+        ok=opts.get('ok',default.get('ok',[0,True]))
+        wrong=opts.get('wrong',default.get('wrong',[]))
+        err_connection=opts.get('err_connection',default.get('err_connection',[]))
+        err_key=opts.get('err_key',default.get('err_key',[]))
+        err_bmc_user=opts.get('err_bmc_user',default.get('err_bmc_user',[]))
         if rf == 'tuple':
             return ok,wrong,err_connection,err_bmc_user,err_key
         else:
@@ -282,6 +282,8 @@ class BMC:
 
     def run_cmd(self,cmd,append=None,path=None,retry=0,timeout=None,ipmi={},return_code={'ok':[0,True],'wrong':[]}):
         # cmd format: <string> {ipmi_ip} <string2> {ipmi_user} <string3> {ipmi_pass} <string4>
+        if type(cmd) is tuple and len(cmd) == 3:
+            cmd,path,return_code=cmd
         rc_ok=return_code.get('ok',[0,True])
         rc_wrong=return_code.get('wrong',[])
         rc_err_connection=return_code.get('err_connection',[])
@@ -317,6 +319,8 @@ class BMC:
         return False,msg
 
     def do_cmd(self,cmd,path=None,retry=0,timeout=None,ipmi={},return_code={'ok':[0,True],'wrong':[]}):
+        if type(cmd) is tuple and len(cmd) == 3:
+            cmd,path,return_code=cmd
         def get_bmc_cmd(ipmi_mode):
             bmc_cmd=[]
             if ipmi_mode in ['all','*']:
