@@ -236,20 +236,21 @@ def printf(*msg,**opts):
          log_func_arg=get_function_args(log,mode='all')
          if 'args' in log_func_arg or 'varargs' in log_func_arg:
              log_p=True
-             if len(log_func_arg['args']) <= 3 and ('direct' in log_func_arg['args'] or 'log_level' in log_func_arg['args']):
+             args=log_func_arg.get('args',[])
+             if args and len(args) <= 3 and ('direct' in args or 'log_level' in args):
                  tmp=[]
-                 for i in range(0,len(log_func_arg['args'])):
+                 for i in range(0,len(args)):
                      tmp.append(i)
-                 if 'direct' in log_func_arg['args']:
-                     didx=log_func_arg['args'].index('direct')
+                 if 'direct' in args:
+                     didx=args.index('direct')
                      del tmp[didx]
-                     log_func_arg['args'][didx]=direct
-                 if 'log_level' in log_func_arg['args']:
-                     lidx=log_func_arg['args'].index('log_level')
+                     args[didx]=direct
+                 if 'log_level' in args:
+                     lidx=args.index('log_level')
                      del tmp[lidx]
-                     log_func_arg['args'][lidx]=log_level
-                 log_func_arg['args'][tmp[0]]=msg_str
-                 log(*log_func_arg['args'])
+                     args[lidx]=log_level
+                 args[tmp[0]]=msg_str
+                 log(*args)
              elif 'keywards' in log_func_arg:
                  log(msg_str,direct=direct,log_level=log_level)
              elif 'defaults' in log_func_arg:
@@ -1142,7 +1143,7 @@ def power_handle(ipmi_ip,mode='status',num=2,ipmi_user='ADMIN',ipmi_pass='ADMIN'
             ipxe=True
             boot_mode='pxe'
         for ii in range(0,5):
-            set_boot_mode(ipmi_ip,ipmi_user,ipmi_pass,boot_mode,persistent=order,ipxe=ipxe,log_file=log_file,log=log,force=force)
+            aa=set_boot_mode(ipmi_ip,ipmi_user,ipmi_pass,boot_mode,persistent=order,ipxe=ipxe,log_file=log_file,log=log,force=force)
             boot_mode_state=get_boot_mode(ipmi_ip,ipmi_user,ipmi_pass,log_file=log_file,log=log)
             if (boot_mode == 'pxe' and boot_mode_state[0] is not False and 'PXE' in boot_mode_state[0]) and ipxe == boot_mode_state[1] and order == boot_mode_state[2]:
                 break
@@ -1708,10 +1709,12 @@ def int_sec():
 def now():
     return int_sec()
 
-def timeout(timeout,init_time=None):
-    if init_time is None:
+def timeout(timeout_sec,init_time=None,default=(24*3600)):
+    if type(timeout_sec) is not int:
+        timeout_sec=default
+    if type(init_time) is not int:
         init_time=int_sec()
-    if int_sec() - init_time >  timeout:
+    if int_sec() - init_time >  timeout_sec:
         return True,init_time
     return False,init_time
 
