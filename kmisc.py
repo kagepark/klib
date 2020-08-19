@@ -1043,13 +1043,13 @@ def power_state(ipmi_ip,ipmi_user='ADMIN',ipmi_pass='ADMIN',wait_time=60,check_s
                 sys_status='off'
             if (check_status and check_status == sys_status) or (check_status is None and sys_status in ['on','off']):
                 if check_status:
-                    logging("   * confirm state : {} => {}".format(sys_status,check_status),log_file=log_file,date=True,log=log)
+                    logging("   * confirm state : {} => {}".format(sys_status,check_status),log_file=log_file,date=True,log=log,log_level=6)
                 return [True,sys_status]
             else:
                 if check_status:
-                    logging("   - wait {}sec : {} => {}".format((wait_time - ii)*monitor_time,sys_status,check_status),log_file=log_file,date=True,log=log)
+                    logging("   - wait {}sec : {} => {}".format((wait_time - ii)*monitor_time,sys_status,check_status),log_file=log_file,date=True,log=log,log_level=6)
         else:
-            logging("   - wait {}sec for check power state with {}:{}".format(monitor_time,ipmi_user,ipmi_pass),log_file=log_file,date=True,log=log)
+            logging("   - wait {}sec for check power state with {}:{}".format(monitor_time,ipmi_user,ipmi_pass),log_file=log_file,date=True,log=log,log_level=6)
         sleep(monitor_time)
     return [False,'time out']
 
@@ -1081,10 +1081,10 @@ def set_boot_mode(ipmi_ip,ipmi_user,ipmi_pass,boot_mode,ipxe=False,persistent=Fa
         if boot_mode == 'pxe' and ipxe in ['on','ON','On',True,'True']:
             # ipmitool -I lanplus -H 172.16.105.74 -U ADMIN -P 'ADMIN' raw 0x00 0x08 0x05 0xe0 0x04 0x00 0x00 0x00
             ipmi_cmd(cmd='raw 0x00 0x08 0x05 0xe0 0x04 0x00 0x00 0x00',ipmi_ip=ipmi_ip,ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,log=log)
-            logging("Persistently Boot mode set to i{0} at {1}".format(boot_mode,ipmi_ip),log_file=log_file,date=True,log=log)
+            logging("Persistently Boot mode set to i{0} at {1}".format(boot_mode,ipmi_ip),log_file=log_file,date=True,log=log,log_level=7)
         else:
             ipmi_cmd(cmd='chassis bootdev {0} options=persistent'.format(boot_mode),ipmi_ip=ipmi_ip,ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,log=log)
-            logging("Persistently Boot mode set to {0} at {1}".format(boot_mode,ipmi_ip),log_file=log_file,date=True,log=log)
+            logging("Persistently Boot mode set to {0} at {1}".format(boot_mode,ipmi_ip),log_file=log_file,date=True,log=log,log_level=7)
     else:
         if boot_mode == 'pxe' and ipxe in ['on','ON','On',True,'True']:
                 ipmi_cmd(cmd='chassis bootdev {0} options=efiboot'.format(boot_mode),ipmi_ip=ipmi_ip,ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,log=log)
@@ -1093,7 +1093,7 @@ def set_boot_mode(ipmi_ip,ipmi_user,ipmi_pass,boot_mode,ipxe=False,persistent=Fa
                 ipmi_cmd(cmd='chassis bootparam set bootflag force_pxe'.format(boot_mode),ipmi_ip=ipmi_ip,ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,log=log)
             else:
                 ipmi_cmd(cmd='chassis bootdev {0}'.format(boot_mode),ipmi_ip=ipmi_ip,ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,log=log)
-        logging("Temporary Boot mode set to {0} at {1}".format(boot_mode,ipmi_ip),log_file=log_file,date=True,log=log)
+        logging("Temporary Boot mode set to {0} at {1}".format(boot_mode,ipmi_ip),log_file=log_file,date=True,log=log,log_level=7)
 
 
 def do_power(ipmi_ip,ipmi_user,ipmi_pass,mode,num=2,log_file=None,log=None):
@@ -1102,22 +1102,22 @@ def do_power(ipmi_ip,ipmi_user,ipmi_pass,mode,num=2,log_file=None,log=None):
         return [False,'Unknown power mode']
     power_step=len(power_mode[mode])-1
     for ii in range(1,int(num)+1):
-        logging("Power {} at {} (try:{}/{})".format(mode,ipmi_ip,ii,num),log_file=log_file,date=True,log=log)
+        logging("Power {} at {} (try:{}/{})".format(mode,ipmi_ip,ii,num),log_file=log_file,date=True,log=log,log_level=6)
         for rr in list(power_mode[mode]):
             verify_status=rr.split(' ')[-1]
             if verify_status in ['reset','cycle']:
                  sys_status=power_state(ipmi_ip,ipmi_user,ipmi_pass,log_file=log_file,log=log)
                  if sys_status[0] and sys_status[1] == 'off':
-                     logging(" ! can not {} the power at {} status".format(verify_status,sys_status[1]),log_file=log_file,date=True,log=log)
+                     logging(" ! can not {} the power at {} status".format(verify_status,sys_status[1]),log_file=log_file,date=True,log=log,log_level=3)
                      return [False,'can not {} at {} status'.format(verify_status,sys_status[1])]
             rc=ipmi_cmd(cmd=rr,ipmi_ip=ipmi_ip,ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,log=log)
             if rc[0] == 0:
-                logging(" + Do power {}".format(verify_status),log_file=log_file,date=True,log=log)
+                logging(" + Do power {}".format(verify_status),log_file=log_file,date=True,log=log,log_level=5)
                 if verify_status in ['reset','cycle']:
                     verify_status='on'
                     sleep(10)
             else:
-                logging(" ! power {} fail".format(verify_status),log_file=log_file,date=True,log=log)
+                logging(" ! power {} fail".format(verify_status),log_file=log_file,date=True,log=log,log_level=3)
                 break
             sys_status=power_state(ipmi_ip,ipmi_user,ipmi_pass,check_status=verify_status,log_file=log_file,log=log)
             if sys_status[0]:
@@ -1147,7 +1147,7 @@ def power_handle(ipmi_ip,mode='status',num=2,ipmi_user='ADMIN',ipmi_pass='ADMIN'
             boot_mode_state=get_boot_mode(ipmi_ip,ipmi_user,ipmi_pass,log_file=log_file,log=log)
             if (boot_mode == 'pxe' and boot_mode_state[0] is not False and 'PXE' in boot_mode_state[0]) and ipxe == boot_mode_state[1] and order == boot_mode_state[2]:
                 break
-            logging(" retry boot mode set {} (ipxe:{},force:{})[{}/5]".format(boot_mode,ipxe,order,ii),log_file=log_file,date=True,log=log)
+            logging(" retry boot mode set {} (ipxe:{},force:{})[{}/5]".format(boot_mode,ipxe,order,ii),log_file=log_file,date=True,log=log,log_level=3)
             time.sleep(2)
     rc=do_power(ipmi_ip,ipmi_user,ipmi_pass,mode,num=num,log_file=log_file,log=log)
 #    if ipxe in ['on','On',True,'True']:
@@ -1182,18 +1182,20 @@ def wait_ready_system(ipmi_ip,ipmi_user='ADMIN',ipmi_pass='ADMIN',timeout=1800,k
     node_change_count=0
 
     if count_down > 0:
-        logging("Wait until the system({}) is ready(keep {}sec)".format(ipmi_ip,keep_up),log_file=log_file,date=True,log=log)
+        logging("Wait until the system({}) is ready(keep {}sec)".format(ipmi_ip,keep_up),log_file=log_file,date=True,log=log,log_level=6)
     else:
-        logging("Wait until the system({}) is ready(keep {}sec) after down(check time: {} sec)".format(ipmi_ip,keep_up,down_monitor),log_file=log_file,date=True,log=log)
+        logging("Wait until the system({}) is ready(keep {}sec) after down(check time: {} sec)".format(ipmi_ip,keep_up,down_monitor),log_file=log_file,date=True,log=log,log_level=6)
     while True:
         if stop_func and type(stop_arg) is dict:
             if stop_func(**stop_arg) is True:
                 if log_type=='function':
-                    log("Got STOP signal",log_level=6)
+                    logging("Got STOP signal",log_file=log_file,date=True,log=log,log_level=3)
+#                    log("Got STOP signal",log_level=6)
                 return [False,'Got STOP signal']
         if do_sec - init_sec > timeout and node_state == node_old:
             if log_type=='function':
-                log("Time Out, node state is {}".format(node_state),log_level=6)
+                logging("TIme Out, node state is {}".format(node_state),log_file=log_file,date=True,log=log,log_level=3)
+#                log("Time Out, node state is {}".format(node_state),log_level=6)
             return [False,'Time Out, node state is {}'.format(node_state)]
         if ping(ipmi_ip,2):
             tempc=[]
@@ -1218,14 +1220,16 @@ def wait_ready_system(ipmi_ip,ipmi_user='ADMIN',ipmi_pass='ADMIN',timeout=1800,k
                  if (down_monitor == 0 or node_change) and node_state == 'up':
                      wait_count=wait_count+1
                      if wait_count > max_wait:
-                         if log_type=='function':
-                             log("The system ready",log_level=6)
+                         logging("System ready",log_file=log_file,date=True,log=log,log_level=6)
+                         #if log_type=='function':
+                         #    log("The system ready",log_level=6)
                          return [True,'System ready']
                  elif down_monitor > 0 and node_change is False and node_state in ['up','down']:
                      count_down=count_down-1
                      if count_down < 0:
-                         if log_type=='function':
-                             log("It did not changed state. still {}".format(node_state),log_level=6)
+                         logging("It did not changed state. still {}".format(node_state),log_file=log_file,date=True,log=log,log_level=3)
+                         #if log_type=='function':
+                         #    log("It did not changed state. still {}".format(node_state),log_level=6)
                          return [False,'It did not changed state. still {}'.format(node_state)]
                  if chk % 5 == 0:
                      if node_state != node_old:
@@ -1233,24 +1237,25 @@ def wait_ready_system(ipmi_ip,ipmi_user='ADMIN',ipmi_pass='ADMIN',timeout=1800,k
                      else:
                          mark='-'
                      if count_down > 0:
-                         logging(" {2} wait {1}sec for ready system({3}:{4}) at {0}".format(ipmi_ip, (timeout - (do_sec - init_sec)),mark,ipmi_user,ipmi_pass),log_file=log_file,date=True,log=log)
+                         logging(" {2} wait {1}sec for ready system({3}:{4}) at {0}".format(ipmi_ip, (timeout - (do_sec - init_sec)),mark,ipmi_user,ipmi_pass),log_file=log_file,date=True,log=log,log_level=6)
                      else:
-                         logging(" {2} wait {1}sec for ready system({3}:{4}) at {0} after down".format(ipmi_ip, (timeout - (do_sec - init_sec)),mark,ipmi_user,ipmi_pass),log_file=log_file,date=True,log=log)
+                         logging(" {2} wait {1}sec for ready system({3}:{4}) at {0} after down".format(ipmi_ip, (timeout - (do_sec - init_sec)),mark,ipmi_user,ipmi_pass),log_file=log_file,date=True,log=log,log_level=6)
                  node_old='{}'.format(node_state)
             else:
                 if chk % 5 == 0:
                     if count_down > 0:
-                        logging("Wait {1}sec for readable sensor data from the system({2}:{3}) at {0}".format(ipmi_ip, (timeout - (do_sec - init_sec)),ipmi_user,ipmi_pass),log_file=log_file,date=True,log=log)
+                        logging("Wait {1}sec for readable sensor data from the system({2}:{3}) at {0}".format(ipmi_ip, (timeout - (do_sec - init_sec)),ipmi_user,ipmi_pass),log_file=log_file,date=True,log=log,log_level=6)
                     else:
-                        logging("Wait {1}sec for readable sensor data from the system({2}:{3}) at {0} after down".format(ipmi_ip, (timeout - (do_sec - init_sec)),ipmi_user,ipmi_pass),log_file=log_file,date=True,log=log)
+                        logging("Wait {1}sec for readable sensor data from the system({2}:{3}) at {0} after down".format(ipmi_ip, (timeout - (do_sec - init_sec)),ipmi_user,ipmi_pass),log_file=log_file,date=True,log=log,log_level=6)
         else:
             if chk % 5 == 0:
-                logging(" - can't ping to {0}".format(ipmi_ip),log_file=log_file,date=True,log=log)
+                logging(" - can't ping to {0}".format(ipmi_ip),log_file=log_file,date=True,log=log,log_level=3)
         chk=chk+1
         sleep(interval)
         do_sec=int(datetime.now().strftime('%s'))
     if log_type=='function':
-        log("Unknown status",log_level=6)
+        logging("Unknown status",log_file=log_file,date=True,log=log,log_level=6)
+#        log("Unknown status",log_level=6)
     return [None,'Unknown status']
 
 #def get_lanmode(smcipmitool_file,smcipmitool_opt):
