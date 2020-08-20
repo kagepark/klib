@@ -579,7 +579,7 @@ class BMC:
     def is_down(self,ipmi={},timeout=240,interval=8): # Node state
         return self.node_state(state='down',ipmi=ipmi,timeout=timeout,keep_up=0,interval=interval) # Node state
 
-    def power_handle(self,cmd='status',retry=0,ipmi={},boot_mode=None,order=False,ipxe=False,log_file=None,log=None,force=False,mode=None,verify=True,keep_up=40,timeout=1200):
+    def power_handle(self,cmd='status',retry=0,ipmi={},boot_mode=None,order=False,ipxe=False,log_file=None,log=None,force=False,mode=None,verify=True,keep_up=20,timeout=1200,lanmode=None):
         ipmi=self.ipmi_info(ipmi)
         if ipmi[0] is False:
             return False,'wrong IP'
@@ -603,10 +603,25 @@ class BMC:
                     break
                 km.logging(' retry boot mode set {} (ipxe:{},force:{})[{}/5]'.format(boot_mode,ipxe,order,ii),log=self.log,log_level=6)
                 time.sleep(2)
-        km.logging('Do power {} '.format(cmd),log_level=3)
-        return self.power(cmd,ipmi=ipmi,retry=retry,verify=verify,timeout=timeout,keep_up=keep_up)
+        return self.power(cmd,ipmi=ipmi,retry=retry,verify=verify,timeout=timeout,keep_up=keep_up,lanmode=lanmode)
 
-    def power(self,cmd,ipmi={},retry=0,verify=True,timeout=1200,keep_up=40):
+    def power(self,cmd,ipmi={},retry=0,verify=True,timeout=1200,keep_up=40,lan_mode=None):
+        def lanmode_check(mode):
+            # BMC Lan mode Checkup
+            cur_lan_mode=self.lanmode()
+            if cur_lan_mode[0]:
+                if mode.lower() in cur_lan_mode[1].lower():
+                    return mode
+                else:
+                    if mode == 'onboard':
+                        rc=self.lanmode(mode=1) 
+                    elif mode == 'failover':
+                        rc=self.lanmode(mode=2) 
+                    else:
+                        rc=self.lanmode(mode=0) 
+                    if rc[0]:
+                        return mode
+
         power_mode=self.root.bmc.power_mode.GET(default=[])
         if cmd not in ['status','off_on'] + list(power_mode):
             return False,'Unknown command({})'.format(cmd)
@@ -616,6 +631,7 @@ class BMC:
             return False,'wrong IP'
         power_step=len(power_mode[cmd])-1
         for ii in range(1,int(retry)+2):
+            checked_lanmode=None
             init_rc=self.do_cmd('ipmi power status',ipmi=ipmi)
             if verify is False or cmd == 'status':
                 if init_rc[0]:
@@ -635,6 +651,10 @@ class BMC:
                         return True,verify_status,0
                     chk+=1
                     continue
+                # BMC Lan mode Checkup before power on/cycle/reset
+                if checked_lanmode is None and mode and verify_status in ['on','reset','cycle']:
+                   checked_lanmode=lanmode_check(lan_mode)
+
                 if verify_status in ['reset','cycle']:
                      if self.is_down(ipmi=ipmi)[0]:
                          km.logging(' ! can not {} the power at {} status'.format(verify_status,sys_status[1]),log=self.log,log_level=6)
@@ -693,15 +713,22 @@ if __name__ == "__main__":
         elif log_level < ll:
             print(msg)
 
-    if len(sys.argv) == 3:
+    dest_ip='172.16.219.108'
+    tool_path='/django/sumViewer.5/tools'
+    ipmi_user='ADMIN'
+    ipmi_pass='ADMIN'
+    if len(sys.argv) == 5:
         dest_ip=sys.argv[1]
         tool_path=sys.argv[2]
-    else:
-        print('{} <ipmi ip> <bin dir>'.format(sys.argv[0]))
+        ipmi_user=sys.argv[3]
+        ipmi_pass=sys.argv[4]
+    elif len(sys.argv) == 2 and sys.argv[1] in ['help','-h','--help']:
+        print('{} <ipmi ip> <bin dir> <ipmi_user> <ipmi_pass>'.format(sys.argv[0]))
         os._exit(1)
+
     print('Test at {}'.format(dest_ip))
     root=kDict.kDict()
-    bmc=BMC(root,ipmi_ip=dest_ip,ipmi_user='ADMIN',ipmi_pass='ADMIN',test_pass=['ADMIN','Admin'],test_user=['ADMIN','Admin'],timeout=1800,log=KLog,tool_path=tool_path)
+    bmc=BMC(root,ipmi_ip=dest_ip,ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,test_pass=['ADMIN','Admin'],test_user=['ADMIN','Admin'],timeout=1800,log=KLog,tool_path=tool_path)
     #bmc=BMC(root,ipmi_ip='172.16.220.135',ipmi_user='ADMIN',ipmi_pass='ADMIN',test_pass=['ADMIN','Admin'],test_user=['ADMIN','Admin'],timeout=1800,log=KLog)
     print(bmc.power_handle(cmd='status'))
     #print(bmc.power_handle(cmd='off_on'))
