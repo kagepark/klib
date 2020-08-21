@@ -347,29 +347,37 @@ def rshell(cmd,timeout=None,ansi=True,path=None):
     p = Popen(cmd_env+cmd , shell=True, stdout=PIPE, stderr=PIPE)
     out=None
     err=None
-    try:
-        if timeout is None:
-            out, err = p.communicate()
-        else:
-            try:
-                out, err = p.communicate(timeout=int(timeout))
-            except:
+    if timeout:
+        try:
+            timeout=int(timeout)
+        except:
+            timeout=600
+        if timeout < 3:
+            timeout=3
+    if is_py3():
+        try:
+            out, err = p.communicate(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            p.kill()
+            return -1, 'Kill process after timeout ({0} sec)'.format(timeout), 'Error: Kill process after Timeout {0}'.format(timeout),start_time,datetime.now().strftime('%s'),cmd,path
+    else:
+        if timeout:
+            countdown=int('{}'.format(timeout))
+            while p.poll() is None and countdown > 0:
+                time.sleep(2)
+                countdown -= 2
+            if countdown < 1:
                 p.kill()
-                return -1,'Timeout ({}sec)'.format(timeout),'{}\n{}'.format(out,err),start_time,start_time,datetime.now().strftime('%s'),cmd,path
-        if is_py3():
-            if ansi:
-                return p.returncode, out.decode("ISO-8859-1").rstrip(), err.decode("ISO-8859-1").rstrip(),start_time,datetime.now().strftime('%s'),cmd,path
-            else:
-                return p.returncode, ansi_escape.sub('',out).decode("ISO-8859-1").rstrip(), ansi_escape.sub('',err).decode("ISO-8859-1").rstrip(),start_time,datetime.now().strftime('%s'),cmd,path
-        else:
-            if ansi:
-                return p.returncode, out.rstrip(), err.rstrip(),start_time,datetime.now().strftime('%s'),cmd,path
-            else:
-                return p.returncode, ansi_escape.sub('',out).rstrip(), ansi_escape.sub('',err).rstrip(),start_time,datetime.now().strftime('%s'),cmd,path
-    except subprocess.TimeoutExpired:
-        p.kill()
-        return p.returncode, 'Kill process after timeout ({0} sec)'.format(timeout), 'Error: Kill process after Timeout {0}'.format(timeout),start_time,datetime.now().strftime('%s'),cmd,path
+                return -1, 'Kill process after timeout ({0} sec)'.format(timeout), 'Error: Kill process after Timeout {0}'.format(timeout),start_time,datetime.now().strftime('%s'),cmd,path
+        out, err = p.communicate()
 
+    if is_py3():
+        out=out.decode("ISO-8859-1")
+        err=err.decode("ISO-8859-1")
+    if ansi:
+        return p.returncode, out.rstrip(), err.rstrip(),start_time,datetime.now().strftime('%s'),cmd,path
+    else:
+        return p.returncode, ansi_escape.sub('',out).rstrip(), ansi_escape.sub('',err).rstrip(),start_time,datetime.now().strftime('%s'),cmd,path
 
 def sendanmail(to,subj,msg,html=True):
     if html:
@@ -1717,6 +1725,8 @@ def now():
 def timeout(timeout_sec,init_time=None,default=(24*3600)):
     if type(timeout_sec) is not int:
         timeout_sec=default
+        if timeout_sec < 3:
+           timeout_sec=3
     if type(init_time) is not int:
         init_time=int_sec()
     if int_sec() - init_time >  timeout_sec:

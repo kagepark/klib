@@ -89,14 +89,15 @@ class BMC:
                 opts.update(inp)
         rf=opts.get('rf','dict')
         ok=opts.get('ok',default.get('ok',[0,True]))
-        wrong=opts.get('wrong',default.get('wrong',[]))
+        fail=opts.get('fail',default.get('fail',[]))
+        error=opts.get('error',default.get('error',[127]))
         err_connection=opts.get('err_connection',default.get('err_connection',[]))
         err_key=opts.get('err_key',default.get('err_key',[]))
         err_bmc_user=opts.get('err_bmc_user',default.get('err_bmc_user',[]))
         if rf == 'tuple':
-            return ok,wrong,err_connection,err_bmc_user,err_key
+            return ok,fail,error,err_connection,err_bmc_user,err_key
         else:
-            return {'ok':ok,'wrong':wrong,'err_connection':err_connection,'err_bmc_user':err_bmc_user,'err_key':err_key}
+            return {'ok':ok,'fail':fail,'error':error,'err_connection':err_connection,'err_bmc_user':err_bmc_user,'err_key':err_key}
 
     def ipmi_info(self,inp=None,**opts):
         chk=True
@@ -180,7 +181,7 @@ class BMC:
         if ipmi[0]:
             bmc_cmd=self.bmc_cmd('ipmi power status',ipmi_mode=ipmi[1]['ipmi_mode'])
             if bmc_cmd[0]:
-                if self.run_cmd(bmc_cmd[1],ipmi=ipmi,return_code=self.rc_info(ok=[0],wrong=[1]))[0]: # if remove return_code's wrong=[1] then it will be infinity call looping between check_passwd() and run_cmd()
+                if self.run_cmd(bmc_cmd[1],ipmi=ipmi,return_code=self.rc_info(ok=[0],fail=[1]))[0]: # if remove return_code's fail=[1] then it will be infinity call looping between check_passwd() and run_cmd()
                     return True
         return False
 
@@ -280,12 +281,13 @@ class BMC:
                     self.log(' - Recover BMC ERROR !!! : from User({}) and Password ({}) to User({}) and Password({})\n{}'.format(ipmi_user,ipmi_pass,self.root.bmc.ipmi_user.GET(),self.root.bmc.ipmi_pass.GET(),rc),log_level=6)
                 return False,ipmi_user,ipmi_pass
 
-    def run_cmd(self,cmd,append=None,path=None,retry=0,timeout=None,ipmi={},return_code={'ok':[0,True],'wrong':[]}):
+    def run_cmd(self,cmd,append=None,path=None,retry=0,timeout=None,ipmi={},return_code={'ok':[0,True],'fail':[]}):
         # cmd format: <string> {ipmi_ip} <string2> {ipmi_user} <string3> {ipmi_pass} <string4>
         if type(cmd) is tuple and len(cmd) == 3:
             cmd,path,return_code=cmd
         rc_ok=return_code.get('ok',[0,True])
-        rc_wrong=return_code.get('wrong',[])
+        rc_fail=return_code.get('fail',[])
+        rc_error=return_code.get('error',[127])
         rc_err_connection=return_code.get('err_connection',[])
         rc_err_key=return_code.get('err_key',[])
         rc_err_bmc_user=return_code.get('err_bmc_user',[])
@@ -295,30 +297,50 @@ class BMC:
         if error:
             return False,'''BMC Error: {}'''.format(error)
         ipmi_ok,ipmi_ip,ipmi_user,ipmi_pass,ipmi_mode=self.ipmi_info(ipmi,rf='tuple')
-        msg='Timeout'
         if ipmi_ok:
             for i in range(0,2+retry):
+                if self.log and i > 1:
+                    self.log('Re-try command [{}/{}]'.format(i,retry+1),log_level=1)
                 cmd_str=cmd.format(ipmi_ip=ipmi_ip,ipmi_user=ipmi_user,ipmi_pass=ipmi_pass)+append
                 rc=km.rshell(cmd_str,path=path,timeout=timeout)
                 if km.check_value(rc[0],rc_ok):
-                    return True,rc
-                elif km.check_value(rc[0],rc_wrong):
-                    return False,rc
+                    return True,rc,'ok'
+                elif km.check_value(rc[0],rc_fail):
+                    return False,rc,'fail'
+                elif km.check_value(rc[0],[127]):
+                    return False,rc,'no command'
+                elif km.check_value(rc[0],rc_error):
+                    return False,rc,'error'
                 elif km.check_value(rc[0],rc_err_key):
-                    return False,'err_key'
+                    return False,rc,'err_key'
                 elif km.check_value(rc[0],rc_err_connection):
                     # retry again 
-                    time.sleep(3)
                     msg='err_connection'
+                    if self.log:
+                        self.log('Connection Error:',direct=True,log_level=1)
+                    init_time=None
+                    while True:
+                        if self.log:
+                            self.log('.',direct=True,log_level=1)
+                        ttt,init_time=km.timeout(timeout,init_time)
+                        if ttt:
+                            return False,rc,'net error'
+                        if self.ping(ipmi_ip):
+                            if self.log:
+                                self.log(' ',log_level=1)
+                            break
+                        time.sleep(5)
                 else:
                     if km.check_value(rc[0],rc_err_bmc_user):
                         ok,ipmi_user,ipmi_pass=self.find_user_pass(ipmi_user=ipmi_user,ipmi_pass=ipmi_pass)
                         if ok is False:
-                            return False,'Can not find working IPMI USER and PASSWORD'
+                            return False,'Can not find working IPMI USER and PASSWORD','user error'
+                        if self.log:
+                            self.log('Check IPMI User and Password: Found ({}/{})'.format(ipmi_user,ipmi_pass),log_level=5)
                     time.sleep(1)
-        return False,msg
+        return False,(-1,'timeout','timeout',0,0,cmd,path),'user error'
 
-    def do_cmd(self,cmd,path=None,retry=0,timeout=None,ipmi={},return_code={'ok':[0,True],'wrong':[]}):
+    def do_cmd(self,cmd,path=None,retry=0,timeout=None,ipmi={},return_code={'ok':[0,True],'fail':[]}):
         if type(cmd) is tuple and len(cmd) == 3:
             cmd,path,return_code=cmd
         def get_bmc_cmd(ipmi_mode):
@@ -446,8 +468,11 @@ class BMC:
 
     def bootorder(self,mode=None,ipxe=False,persistent=False,force=False,boot_mode=['pxe','ipxe','bios','hdd']):
         for i in range(0,2):
-            if mode is None:
+            if mode in [None,'order']:
                 rc=self.do_cmd('chassis bootparam get 5',ipmi=self.ipmi_info(ipmi_mode='ipmitool'))
+                if mode == 'order':
+                   if rc[0]:
+                       rc=True,km.findstr(rc[1],'- Boot Device Selector : (\w.*)')[0]
             else:
                 if not mode in boot_mode:
                     return False,'Unknown boot mode({})'.format(mode)
