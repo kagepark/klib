@@ -2142,6 +2142,35 @@ def string2data(string):
     except:
         return string
 
+def mount_samba(url,user,passwd,mount_point):
+    if os.path.isdir(mount_point) is False:
+        os.system('sudo mkdir -p {0}'.format(mount_point))
+        time.sleep(1)
+    if os.path.isdir(mount_point) is False:
+        return False,'can not make a {} directory'.format(mount_point),'can not make a {} directory'.format(mount_point),0,0,None,None
+    if 'smb://' in url:
+        url_a=url.split('/')
+        url_m=len(url_a)
+        iso_file=url_a[-1]
+        new_url=''
+        for i in url_a[2:url_m-1]:
+            new_url='{0}/{1}'.format(new_url,i)
+        return rshell('''sudo mount -t cifs -o user={0} -o password={1} /{2} {3}'''.format(user,passwd,new_url,mount_point))
+    else:
+        url_a=url.split('\\')
+        url_m=len(url_a)
+        iso_file=url_a[-1]
+        new_url=''
+        for i in url_a[1:url_m-1]:
+            new_url='{0}/{1}'.format(new_url,i)
+        return km.rshell('''sudo mount -t cifs -o user={0} -o password={1} {2} {3}'''.format(user,passwd,new_url,mount_point))
+
+def unmount(mount_point,del_dir=False):
+    rc=km.rshell('''[ -d {0} ] && sudo mountpoint {0} && sudo umount {0} && sleep 1'''.format(mount_point))
+    if rc[0] == 0 and del_dir:
+        os.system('[ -d {0} ] && rmdir {0}'.format(mount_point))
+    return rc
+
 if __name__ == "__main__":
     class ABC:
         uu=3
