@@ -379,7 +379,7 @@ class BMC:
     def get_mac(self,ipmi={}):
         ipmi_mac=self.root.bmc.ipmi_mac.GET(default=None)
         if ipmi_mac:
-            return ipmi_mac
+            return True,[ipmi_mac]
         rc=self.do_cmd('ipmi lan mac',ipmi=ipmi)
         if rc[0]:
             ipmi=self.ipmi_info(ipmi)
