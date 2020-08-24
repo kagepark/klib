@@ -7,10 +7,11 @@ import datetime
 import time
 import sys
 import kmisc as km
+import kDict
 
 class BMC:
-    def __init__(self,root,ipmi_ip=None,ipmi_user=None,ipmi_pass=None,uniq_ipmi_pass=None,log=None,timeout=1800,tool_path=None,ipmi_mode='ipmitool',smc_file=None,test_user=[],test_pass=[],log_level=5):
-        self.root=root
+    def __init__(self,root={},ipmi_ip=None,ipmi_user=None,ipmi_pass=None,uniq_ipmi_pass=None,log=None,timeout=1800,tool_path=None,ipmi_mode='ipmitool',smc_file=None,test_user=[],test_pass=[],log_level=5):
+        self.root=kDict.kDict(root)
         self.log=log
         # Initial Dictionary
         if ipmi_ip and (km.is_ipv4(ipmi_ip) is False or km.is_ipmi_ip(ipmi_ip) is False):
@@ -725,7 +726,6 @@ class BMC:
         return False,None
 
 if __name__ == "__main__":
-    import kDict
     import sys
     import os
     def KLog(msg,**agc):
@@ -752,8 +752,7 @@ if __name__ == "__main__":
         os._exit(1)
 
     print('Test at {}'.format(dest_ip))
-    root=kDict.kDict()
-    bmc=BMC(root,ipmi_ip=dest_ip,ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,test_pass=['ADMIN','Admin'],test_user=['ADMIN','Admin'],timeout=1800,log=KLog,tool_path=tool_path)
+    bmc=BMC(ipmi_ip=dest_ip,ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,test_pass=['ADMIN','Admin'],test_user=['ADMIN','Admin'],timeout=1800,log=KLog,tool_path=tool_path)
     #bmc=BMC(root,ipmi_ip='172.16.220.135',ipmi_user='ADMIN',ipmi_pass='ADMIN',test_pass=['ADMIN','Admin'],test_user=['ADMIN','Admin'],timeout=1800,log=KLog)
     print(bmc.power_handle(cmd='status'))
     #print(bmc.power_handle(cmd='off_on'))
