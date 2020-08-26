@@ -107,6 +107,8 @@ class BMC:
             type_inp=type(inp)
             if type_inp is tuple and inp[0] is True and type(inp[1]) is dict:
                 if not opts:
+                    inp[1]['ipmi_user']=self.root.bmc.cur_user.GET(default=inp[1].get('ipmi_user',None))
+                    inp[1]['ipmi_pass']=self.root.bmc.cur_pass.GET(default=inp[1].get('ipmi_pass',None))
                     if rf in ['tuple',tuple]:
                         return inp[0],inp[1]['ipmi_ip'],inp[1]['ipmi_user'],inp[1]['ipmi_pass'],inp[1]['ipmi_mode']
                     else:
@@ -145,7 +147,7 @@ class BMC:
             if ipmi_pass:
                 rc['ipmi_pass']=ipmi_pass
             if rc.get('ipmi_pass',None) is None:
-                rc['ipmi_pass']=self.root.bmc.cur_user.GET(default=None)
+                rc['ipmi_pass']=self.root.bmc.cur_pass.GET(default=None)
         ipmi_mode=opts.get('ipmi_mode',None)
         if ipmi_mode:
             self.root.bmc.PUT('ipmi_mode',ipmi_mode)
@@ -161,7 +163,7 @@ class BMC:
     def bmc_cmd(self,cmd,**opts):
         error=self.root.bmc.GET('error',default=None)
         if error:
-            return False,'''BMC Error: {}'''.format(error)
+            return False,'''BMC Error: {}'''.format(error),{}
         ipmi=self.ipmi_info(opts.get('ipmi',None),**opts)
         option=opts.get('option','lanplus')
         cmd_a=cmd.split()
@@ -172,7 +174,7 @@ class BMC:
             if self.smc_file is None:
                 if self.log:
                     self.log(' - SMCIPMITool({}) not found'.format(self.smc_file),log_level=5)
-                return False,'SMCIPMITool file not found'
+                return False,'SMCIPMITool file not found',{}
             if km.value_check(cmd_a,'chassis',0) and km.value_check(cmd_a,'power',1):
                 cmd_a[0] == 'ipmi'
             elif km.value_check(cmd_a,'mc',0) and km.value_check(cmd_a,'reset',1) and km.value_check(cmd_a,'cold',2):
@@ -181,12 +183,12 @@ class BMC:
                 cmd_a=['ipmi','lan','mac']
             elif km.value_check(cmd_a,'sdr',0) and km.value_check(cmd_a,'Temperature',2):
                 cmd_a=['ipmi','sensor']
-            return True,'''sudo java -jar %s {ipmi_ip} {ipmi_user} '{ipmi_pass}' %s'''%(self.smc_file,' '.join(cmd_a))
+            return True,'''sudo java -jar %s {ipmi_ip} {ipmi_user} '{ipmi_pass}' %s'''%(self.smc_file,' '.join(cmd_a)),{'ok':[0],'error':[180],'err_bmc_user':[146],'err_connection':[145]}
         elif ipmi_mode in ['ipmitool',None]:
             if self.ipmitool is False:
                 if self.log:
                     self.log('ipmitool package not found',log_level=5)
-                return False,'ipmitool package not found'
+                return False,'ipmitool package not found',{}
             if km.value_check(cmd_a,'ipmi',0) and km.value_check(cmd_a,'power',1) and km.get_value(cmd_a,2) in self.root.bmc.power_mode.GET():
                 cmd_a[0] = 'chassis'
             elif km.value_check(cmd_a,'ipmi',0) and km.value_check(cmd_a,'reset',1):
@@ -195,8 +197,9 @@ class BMC:
                 cmd_a=['lan','print']
             elif km.value_check(cmd_a,'ipmi',0) and km.value_check(cmd_a,'sensor',1):
                 cmd_a=['sdr','type','Temperature']
-            return True,'''ipmitool -I %s -H {ipmi_ip} -U {ipmi_user} -P '{ipmi_pass}' %s'''%(option,' '.join(cmd_a))
-        return False,'''Unknown mode({})'''.format(ipmi_mode)
+            #return True,'''ipmitool -I %s -H {ipmi_ip} -U {ipmi_user} -P '{ipmi_pass}' %s'''%(option,' '.join(cmd_a)),{'ok':[0],'err_bmc_user':[1]}
+            return True,'''ipmitool -I %s -H {ipmi_ip} -U {ipmi_user} -P '{ipmi_pass}' %s'''%(option,' '.join(cmd_a)),{'ok':[0],'error':[1]}
+        return False,'''Unknown mode({})'''.format(ipmi_mode),{}
 
     def check_passwd(self,**opts):
         ipmi=self.ipmi_info(**opts)
@@ -204,6 +207,7 @@ class BMC:
             bmc_cmd=self.bmc_cmd('ipmi power status',ipmi_mode=ipmi[1]['ipmi_mode'])
             if bmc_cmd[0]:
                 if self.run_cmd(bmc_cmd[1],ipmi=ipmi,return_code=self.rc_info(ok=[0],fail=[1]))[0]: # if remove return_code's fail=[1] then it will be infinity call looping between check_passwd() and run_cmd()
+                #if self.run_cmd(bmc_cmd[1],ipmi=ipmi,return_code=bmc_cmd[2])[0]: # if remove return_code's fail=[1] then it will be infinity call looping between check_passwd() and run_cmd()
                     return True
         return False
 
@@ -228,26 +232,26 @@ class BMC:
             default_range += 1
         # Find in default's information
         for uu in test_user_a:
+            self.root.bmc.PUT('cur_user',uu)
             for pp in test_pass_a[:default_range]:
+                self.root.bmc.PUT('cur_pass',pp)
                 if self.log:
                     self.log(' !! Try BMC password({}) and User({})'.format(pp,uu),log_level=6)
                 if self.check_passwd(ipmi_user=uu,ipmi_pass=pp):
-                    self.root.bmc.PUT('cur_user',uu)
-                    self.root.bmc.PUT('cur_pass',pp)
                     if self.log:
                         self.log(' !! Found working BMC password({}) and User({})'.format(pp,uu),log_level=7)
                     return True,uu,pp
         # Find in others temporary random passwords
         if len(test_pass_a) > default_range:
             for uu in test_user_a:
+                self.root.bmc.PUT('cur_user',uu)
                 for pp in test_pass_a[default_range:]:
+                    self.root.bmc.PUT('cur_pass',pp)
                     if self.log:
                         self.log(' !! Try BMC password({}) and User({})'.format(pp,uu),log_level=8)
                     if self.check_passwd(ipmi_user=uu,ipmi_pass=pp):
                         if self.log:
                             self.log(' !! Found working BMC password({}) and User({})'.format(pp,uu),log_level=7)
-                        self.root.bmc.PUT('cur_user',uu)
-                        self.root.bmc.PUT('cur_pass',pp)
                         return True,uu,pp
         if self.log:
             self.log(' Can not find working BMC User and password',log_level=1)
@@ -293,6 +297,8 @@ class BMC:
                 bmc_cmd=self.bmc_cmd("""user setpwd 2 Super123""",ipmi_mode='smc')
             else: # different user and password
                 bmc_cmd=self.bmc_cmd("""user add 2 {} Super123 4""".format(self.root.bmc.ipmi_user.GET()),ipmi_mode='smc')
+            if bmc_cmd[0] is False:
+                return bmc_cmd
             rc=km.do_cmd(bmc_cmd[1])
             if rc[0] == 0:
                 if self.log:
@@ -304,6 +310,9 @@ class BMC:
                 return False,ipmi_user,ipmi_pass
 
     def run_cmd(self,cmd,append=None,path=None,retry=0,timeout=None,ipmi={},return_code={'ok':[0,True],'fail':[]},show_str=False,dbg=False):
+        error=self.error()
+        if error[0]:
+            return False,'''{}'''.format(error[1])
         # cmd format: <string> {ipmi_ip} <string2> {ipmi_user} <string3> {ipmi_pass} <string4>
         if type(cmd) is tuple and len(cmd) == 3:
             cmd,path,return_code=cmd
@@ -324,11 +333,11 @@ class BMC:
                 if self.log and i > 1:
                     self.log('Re-try command [{}/{}]'.format(i,retry+1),log_level=1)
                 cmd_str=cmd.format(ipmi_ip=ipmi_ip,ipmi_user=ipmi_user,ipmi_pass=ipmi_pass)+append
-                if dbg or show_str:
-                   if self.log:
-                       self.log(' - CMD     : {}'.format(cmd_str),log_level=1)
-                       self.log(' - PATH    : {}'.format(path),log_level=1)
-                       self.log(' - RCODE   : {}'.format(return_code),log_level=1)
+                if self.log and (dbg or show_str):
+                   self.log(' - CMD     : {}'.format(cmd_str),log_level=1)
+                if dbg and self.log:
+                   self.log(' - PATH    : {}'.format(path),log_level=1)
+                   self.log(' - RCODE   : {}'.format(return_code),log_level=1)
                 rc=km.rshell(cmd_str,path=path,timeout=timeout)
                 if dbg and self.log:
                     self.log(' - RC: {}'.format(rc),log_level=1)
@@ -371,6 +380,9 @@ class BMC:
         return False,(-1,'timeout','timeout',0,0,cmd,path),'user error'
 
     def do_cmd(self,cmd,path=None,retry=0,timeout=None,ipmi={},return_code={'ok':[0,True],'fail':[]}):
+        error=self.error()
+        if error[0]:
+            return False,'''{}'''.format(error[1])
         if type(cmd) is tuple and len(cmd) == 3:
             cmd,path,return_code=cmd
         def get_bmc_cmd(ipmi_mode):
@@ -396,7 +408,10 @@ class BMC:
                 self.log(' - SMCIPMITool and ipmitool package not found',log_level=5)
             return False,'SMCIPMITool and ipmitool package not found'
         for bmc_cmd_do in bmc_cmd:
-            rc=self.run_cmd(bmc_cmd_do,path=path,retry=retry,timeout=timeout,ipmi=ipmi,return_code=return_code)
+            if type(bmc_cmd_do) is tuple:
+                rc=self.run_cmd(bmc_cmd_do[0],path=path,retry=retry,timeout=timeout,ipmi=ipmi,return_code=bmc_cmd_do[1])
+            else:
+                rc=self.run_cmd(bmc_cmd_do,path=path,retry=retry,timeout=timeout,ipmi=ipmi,return_code=return_code)
             if rc[0]:
                 # If change this rule then node_state will mixed up
                 return True,rc[1][1]
@@ -747,12 +762,22 @@ class BMC:
             bmc_cmd=self.bmc_cmd("""ipmi oem lani {}""".format(mode),ipmi_mode='smc')
         else:
             bmc_cmd=self.bmc_cmd("""ipmi oem lani""",ipmi_mode='smc')
-        lanmode_info=self.run_cmd(bmc_cmd[1],path=self.root.bmc.tool_path.GET(),ipmi=self.ipmi_info(ipmi_mode='smc'),return_code={'ok':[144]})
+        #lanmode_info=self.run_cmd(bmc_cmd[1],path=self.root.bmc.tool_path.GET(),ipmi=self.ipmi_info(ipmi_mode='smc'),return_code={'ok':[144]})
+        lanmode_info=self.run_cmd(bmc_cmd[1][0],path=self.root.bmc.tool_path.GET(),ipmi=self.ipmi_info(ipmi_mode='smc'),return_code=bmc_cmd[1][1])
         if lanmode_info[0]:
             a=km.findstr(lanmode_info[1][1],'Current LAN interface is \[ (\w.*) \]')
             if len(a) == 1:
                 return True,a[0]
         return False,None
+
+    def error(self):
+        err=self.root.bmc.GET('error',default=None)
+        if err is not None:
+            err_user_pass=err.get('user_pass',None)
+            if err_user_pass is not None:
+                if km.int_sec() - max(err_user_pass,key=int) < 10:
+                    return True,'''BMC User/Password Error'''
+        return False,'No Error'
 
 if __name__ == "__main__":
     import sys
