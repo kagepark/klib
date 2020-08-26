@@ -404,7 +404,7 @@ def mac2str(mac,case='lower'):
             mac=mac.strip().replace(':','').replace('-','').upper()
     return mac
 
-def str2mac(mac,sym=':',case='lower'):
+def str2mac(mac,sym=':',case='lower',chk=False):
     if type(mac) is str:
         cmac=mac.strip()
         if len(cmac) in [12,17]:
@@ -415,10 +415,16 @@ def str2mac(mac,sym=':',case='lower'):
                 mac=cmac.lower()
             else:
                 mac=cmac.upper()
+    if chk:
+        if is_mac4(mac,convert=False):
+            return mac
+        else:
+            return False
     return mac
 
-def is_mac4(mac=None,symbol=':'):
-    mac=str2mac(mac,sym=symbol)
+def is_mac4(mac=None,symbol=':',convert=True):
+    if convert:
+        mac=str2mac(mac,sym=symbol)
     if mac is None or type(mac) is not str:
         return False
     octets = mac.split(symbol)
@@ -441,7 +447,7 @@ def ereplace(pattern,sub,string):
 def md5(string):
     return hashlib.md5(_u_bytes(string)).hexdigest()
 
-def ipv4(ipaddr=None):
+def ipv4(ipaddr=None,chk=False):
     if type(ipaddr) is str:
         ipaddr_a=ipaddr.strip().split('.')
         new_ip=''
@@ -455,6 +461,11 @@ def ipv4(ipaddr=None):
             else:
                 new_ip=i
         if len(new_ip.split('.')) == 4:
+            if chk:
+                if is_ipv4(new_ip):
+                    return new_ip
+                else:
+                    return False
             return new_ip
     return False
 

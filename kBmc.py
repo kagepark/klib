@@ -101,41 +101,62 @@ class BMC:
             return {'ok':ok,'fail':fail,'error':error,'err_connection':err_connection,'err_bmc_user':err_bmc_user,'err_key':err_key}
 
     def ipmi_info(self,inp=None,**opts):
-        chk=True
+        rf=opts.pop('rf','dict')
+        rc={}
         if inp:
             type_inp=type(inp)
             if type_inp is tuple and inp[0] is True and type(inp[1]) is dict:
-                chk=False
-                opts.update(inp[1])
+                if not opts:
+                    if rf in ['tuple',tuple]:
+                        return inp[0],inp[1]['ipmi_ip'],inp[1]['ipmi_user'],inp[1]['ipmi_pass'],inp[1]['ipmi_mode']
+                    else:
+                        return inp
+                rc=inp[1]
             elif type_inp is dict:
-                opts.update(inp)
-        rf=opts.get('rf','dict')
-        default=opts.get('default',None)
-        ipmi_ip=opts.get('ipmi_ip',default)
-        if ipmi_ip is default:
-            ipmi_ip=self.root.bmc.ipmi_ip.GET(default=default)
-            if ipmi_ip is default:
+                rc=inp
+        ipmi_ip=opts.get('ipmi_ip',None)
+        if ipmi_ip:
+            ipmi_ip=km.ipv4(ipmi_ip,chk=True)
+            if ipmi_ip is False or km.is_ipmi_ip(ipmi_ip) is False:
                 return False,{'err':'{} is not IPMI IP'.format(ipmi_ip)}
-        elif chk:
-            if km.is_ipv4(ipmi_ip) is False or km.is_ipmi_ip(ipmi_ip) is False:
-                return False,{'err':'{} is not IPMI IP'.format(ipmi_ip)}
-        cur_user=opts.get('cur_user',default)
+            self.root.bmc.PUT('ipmi_ip',ipmi_ip)
+            rc['ipmi_ip']=ipmi_ip
+        else:
+            ipmi_ip=self.root.bmc.ipmi_ip.GET(default=None)
+            if ipmi_ip is None:
+                return False,{'err':'IPMI IP not found'}
+            rc['ipmi_ip']=ipmi_ip
+        cur_user=opts.get('cur_user',None)
         if cur_user:
             self.root.bmc.PUT('cur_user',cur_user)
-            ipmi_user=cur_user
+            rc['ipmi_user']=cur_user
         else:
-            ipmi_user=opts.get('ipmi_user',self.root.bmc.cur_user.GET())
-        cur_pass=opts.get('cur_pass',default)
+            ipmi_user=opts.get('ipmi_user',None)
+            if ipmi_user:
+                rc['ipmi_user']=ipmi_user
+            if rc.get('ipmi_user',None) is None:
+                rc['ipmi_user']=self.root.bmc.cur_user.GET(default=None)
+        cur_pass=opts.get('cur_pass',None)
         if cur_pass:
             self.root.bmc.PUT('cur_pass',cur_pass)
-            ipmi_pass=cur_pass
+            rc['ipmi_pass']=cur_pass
         else:
-            ipmi_pass=opts.get('ipmi_pass',self.root.bmc.cur_pass.GET())
-        ipmi_mode=opts.get('ipmi_mode',self.root.bmc.ipmi_mode.GET())
-        if rf == 'tuple':
-            return True,ipmi_ip,ipmi_user,ipmi_pass,ipmi_mode
+            ipmi_pass=opts.get('ipmi_pass',None)
+            if ipmi_pass:
+                rc['ipmi_pass']=ipmi_pass
+            if rc.get('ipmi_pass',None) is None:
+                rc['ipmi_pass']=self.root.bmc.cur_user.GET(default=None)
+        ipmi_mode=opts.get('ipmi_mode',None)
+        if ipmi_mode:
+            self.root.bmc.PUT('ipmi_mode',ipmi_mode)
+            rc['ipmi_mode']=ipmi_mode
         else:
-            return True,{'ipmi_ip':ipmi_ip,'ipmi_user':ipmi_user,'ipmi_pass':ipmi_pass,'ipmi_mode':ipmi_mode}
+            if rc.get('ipmi_mode',None) is None:
+                rc['ipmi_mode']=self.root.bmc.ipmi_mode.GET(default=None)
+        if rf in ['tuple',tuple]:
+            return True,rc['ipmi_ip'],rc['ipmi_user'],rc['ipmi_pass'],rc['ipmi_mode']
+        else:
+            return True,rc
 
     def bmc_cmd(self,cmd,**opts):
         error=self.root.bmc.GET('error',default=None)
@@ -282,7 +303,7 @@ class BMC:
                     self.log(' - Recover BMC ERROR !!! : from User({}) and Password ({}) to User({}) and Password({})\n{}'.format(ipmi_user,ipmi_pass,self.root.bmc.ipmi_user.GET(),self.root.bmc.ipmi_pass.GET(),rc),log_level=6)
                 return False,ipmi_user,ipmi_pass
 
-    def run_cmd(self,cmd,append=None,path=None,retry=0,timeout=None,ipmi={},return_code={'ok':[0,True],'fail':[]}):
+    def run_cmd(self,cmd,append=None,path=None,retry=0,timeout=None,ipmi={},return_code={'ok':[0,True],'fail':[]},show_str=False,dbg=False):
         # cmd format: <string> {ipmi_ip} <string2> {ipmi_user} <string3> {ipmi_pass} <string4>
         if type(cmd) is tuple and len(cmd) == 3:
             cmd,path,return_code=cmd
@@ -303,19 +324,15 @@ class BMC:
                 if self.log and i > 1:
                     self.log('Re-try command [{}/{}]'.format(i,retry+1),log_level=1)
                 cmd_str=cmd.format(ipmi_ip=ipmi_ip,ipmi_user=ipmi_user,ipmi_pass=ipmi_pass)+append
+                if dbg or show_str:
+                   if self.log:
+                       self.log(' - CMD     : {}'.format(cmd_str),log_level=1)
+                       self.log(' - PATH    : {}'.format(path),log_level=1)
+                       self.log(' - RCODE   : {}'.format(return_code),log_level=1)
                 rc=km.rshell(cmd_str,path=path,timeout=timeout)
-                if km.check_value(rc[0],rc_ok):
-                    return True,rc,'ok'
-                elif km.check_value(rc[0],rc_fail):
-                    return False,rc,'fail'
-                elif km.check_value(rc[0],[127]):
-                    return False,rc,'no command'
-                elif km.check_value(rc[0],rc_error):
-                    return False,rc,'error'
-                elif km.check_value(rc[0],rc_err_key):
-                    return False,rc,'err_key'
-                elif km.check_value(rc[0],rc_err_connection):
-                    # retry again 
+                if dbg and self.log:
+                    self.log(' - RC: {}'.format(rc),log_level=1)
+                if km.check_value(rc[0],rc_err_connection): # retry condition1
                     msg='err_connection'
                     if self.log:
                         self.log('Connection Error:',direct=True,log_level=1)
@@ -331,14 +348,26 @@ class BMC:
                                 self.log(' ',log_level=1)
                             break
                         time.sleep(5)
-                else:
-                    if km.check_value(rc[0],rc_err_bmc_user):
-                        ok,ipmi_user,ipmi_pass=self.find_user_pass(ipmi_user=ipmi_user,ipmi_pass=ipmi_pass)
-                        if ok is False:
-                            return False,'Can not find working IPMI USER and PASSWORD','user error'
-                        if self.log:
-                            self.log('Check IPMI User and Password: Found ({}/{})'.format(ipmi_user,ipmi_pass),log_level=5)
+                elif km.check_value(rc[0],rc_err_bmc_user): # retry condition1
+                    ok,ipmi_user,ipmi_pass=self.find_user_pass(ipmi_user=ipmi_user,ipmi_pass=ipmi_pass)
+                    if ok is False:
+                        return False,'Can not find working IPMI USER and PASSWORD','user error'
+                    if self.log:
+                        self.log('Check IPMI User and Password: Found ({}/{})'.format(ipmi_user,ipmi_pass),log_level=5)
                     time.sleep(1)
+                else: # Normal output
+                    if km.check_value(rc[0],[0]+rc_ok):
+                        return True,rc,'ok'
+                    elif km.check_value(rc[0],rc_fail):
+                        return False,rc,'fail'
+                    elif km.check_value(rc[0],[127]):
+                        return False,rc,'no command'
+                    elif km.check_value(rc[0],rc_error):
+                        return False,rc,'error'
+                    elif km.check_value(rc[0],rc_err_key):
+                        return False,rc,'err_key'
+                    else:
+                        return False,rc,'unknown'
         return False,(-1,'timeout','timeout',0,0,cmd,path),'user error'
 
     def do_cmd(self,cmd,path=None,retry=0,timeout=None,ipmi={},return_code={'ok':[0,True],'fail':[]}):
