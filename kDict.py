@@ -29,7 +29,7 @@ class kDict(dict):
     MARKER = {}
     _p_='._p'
     _d_='._d'
-    _n_=True
+    _n_=False # True: Notice to Standard error output
     _dfile_=None
 
     def __init__(self, value=None):
