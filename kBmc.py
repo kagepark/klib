@@ -236,6 +236,8 @@ class BMC:
         else:
             tt=1
         for t in range(0,tt):
+            if self.is_lost():
+                return False,'Lost network','Lost network'
             if t == 0:
                 test_pass_sample=test_pass_a[:default_range]
             else:
@@ -354,32 +356,13 @@ class BMC:
                     msg='err_connection'
                     if self.log:
                         self.log('Connection Error:',direct=True,log_level=1)
-                    init_time=None
-                    while True:
-                        if self.log:
-                            self.log('.',direct=True,log_level=1)
-                        ttt,init_time=km.timeout(timeout,init_time)
-                        if ttt:
-                            return False,rc,'net error'
-                        if self.ping(ipmi_ip):
-                            if self.log:
-                                self.log(' ',log_level=1)
-                            break
-                        time.sleep(5)
+                    #Check connection
+                    if self.is_lost():
+                        return False,rc,'net error'
                 elif i < 2 or km.check_value(rc[0],rc_err_bmc_user): # retry condition1
                     #Check connection
-                    init_time=None
-                    while True:
-                        ttt,init_time=km.timeout(timeout,init_time)
-                        if ttt:
-                            return False,rc,'net error'
-                        if self.ping(ipmi_ip):
-                            if self.log:
-                                self.log(' ',log_level=1)
-                            break
-                        if self.log:
-                            self.log('.',direct=True,log_level=1)
-                        time.sleep(5)
+                    if self.is_lost():
+                        return False,rc,'net error'
                     # Find Password
                     ok,ipmi_user,ipmi_pass=self.find_user_pass(ipmi_user=ipmi_user,ipmi_pass=ipmi_pass)
                     if ok is False:
@@ -558,6 +541,27 @@ class BMC:
         if ip is None:
             ip=self.root.bmc.ipmi_ip.GET()
         return km.ping(ip,test_num=test_num,retry=retry,wait=wait,keep=keep,log=self.log)
+
+    def is_lost(self,**opts):
+        #Check connection
+        ip=opts.get('ip',self.root.bmc.ipmi_ip.GET(default=None))
+        if ip is None:
+            return False,'Check IP not found'
+        timeout=opts.get('timeout',self.root.bmc.timeout.GET(default=1800))
+        init_time=None
+        while True:
+            ttt,init_time=km.timeout(timeout,init_time)
+            if ttt:
+                return True,'Lost network'
+            if self.error(_type='break'):
+                return True,'Stop process','Stop process'
+            if self.ping(ip):
+                if self.log:
+                    self.log(' ',log_level=1)
+                return False,'OK'
+            if self.log:
+                self.log('.',direct=True,log_level=1)
+            time.sleep(5)
 
     def info(self,**opts): # BMC is ready(hardware is ready)
         ipmi=self.ipmi_info(opts)
@@ -789,10 +793,16 @@ class BMC:
         else:
             err=self.root.bmc.GET('error',default=None)
             if err is not None:
+                if _type:
+                    if err.get(_type,None):
+                        return True,err[_type]
                 err_user_pass=err.get('user_pass',None)
                 if err_user_pass is not None:
                     if km.int_sec() - max(err_user_pass,key=int) < 10:
                         return True,'''ERR: BMC User/Password Error'''
+                if err.get('break',None):
+                    if km.int_sec() - max(err_user_pass,key=int) < 60:
+                        return True,'''User want Stop Process'''
         return False,'OK'
 
 if __name__ == "__main__":
@@ -824,7 +834,7 @@ if __name__ == "__main__":
     print('Test at {}'.format(dest_ip))
     bmc=BMC(ipmi_ip=dest_ip,ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,test_pass=['ADMIN','Admin'],test_user=['ADMIN','Admin'],timeout=1800,log=KLog,tool_path=tool_path,smc_file='SMCIPMITool.jar')
     #bmc=BMC(root,ipmi_ip='172.16.220.135',ipmi_user='ADMIN',ipmi_pass='ADMIN',test_pass=['ADMIN','Admin'],test_user=['ADMIN','Admin'],timeout=1800,log=KLog)
-    print(bmc.power_handle(cmd='status'))
+    #print(bmc.power_handle(cmd='status'))
     #print(bmc.power_handle(cmd='off_on'))
     print(bmc.info())
 
