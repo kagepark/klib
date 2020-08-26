@@ -236,7 +236,7 @@ class BMC:
         else:
             tt=1
         for t in range(0,tt):
-            if self.is_lost():
+            if self.is_lost()[0]:
                 return False,'Lost network','Lost network'
             if t == 0:
                 test_pass_sample=test_pass_a[:default_range]
@@ -357,11 +357,11 @@ class BMC:
                     if self.log:
                         self.log('Connection Error:',direct=True,log_level=1)
                     #Check connection
-                    if self.is_lost():
+                    if self.is_lost()[0]:
                         return False,rc,'net error'
                 elif i < 2 or km.check_value(rc[0],rc_err_bmc_user): # retry condition1
                     #Check connection
-                    if self.is_lost():
+                    if self.is_lost()[0]:
                         return False,rc,'net error'
                     # Find Password
                     ok,ipmi_user,ipmi_pass=self.find_user_pass(ipmi_user=ipmi_user,ipmi_pass=ipmi_pass)
@@ -553,7 +553,7 @@ class BMC:
             ttt,init_time=km.timeout(timeout,init_time)
             if ttt:
                 return True,'Lost network'
-            if self.error(_type='break'):
+            if self.error(_type='break')[0]:
                 return True,'Stop process','Stop process'
             if self.ping(ip):
                 if self.log:
@@ -794,13 +794,13 @@ class BMC:
             err=self.root.bmc.GET('error',default=None)
             if err is not None:
                 if _type:
-                    if err.get(_type,None):
+                    if err.get(_type,None) is not None:
                         return True,err[_type]
                 err_user_pass=err.get('user_pass',None)
                 if err_user_pass is not None:
                     if km.int_sec() - max(err_user_pass,key=int) < 10:
                         return True,'''ERR: BMC User/Password Error'''
-                if err.get('break',None):
+                if err.get('break',None) is not None:
                     if km.int_sec() - max(err_user_pass,key=int) < 60:
                         return True,'''User want Stop Process'''
         return False,'OK'
