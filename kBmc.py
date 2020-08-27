@@ -10,7 +10,7 @@ import kmisc as km
 import kDict
 
 class BMC:
-    def __init__(self,root={},ipmi_ip=None,ipmi_user=None,ipmi_pass=None,uniq_ipmi_pass=None,log=None,timeout=1800,tool_path=None,ipmi_mode='ipmitool',smc_file=None,test_user=[],test_pass=[],log_level=5):
+    def __init__(self,root={},ipmi_ip=None,ipmi_user=None,ipmi_pass=None,uniq_ipmi_pass=None,log=None,timeout=1800,tool_path=None,ipmi_mode='ipmitool',smc_file=None,test_user=['ADMIN','Admin','admin','root','Administrator'],test_pass=['ADMIN','Admin','admin','root','Administrator'],log_level=5):
         self.root=kDict.kDict(root)
         self.log=log
         # Initial Dictionary
@@ -23,8 +23,10 @@ class BMC:
             os._exit(1)
         else:
             self.root.bmc.PUT('ipmi_ip',ipmi_ip,new=True)
-        self.test_user=['ADMIN','Admin','admin','root','Administrator']
-        self.test_pass=['ADMIN','Admin','admin','root','Administrator']
+        self.root.bmc.PUT('test_user',test_user,proper={'readonly':True})
+        self.root.bmc.PUT('test_pass',test_pass,proper={'readonly':True})
+#        self.test_user=['ADMIN','Admin','admin','root','Administrator']
+#        self.test_pass=['ADMIN','Admin','admin','root','Administrator']
         # If need update initial data then update
         self.root.bmc.PUT('timeout',timeout,{'readonly':True})
         self.root.bmc.PUT('power_mode',{'on':['chassis power on'],'off':['chassis power off'],'reset':['chassis power reset'],'off_on':['chassis power off','chassis power on'],'on_off':['chassis power on','chassis power off'],'cycle':['chassis power cycle'],'status':['chassis power status']},{'readonly':True})
@@ -32,23 +34,23 @@ class BMC:
         self.root.bmc.PUT('ipmi_pass',ipmi_pass,{'readonly':True})
         self.root.bmc.PUT('cur_user',ipmi_user,new=True)
         self.root.bmc.PUT('cur_pass',ipmi_pass,new=True)
-        for ii in test_user:
-            if ii not in self.test_user:
-                self.test_user.append(ii)
-        for ii in test_pass:
-            if ii not in self.test_pass:
-                self.test_pass.append(ii)
-        if self.root.bmc.ipmi_user.GET() in self.test_user:
-            self.test_user.remove(self.root.bmc.ipmi_user.GET())
-        self.root.bmc.PUT('test_user',[self.root.bmc.ipmi_user.GET()]+self.test_user,new=True)
-        if uniq_ipmi_pass:
-            self.root.bmc.PUT('uniq_pass',uniq_ipmi_pass,{'readonly':True})
-            if uniq_ipmi_pass in self.test_pass:
-                self.test_pass.remove(uniq_ipmi_pass)
-            self.test_pass=[uniq_ipmi_pass]+self.test_pass
-        if self.root.bmc.ipmi_pass.GET() in self.test_pass:
-            self.test_pass.remove(self.root.bmc.ipmi_pass.GET())
-        self.root.bmc.PUT('test_pass',[self.root.bmc.ipmi_pass.GET()]+self.test_pass,new=True)
+#        for ii in test_user:
+#            if ii not in self.test_user:
+#                self.test_user.append(ii)
+#        for ii in test_pass:
+#            if ii not in self.test_pass:
+#                self.test_pass.append(ii)
+#        if self.root.bmc.ipmi_user.GET() in self.test_user:
+#            self.test_user.remove(self.root.bmc.ipmi_user.GET())
+#        self.root.bmc.PUT('test_user',[self.root.bmc.ipmi_user.GET()]+self.test_user,new=True)
+#        if uniq_ipmi_pass:
+#            self.root.bmc.PUT('uniq_pass',uniq_ipmi_pass,{'readonly':True})
+#            if uniq_ipmi_pass in self.test_pass:
+#                self.test_pass.remove(uniq_ipmi_pass)
+#            self.test_pass=[uniq_ipmi_pass]+self.test_pass
+#        if self.root.bmc.ipmi_pass.GET() in self.test_pass:
+#            self.test_pass.remove(self.root.bmc.ipmi_pass.GET())
+#        self.root.bmc.PUT('test_pass',[self.root.bmc.ipmi_pass.GET()]+self.test_pass,new=True)
         self.root.bmc.PUT('tool_path',tool_path,{'readonly':True})
         self.root.bmc.PUT('smc_file',smc_file,{'readonly':True})
         self.smc_file='/'.join(self.root.bmc.LIST(['tool_path','smc_file']))
@@ -107,8 +109,6 @@ class BMC:
             type_inp=type(inp)
             if type_inp is tuple and inp[0] is True and type(inp[1]) is dict:
                 if not opts:
-                    inp[1]['ipmi_user']=self.root.bmc.cur_user.GET(default=inp[1].get('ipmi_user',None))
-                    inp[1]['ipmi_pass']=self.root.bmc.cur_pass.GET(default=inp[1].get('ipmi_pass',None))
                     if rf in ['tuple',tuple]:
                         return inp[0],inp[1]['ipmi_ip'],inp[1]['ipmi_user'],inp[1]['ipmi_pass'],inp[1]['ipmi_mode']
                     else:
@@ -135,6 +135,7 @@ class BMC:
         else:
             ipmi_user=opts.get('ipmi_user',None)
             if ipmi_user:
+                self.root.bmc.PUT('cur_user',ipmi_user)
                 rc['ipmi_user']=ipmi_user
             if rc.get('ipmi_user',None) is None:
                 rc['ipmi_user']=self.root.bmc.cur_user.GET(default=None)
@@ -145,9 +146,17 @@ class BMC:
         else:
             ipmi_pass=opts.get('ipmi_pass',None)
             if ipmi_pass:
+                self.root.bmc.PUT('cur_pass',ipmi_pass)
                 rc['ipmi_pass']=ipmi_pass
             if rc.get('ipmi_pass',None) is None:
                 rc['ipmi_pass']=self.root.bmc.cur_pass.GET(default=None)
+        uniq_pass=opts.get('uniq_pass',None)
+        if uniq_pass and self.root.bmc.uniq_pass.GET(default=None) is None:
+            self.root.bmc.PUT('uniq_pass',uniq_pass,{'readonly':True})
+            rc['uniq_pass']=uniq_pass
+        else:
+            if rc.get('uniq_pass',None) is None:
+                rc['uniq_pass']=self.root.bmc.uniq_pass.GET(default=None)
         ipmi_mode=opts.get('ipmi_mode',None)
         if ipmi_mode:
             self.root.bmc.PUT('ipmi_mode',ipmi_mode)
@@ -211,25 +220,44 @@ class BMC:
                     return True
         return False
 
-    def find_user_pass(self,ipmi_user=None,ipmi_pass=None):
-        test_user_a=self.root.bmc.test_user.GET()[:]
-        test_pass_a=self.root.bmc.test_pass.GET()[:]
-        default_range=3
-        ipmi_ok,ipmi_ip,ipmi_user,ipmi_pass,ipmi_mode=self.ipmi_info(ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,rf='tuple')
-        if ipmi_ok is False:
-            return False,None,None
-        # ipmi user
-        if ipmi_user:
+    def set_test_user_pass_data(self,**opts):
+        test_user_a=self.root.bmc.test_user.GET(default=['ADMIN','Admin','Administrator','root'])
+        test_pass_a=self.root.bmc.test_pass.GET(default=['ADMIN','Admin','Administrator','root'])
+        ipmi_user=opts.get('ipmi_user',None)
+        if ipmi_user is not None:
             if ipmi_user in test_user_a:
                 test_user_a.remove(ipmi_user)
-            test_user_a=['{}'.format(ipmi_user)] + test_user_a
-        # ipmi password
-        if ipmi_pass:
+            test_user_a=[ipmi_user]+test_user_a
+        uniq_pass=opts.get('uniq_pass',self.root.bmc.uniq_pass.GET(default=None))
+        if uniq_pass is not None:
+            if uniq_pass in test_pass_a:
+                test_pass_a.remove(uniq_pass)
+            test_pass_a=[uniq_pass]+test_pass_a
+        ipmi_pass=opts.get('ipmi_pass',None)
+        if ipmi_pass is not None:
             if ipmi_pass in test_pass_a:
                 test_pass_a.remove(ipmi_pass)
-                default_range -= 1
-            test_pass_a=['''{}'''.format(ipmi_pass)] + test_pass_a
-            default_range += 1
+            test_pass_a=[ipmi_pass]+test_pass_a
+        return test_user_a,test_pass_a
+
+    def find_user_pass(self,ipmi_user=None,ipmi_pass=None):
+        ipmi_ok,ipmi_ip,ipmi_user,ipmi_pass,ipmi_mode=self.ipmi_info(ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,rf='tuple')
+        test_user_a,test_pass_a=self.set_test_user_pass_data(ipmi_user=ipmi_user,ipmi_pass=ipmi_pass)
+        default_range=4
+        if ipmi_ok is False:
+            return False,None,None
+#        # ipmi user
+#        if ipmi_user:
+#            if ipmi_user in test_user_a:
+#                test_user_a.remove(ipmi_user)
+#            test_user_a=['{}'.format(ipmi_user)] + test_user_a
+#        # ipmi password
+#        if ipmi_pass:
+#            if ipmi_pass in test_pass_a:
+#                test_pass_a.remove(ipmi_pass)
+#                default_range -= 1
+#            test_pass_a=['''{}'''.format(ipmi_pass)] + test_pass_a
+#            default_range += 1
         # Find in default's information
         if len(test_pass_a) > default_range:
             tt=2
@@ -426,6 +454,7 @@ class BMC:
             if ipmi[0]:
                 ipmi_mode=ipmi[1].get('ipmi_mode',None)
                 if ipmi_mode == 'smc':
+                    self.root.bmc.PUT('ipmi_mac',rc[1].lower(),{'readonly':True})
                     return True,[rc[1].lower()]
                 else:
                     for ii in rc[1].split('\n'):
@@ -556,8 +585,6 @@ class BMC:
             if self.error(_type='break')[0]:
                 return True,'Stop process','Stop process'
             if self.ping(ip):
-                if self.log:
-                    self.log(' ',log_level=1)
                 return False,'OK'
             if self.log:
                 self.log('.',direct=True,log_level=1)
