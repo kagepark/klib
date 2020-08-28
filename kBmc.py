@@ -246,25 +246,12 @@ class BMC:
         default_range=4
         if ipmi_ok is False:
             return False,None,None
-#        # ipmi user
-#        if ipmi_user:
-#            if ipmi_user in test_user_a:
-#                test_user_a.remove(ipmi_user)
-#            test_user_a=['{}'.format(ipmi_user)] + test_user_a
-#        # ipmi password
-#        if ipmi_pass:
-#            if ipmi_pass in test_pass_a:
-#                test_pass_a.remove(ipmi_pass)
-#                default_range -= 1
-#            test_pass_a=['''{}'''.format(ipmi_pass)] + test_pass_a
-#            default_range += 1
-        # Find in default's information
         if len(test_pass_a) > default_range:
             tt=2
         else:
             tt=1
         for t in range(0,tt):
-            if self.is_lost()[0]:
+            if km.is_lost(ipmi_ip,log=self.log,stop_func=self.error(_type='break')[0])[0]:
                 return False,'Lost network','Lost network'
             if t == 0:
                 test_pass_sample=test_pass_a[:default_range]
@@ -385,11 +372,11 @@ class BMC:
                     if self.log:
                         self.log('Connection Error:',direct=True,log_level=1)
                     #Check connection
-                    if self.is_lost()[0]:
+                    if km.is_lost(ipmi_ip,log=self.log,stop_func=self.error(_type='break')[0])[0]:
                         return False,rc,'net error'
                 elif i < 2 or km.check_value(rc[0],rc_err_bmc_user): # retry condition1
                     #Check connection
-                    if self.is_lost()[0]:
+                    if km.is_lost(ipmi_ip,log=self.log,stop_func=self.error(_type='break')[0])[0]:
                         return False,rc,'net error'
                     # Find Password
                     ok,ipmi_user,ipmi_pass=self.find_user_pass(ipmi_user=ipmi_user,ipmi_pass=ipmi_pass)
@@ -440,9 +427,19 @@ class BMC:
                 return True,rc[1][1]
         return False,'Timeout'
 
-    def reset(self,cmd,ipmi={},retry=0):
-        rc=self.do_cmd('ipmi reset',ipmi=ipmi,retry=retry)
-        return rc[0]
+    def reset(self,ipmi={},retry=0,keep=20):
+        for i in range(0,1+retry):
+            rc=self.do_cmd('ipmi reset',ipmi=ipmi,retry=retry)
+            if rc[0]:
+                ipmi=self.ipmi_info(ipmi=ipmi)
+                if ipmi[0]:
+                    if km.is_comeback(ipmi[1]['ipmi_ip'],keep=keep,log=self.log,stop_func=self.error(_type='break')[0]):
+                        return True,'Reset BMC and Pinging to BMC'
+                    else:
+                        return False,'Reset BMC but can not Pinging to BMC'
+            time.sleep(5)
+        return rc
+            
 
     def get_mac(self,ipmi={}):
         ipmi_mac=self.root.bmc.ipmi_mac.GET(default=None)
@@ -570,25 +567,6 @@ class BMC:
         if ip is None:
             ip=self.root.bmc.ipmi_ip.GET()
         return km.ping(ip,test_num=test_num,retry=retry,wait=wait,keep=keep,log=self.log)
-
-    def is_lost(self,**opts):
-        #Check connection
-        ip=opts.get('ip',self.root.bmc.ipmi_ip.GET(default=None))
-        if ip is None:
-            return False,'Check IP not found'
-        timeout=opts.get('timeout',self.root.bmc.timeout.GET(default=1800))
-        init_time=None
-        while True:
-            ttt,init_time=km.timeout(timeout,init_time)
-            if ttt:
-                return True,'Lost network'
-            if self.error(_type='break')[0]:
-                return True,'Stop process','Stop process'
-            if self.ping(ip):
-                return False,'OK'
-            if self.log:
-                self.log('.',direct=True,log_level=1)
-            time.sleep(5)
 
     def info(self,**opts): # BMC is ready(hardware is ready)
         ipmi=self.ipmi_info(opts)
@@ -845,23 +823,35 @@ if __name__ == "__main__":
         elif log_level < ll:
             print(msg)
 
-    dest_ip='172.16.219.108'
     tool_path='/django/sumViewer.5/tools'
+    ipmi_ip='172.16.219.108'
     ipmi_user='ADMIN'
     ipmi_pass='ADMIN'
-    if len(sys.argv) == 5:
-        dest_ip=sys.argv[1]
-        tool_path=sys.argv[2]
-        ipmi_user=sys.argv[3]
-        ipmi_pass=sys.argv[4]
-    elif len(sys.argv) == 2 and sys.argv[1] in ['help','-h','--help']:
-        print('{} <ipmi ip> <bin dir> <ipmi_user> <ipmi_pass>'.format(sys.argv[0]))
+    ipxe=False
+    print(sys.argv)
+    if len(sys.argv) == 2 and sys.argv[1] in ['help','-h','--help']:
+        print('{} -i <ipmi ip> -u <ipmi_user> -p <ipmi_pass> -t <tool path>'.format(sys.argv[0]))
         os._exit(1)
 
-    print('Test at {}'.format(dest_ip))
-    bmc=BMC(ipmi_ip=dest_ip,ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,test_pass=['ADMIN','Admin'],test_user=['ADMIN','Admin'],timeout=1800,log=KLog,tool_path=tool_path,smc_file='SMCIPMITool.jar')
+    for ii in range(1,len(sys.argv)):
+        if sys.argv[ii] == '-i':
+            ipmi_ip=sys.argv[ii+1]
+        elif sys.argv[ii] == '-u':
+            ipmi_user=sys.argv[ii+1]
+        elif sys.argv[ii] == '-p':
+            ipmi_pass=sys.argv[ii+1]
+        elif sys.argv[ii] == '-t':
+            tool_path=sys.argv[ii+1]
+        elif sys.argv[ii] == '-ipxe':
+            if sys.argv[ii+1] in ['true','True','on','On']:
+                ipxe=True
+
+    print('Test at {}'.format(ipmi_ip))
+    bmc=BMC(ipmi_ip=ipmi_ip,ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,test_pass=['ADMIN','Admin'],test_user=['ADMIN','Admin'],timeout=1800,log=KLog,tool_path=tool_path,smc_file='SMCIPMITool.jar')
     #bmc=BMC(root,ipmi_ip='172.16.220.135',ipmi_user='ADMIN',ipmi_pass='ADMIN',test_pass=['ADMIN','Admin'],test_user=['ADMIN','Admin'],timeout=1800,log=KLog)
     #print(bmc.power_handle(cmd='status'))
     #print(bmc.power_handle(cmd='off_on'))
     print(bmc.info())
+    #aa=bmc.reset()
+    #print(aa)
 

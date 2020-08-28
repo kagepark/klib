@@ -864,6 +864,48 @@ def ping(host,test_num=3,retry=1,wait=1,keep=0, timeout=60,lost_mon=False,log=No
        time.sleep(wait)
     return False
 
+def is_lost(ip,**opts):
+    timeout_sec=opts.get('timeout',1800)
+    interval=opts.get('interval',5)
+    stop_func=opts.get('stop_func',None)
+    log=opts.get('log',None)
+    init_time=None
+    while True:
+        ttt,init_time=timeout(timeout_sec,init_time)
+        if ttt:
+            return True,'Timeout monitor'
+        if stop_func:
+            return True,'Stopped monitor by Custom'
+        if ping(ip):
+            return False,'OK'
+        if log:
+            log('.',direct=True,log_level=1)
+        time.sleep(interval)
+
+def is_comeback(ip,**opts):
+    timeout_sec=opts.get('timeout',1800)
+    interval=opts.get('interval',3)
+    keep=opts.get('keep',20)
+    stop_func=opts.get('stop_func',None)
+    log=opts.get('log',None)
+    init_time=None
+    run_time=int_sec()
+    while True:
+        ttt,init_time=timeout(timeout_sec,init_time)
+        if ttt:
+            return False,'Timeout monitor'
+        if stop_func is True:
+            return True,'Stopped monitor by Custom'
+        if ping(ip):
+            if (int_sec() - run_time) > keep:
+                return True,'OK'
+            if log:
+                log('*',direct=True,log_level=1)
+        else:
+            run_time=int_sec()
+            if log:
+                log('.',direct=True,log_level=1)
+        time.sleep(interval)
 
 def get_function_args(func,mode='defaults'):
     rc={}
@@ -2174,10 +2216,10 @@ def mount_samba(url,user,passwd,mount_point):
         new_url=''
         for i in url_a[1:url_m-1]:
             new_url='{0}/{1}'.format(new_url,i)
-        return km.rshell('''sudo mount -t cifs -o user={0} -o password={1} {2} {3}'''.format(user,passwd,new_url,mount_point))
+        return rshell('''sudo mount -t cifs -o user={0} -o password={1} {2} {3}'''.format(user,passwd,new_url,mount_point))
 
 def unmount(mount_point,del_dir=False):
-    rc=km.rshell('''[ -d {0} ] && sudo mountpoint {0} && sudo umount {0} && sleep 1'''.format(mount_point))
+    rc=rshell('''[ -d {0} ] && sudo mountpoint {0} && sudo umount {0} && sleep 1'''.format(mount_point))
     if rc[0] == 0 and del_dir:
         os.system('[ -d {0} ] && rmdir {0}'.format(mount_point))
     return rc
