@@ -164,6 +164,10 @@ class BMC:
         else:
             if rc.get('ipmi_mode',None) is None:
                 rc['ipmi_mode']=self.root.bmc.ipmi_mode.GET(default=None)
+        ipmi_mac=opts.get('ipmi_mac',None)
+        if ipmi_mac and self.root.bmc.ipmi_mac.GET(default=None) is None:
+            self.root.bmc.PUT('ipmi_mac',ipmi_mac,{'readonly':True})
+            rc['ipmi_mac']=ipmi_mac
         if rf in ['tuple',tuple]:
             return True,rc['ipmi_ip'],rc['ipmi_user'],rc['ipmi_pass'],rc['ipmi_mode']
         else:
@@ -348,7 +352,10 @@ class BMC:
             for i in range(0,2+retry):
                 if self.log and i > 1:
                     self.log('Re-try command [{}/{}]'.format(i,retry+1),log_level=1)
-                cmd_str=cmd.format(ipmi_ip=ipmi_ip,ipmi_user=ipmi_user,ipmi_pass=ipmi_pass)+append
+                if km.findstr(cmd,'%s'):
+                    cmd_str=cmd%(ipmi_ip,ipmi_user,ipmi_pass)+append
+                else:
+                    cmd_str=cmd.format(ipmi_ip=ipmi_ip,ipmi_user=ipmi_user,ipmi_pass=ipmi_pass)+append
                 if self.log and (dbg or show_str):
                    self.log(' - CMD     : {}'.format(cmd_str),log_level=1)
                 if dbg and self.log:
