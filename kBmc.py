@@ -10,23 +10,21 @@ import kmisc as km
 import kDict
 
 class BMC:
-    def __init__(self,root={},ipmi_ip=None,ipmi_user=None,ipmi_pass=None,uniq_ipmi_pass=None,log=None,timeout=1800,tool_path=None,ipmi_mode='ipmitool',smc_file=None,test_user=['ADMIN','Admin','admin','root','Administrator'],test_pass=['ADMIN','Admin','admin','root','Administrator'],log_level=5):
+    def __init__(self,root={},ipmi_ip=None,ipmi_user=None,ipmi_pass=None,uniq_ipmi_pass=None,log=None,timeout=1800,tool_path=None,ipmi_mode='ipmitool',smc_file=None,test_user=['ADMIN','Admin','admin','root','Administrator'],test_pass=['ADMIN','Admin','admin','root','Administrator'],log_level=5,ipmi_port=623):
         self.root=kDict.kDict(root)
         self.log=log
         # Initial Dictionary
-        if ipmi_ip and (km.is_ipv4(ipmi_ip) is False or km.is_ipmi_ip(ipmi_ip) is False):
-            if self.log:
-                self.log('{} is not IPMI IP\n'.format(ipmi_ip),log_level=1)
-            else:
+        if ipmi_ip and (km.is_ipv4(ipmi_ip) is False or km.is_port_ip(ipmi_ip,ipmi_port) is False):
+        #    if self.log:
+        #        self.log('{} is not IPMI IP\n'.format(ipmi_ip),log_level=1)
+        #    else:
                 sys.stderr.write('{} is not IPMI IP\n'.format(ipmi_ip))
                 sys.stderr.flush()
-            os._exit(1)
+                os._exit(1)
         else:
             self.root.bmc.PUT('ipmi_ip',ipmi_ip,new=True)
         self.root.bmc.PUT('test_user',test_user,proper={'readonly':True})
         self.root.bmc.PUT('test_pass',test_pass,proper={'readonly':True})
-#        self.test_user=['ADMIN','Admin','admin','root','Administrator']
-#        self.test_pass=['ADMIN','Admin','admin','root','Administrator']
         # If need update initial data then update
         self.root.bmc.PUT('timeout',timeout,{'readonly':True})
         self.root.bmc.PUT('power_mode',{'on':['chassis power on'],'off':['chassis power off'],'reset':['chassis power reset'],'off_on':['chassis power off','chassis power on'],'on_off':['chassis power on','chassis power off'],'cycle':['chassis power cycle'],'status':['chassis power status']},{'readonly':True})
@@ -34,23 +32,9 @@ class BMC:
         self.root.bmc.PUT('ipmi_pass',ipmi_pass,{'readonly':True})
         self.root.bmc.PUT('cur_user',ipmi_user,new=True)
         self.root.bmc.PUT('cur_pass',ipmi_pass,new=True)
-#        for ii in test_user:
-#            if ii not in self.test_user:
-#                self.test_user.append(ii)
-#        for ii in test_pass:
-#            if ii not in self.test_pass:
-#                self.test_pass.append(ii)
-#        if self.root.bmc.ipmi_user.GET() in self.test_user:
-#            self.test_user.remove(self.root.bmc.ipmi_user.GET())
-#        self.root.bmc.PUT('test_user',[self.root.bmc.ipmi_user.GET()]+self.test_user,new=True)
-#        if uniq_ipmi_pass:
-#            self.root.bmc.PUT('uniq_pass',uniq_ipmi_pass,{'readonly':True})
-#            if uniq_ipmi_pass in self.test_pass:
-#                self.test_pass.remove(uniq_ipmi_pass)
-#            self.test_pass=[uniq_ipmi_pass]+self.test_pass
-#        if self.root.bmc.ipmi_pass.GET() in self.test_pass:
-#            self.test_pass.remove(self.root.bmc.ipmi_pass.GET())
-#        self.root.bmc.PUT('test_pass',[self.root.bmc.ipmi_pass.GET()]+self.test_pass,new=True)
+        #if ipmi_port:
+        #    self.root.bmc.PUT('ipmi_port',ipmi_port,proper={'readonly':True})
+        self.root.bmc.PUT('ipmi_port',ipmi_port)
         self.root.bmc.PUT('tool_path',tool_path,{'readonly':True})
         self.root.bmc.PUT('smc_file',smc_file,{'readonly':True})
         self.smc_file='/'.join(self.root.bmc.LIST(['tool_path','smc_file']))
@@ -119,7 +103,7 @@ class BMC:
         ipmi_ip=opts.get('ipmi_ip',None)
         if ipmi_ip:
             ipmi_ip=km.ipv4(ipmi_ip,chk=True)
-            if ipmi_ip is False or km.is_ipmi_ip(ipmi_ip) is False:
+            if ipmi_ip is False or km.is_port_ip(ipmi_ip,ipmi_ip.get('ipmi_port',self.root.bmc.ipmi_port.GET('ipmi_port',623))) is False:
                 return False,{'err':'{} is not IPMI IP'.format(ipmi_ip)}
             self.root.bmc.PUT('ipmi_ip',ipmi_ip)
             rc['ipmi_ip']=ipmi_ip
@@ -164,10 +148,21 @@ class BMC:
         else:
             if rc.get('ipmi_mode',None) is None:
                 rc['ipmi_mode']=self.root.bmc.ipmi_mode.GET(default=None)
-        ipmi_mac=opts.get('ipmi_mac',None)
-        if ipmi_mac and self.root.bmc.ipmi_mac.GET(default=None) is None:
-            self.root.bmc.PUT('ipmi_mac',ipmi_mac,{'readonly':True})
+        ipmi_mac=self.root.bmc.ipmi_mac.GET(default=None)
+        if ipmi_mac:
             rc['ipmi_mac']=ipmi_mac
+        else:
+            ipmi_mac=opts.get('ipmi_mac',None)
+            if ipmi_mac:
+                self.root.bmc.PUT('ipmi_mac',ipmi_mac,{'readonly':True})
+                rc['ipmi_mac']=ipmi_mac
+        ipmi_port=opts.get('ipmi_port',None)
+        if ipmi_port:
+            self.root.bmc.PUT('ipmi_port',ipmi_port)
+            rc['ipmi_port']=ipmi_port
+        else:
+            if rc.get('ipmi_port',None) is None:
+                rc['ipmi_port']=self.root.bmc.ipmi_port.GET(default=623)
         if rf in ['tuple',tuple]:
             return True,rc['ipmi_ip'],rc['ipmi_user'],rc['ipmi_pass'],rc['ipmi_mode']
         else:
@@ -188,13 +183,13 @@ class BMC:
                 if self.log:
                     self.log(' - SMCIPMITool({}) not found'.format(self.smc_file),log_level=5)
                 return False,'SMCIPMITool file not found',{}
-            if km.value_check(cmd_a,'chassis',0) and km.value_check(cmd_a,'power',1):
+            if km.check_value(cmd_a,'chassis',0) and km.check_value(cmd_a,'power',1):
                 cmd_a[0] == 'ipmi'
-            elif km.value_check(cmd_a,'mc',0) and km.value_check(cmd_a,'reset',1) and km.value_check(cmd_a,'cold',2):
+            elif km.check_value(cmd_a,'mc',0) and km.check_value(cmd_a,'reset',1) and km.check_value(cmd_a,'cold',2):
                 cmd_a=['ipmi','reset']
-            elif km.value_check(cmd_a,'lan',0) and km.value_check(cmd_a,'print',1):
+            elif km.check_value(cmd_a,'lan',0) and km.check_value(cmd_a,'print',1):
                 cmd_a=['ipmi','lan','mac']
-            elif km.value_check(cmd_a,'sdr',0) and km.value_check(cmd_a,'Temperature',2):
+            elif km.check_value(cmd_a,'sdr',0) and km.check_value(cmd_a,'Temperature',2):
                 cmd_a=['ipmi','sensor']
             return True,'''sudo java -jar %s {ipmi_ip} {ipmi_user} '{ipmi_pass}' %s'''%(self.smc_file,' '.join(cmd_a)),{'ok':[0,144],'error':[180],'err_bmc_user':[146],'err_connection':[145]}
         elif ipmi_mode in ['ipmitool',None]:
@@ -202,13 +197,13 @@ class BMC:
                 if self.log:
                     self.log('ipmitool package not found',log_level=5)
                 return False,'ipmitool package not found',{}
-            if km.value_check(cmd_a,'ipmi',0) and km.value_check(cmd_a,'power',1) and km.get_value(cmd_a,2) in self.root.bmc.power_mode.GET():
+            if km.check_value(cmd_a,'ipmi',0) and km.check_value(cmd_a,'power',1) and km.get_value(cmd_a,2) in self.root.bmc.power_mode.GET():
                 cmd_a[0] = 'chassis'
-            elif km.value_check(cmd_a,'ipmi',0) and km.value_check(cmd_a,'reset',1):
+            elif km.check_value(cmd_a,'ipmi',0) and km.check_value(cmd_a,'reset',1):
                 cmd_a=['mc','reset','cold']
-            elif km.value_check(cmd_a,'ipmi',0) and km.value_check(cmd_a,'lan',1) and km.value_check(cmd_a,'mac',2):
+            elif km.check_value(cmd_a,'ipmi',0) and km.check_value(cmd_a,'lan',1) and km.check_value(cmd_a,'mac',2):
                 cmd_a=['lan','print']
-            elif km.value_check(cmd_a,'ipmi',0) and km.value_check(cmd_a,'sensor',1):
+            elif km.check_value(cmd_a,'ipmi',0) and km.check_value(cmd_a,'sensor',1):
                 cmd_a=['sdr','type','Temperature']
             return True,'''ipmitool -I %s -H {ipmi_ip} -U {ipmi_user} -P '{ipmi_pass}' %s'''%(option,' '.join(cmd_a)),{'ok':[0],'fail':[1]}
         return False,'''Unknown mode({})'''.format(ipmi_mode),{}
@@ -352,10 +347,15 @@ class BMC:
             for i in range(0,2+retry):
                 if self.log and i > 1:
                     self.log('Re-try command [{}/{}]'.format(i,retry+1),log_level=1)
-                if km.findstr(cmd,'%s'):
-                    cmd_str=cmd%(ipmi_ip,ipmi_user,ipmi_pass)+append
+#                if km.findstr(cmd,'%s'):
+#                    cmd_str=cmd%(ipmi_ip,ipmi_user,ipmi_pass)+append
+#                else:
+#                    cmd_str=cmd.format(ipmi_ip=ipmi_ip,ipmi_user=ipmi_user,ipmi_pass=ipmi_pass)+append
+                if km.format_string_dict(cmd):
+                    cmd_str=km.format_string(cmd,{'ipmi_ip':ipmi_ip,'ipmi_user':ipmi_user,'ipmi_pass':ipmi_pass})[1] + append
                 else:
-                    cmd_str=cmd.format(ipmi_ip=ipmi_ip,ipmi_user=ipmi_user,ipmi_pass=ipmi_pass)+append
+                    cmd_str=km.format_string(cmd,(ipmi_ip,ipmi_user,ipmi_pass))[1] + append
+
                 if self.log and (dbg or show_str):
                    self.log(' - CMD     : {}'.format(cmd_str),log_level=1)
                 if dbg and self.log:
@@ -364,24 +364,24 @@ class BMC:
                 rc=km.rshell(cmd_str,path=path,timeout=timeout)
                 if dbg and self.log:
                     self.log(' - RC: {}'.format(rc),log_level=1)
-                if km.check_value(rc[0],[0]+rc_ok):
+                if km.check_value([0]+rc_ok,rc[0]):
                     return True,rc,'ok'
-                elif km.check_value(rc[0],rc_fail):
+                elif km.check_value(rc_fail,rc[0]):
                     return False,rc,'fail'
-                elif km.check_value(rc[0],[127]):
+                elif km.check_value([127],rc[0]):
                     return False,rc,'no command'
-                elif km.check_value(rc[0],rc_error):
+                elif km.check_value(rc_error,rc[0]):
                     return False,rc,'error'
-                elif km.check_value(rc[0],rc_err_key):
+                elif km.check_value(rc_err_key,rc[0]):
                     return False,rc,'err_key'
-                elif km.check_value(rc[0],rc_err_connection): # retry condition1
+                elif km.check_value(rc_err_connection,rc[0]): # retry condition1
                     msg='err_connection'
                     if self.log:
                         self.log('Connection Error:',direct=True,log_level=1)
                     #Check connection
                     if km.is_lost(ipmi_ip,log=self.log,stop_func=self.error(_type='break')[0])[0]:
                         return False,rc,'net error'
-                elif i < 2 or km.check_value(rc[0],rc_err_bmc_user): # retry condition1
+                elif i < 2 or km.check_value(rc_err_bmc_user,rc[0]): # retry condition1
                     #Check connection
                     if km.is_lost(ipmi_ip,log=self.log,stop_func=self.error(_type='break')[0])[0]:
                         return False,rc,'net error'
@@ -449,23 +449,27 @@ class BMC:
             
 
     def get_mac(self,ipmi={}):
+        ipmi=self.ipmi_info(ipmi)
+        if ipmi[0] is False:
+            return False,[]
+        ipmi_mac=ipmi[1].get('ipmi_mac',None)
+        if ipmi_mac:
+            return True,[ipmi_mac]
         ipmi_mac=self.root.bmc.ipmi_mac.GET(default=None)
         if ipmi_mac:
             return True,[ipmi_mac]
         rc=self.do_cmd('ipmi lan mac',ipmi=ipmi)
         if rc[0]:
-            ipmi=self.ipmi_info(ipmi)
-            if ipmi[0]:
-                ipmi_mode=ipmi[1].get('ipmi_mode',None)
-                if ipmi_mode == 'smc':
-                    self.root.bmc.PUT('ipmi_mac',rc[1].lower(),{'readonly':True})
-                    return True,[rc[1].lower()]
-                else:
-                    for ii in rc[1].split('\n'):
-                        ii_a=ii.split()
-                        if ii_a[0] == 'MAC' and ii_a[1] == 'Address' and ii_a[2] == ':':
-                            self.root.bmc.PUT('ipmi_mac',ii_a[-1].lower(),{'readonly':True})
-                            return True,[ii_a[-1].lower()]
+            ipmi_mode=ipmi[1].get('ipmi_mode',None)
+            if ipmi_mode == 'smc':
+                self.root.bmc.PUT('ipmi_mac',rc[1].lower(),{'readonly':True})
+                return True,[rc[1].lower()]
+            else:
+                for ii in rc[1].split('\n'):
+                    ii_a=ii.split()
+                    if len(ii_a) > 3 and ii_a[0] == 'MAC' and ii_a[1] == 'Address' and ii_a[2] == ':':
+                        self.root.bmc.PUT('ipmi_mac',ii_a[-1].lower(),{'readonly':True})
+                        return True,[ii_a[-1].lower()]
         return False,[]
 
     def get_eth_mac(self,ipmi={}):
@@ -499,7 +503,7 @@ class BMC:
             if rc[0]:
                 for ii in rc[1].split('\n'):
                     ii_a=ii.split()
-                    if ii_a[0] == 'IP' and ii_a[1] == 'Address' and ii_a[2] == 'Source':
+                    if len(ii) > 3 and ii_a[0] == 'IP' and ii_a[1] == 'Address' and ii_a[2] == 'Source':
                         return True,ii_a[-2]
         return False,None
 
@@ -517,7 +521,7 @@ class BMC:
             if rc[0]:
                 for ii in rc[1].split('\n'):
                     ii_a=ii.split()
-                    if ii_a[0] == 'Default' and ii_a[1] == 'Gateway' and ii_a[2] == 'IP':
+                    if len(ii_a) > 3 and ii_a[0] == 'Default' and ii_a[1] == 'Gateway' and ii_a[2] == 'IP':
                         return True,ii_a[-1]
         return False,None
 
@@ -535,7 +539,7 @@ class BMC:
             if rc[0]:
                 for ii in rc[1].split('\n'):
                     ii_a=ii.split()
-                    if ii_a[0] == 'Subnet' and ii_a[1] == 'Mask':
+                    if len(ii_a) > 2 and ii_a[0] == 'Subnet' and ii_a[1] == 'Mask':
                         return True,ii_a[-1]
         return False,None
 
@@ -859,6 +863,7 @@ if __name__ == "__main__":
     #print(bmc.power_handle(cmd='status'))
     #print(bmc.power_handle(cmd='off_on'))
     print(bmc.info())
+    print(bmc.ipmi_info())
     #aa=bmc.reset()
     #print(aa)
 

@@ -62,22 +62,37 @@ def std_err(msg,direct=False):
         sys.stderr.write('{}\n'.format(msg))
     sys.stderr.flush()
     
-def timechk(time='0',wait='0',tformat=None):
-    if tformat is None:
-        now=int(datetime.now().strftime('%s'))
+def format_string(string,inps):
+    type_inps=type(inps)
+    if type_inps is dict:
+        if '%(' in string:
+            if '%s' in string:
+                return False,"name placehoder can't get %s format"
+            return True,string % inps
+        elif re.compile('{(\w.*)}').findall(string):
+            if re.compile('{\d*}').findall(string):
+                return False,"name placehoder can't get {} format"
+            return True,string.format(**inps)
     else:
-        if time == '0':
-            now=datetime.now().strftime(tformat)
-        else:
-            now=int(datetime.strptime(str(time),tformat).strftime('%s'))
+        if '%s' in string and type_inps in [tuple,list]:
+            if '%(' in string:
+                return False,"%s format string can't get name placeholder format"
+            return True,string % tuple(inps)
+        elif re.compile('{\d*}').findall(string) and type_inps in [tuple,list]:
+            if re.compile('{(\w.*)}').findall(string):
+                return False,"{} format string can't get name placeholder format"
+            return True,string.format(*tuple(inps))
 
-    if tformat is None and str(time).isdigit() and int(time) > 0 and int(wait) > 0:
-        if now - int(time) > int(wait):
-            return False
-        else:
-            return True
+def format_string_dict(string):
+    if '%(' in string or re.compile('{(\w.*)}').findall(string):
+        return True
+    return False
+    
+def format_time(time=0,tformat='%s'):
+    if time in [0,'0',None]:
+        return datetime.now().strftime(tformat)
     else:
-        return now
+        return datetime.strptime(str(time),tformat)
 
 def get_caller_fcuntion_name(detail=False):
     try:
@@ -103,7 +118,7 @@ def log_format(*msg,**opts):
         intro=''
         intro_space=''
         if log_date_format or log_intro > 2:
-            intro=timechk(tformat=log_date_format)+' '
+            intro=format_time(tformat=log_date_format)+' '
         if func_name or log_intro > 1:
             if type(func_name) is str:
                 intro=intro+'{0}() '.format(func_name)
@@ -469,12 +484,12 @@ def ipv4(ipaddr=None,chk=False):
             return new_ip
     return False
 
-def is_ipmi_ip(ipadd):
+def is_port_ip(ipadd,port):
     tcp_sk = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     tcp_sk.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     tcp_sk.settimeout(1)
     try:
-        tcp_sk.connect((ipadd,623))
+        tcp_sk.connect((ipadd,port))
         return True
     except:
         return False
@@ -1890,19 +1905,18 @@ def net_put_data(IP,data,PORT=8805,key='kg',timeout=3,try_num=1,try_wait=[1,10],
 
 def make_second(try_wait=None):
     wait_time=1
-    try_wait_type=type(try_wait)
-    if try_wait in [None,True]:
-        time.sleep(wait_time)
-    if try_wait_type is list:
-        if len(try_wait) == 2:
-            wait_time=random.randint(int(try_wait[0]),int(try_wait[1]))
-        else:
-            wait_time=int(try_wait[0])
-    elif try_wait_type is str:
-        if try_wait.isdigit():
-            wait_time=int(try_wait)
-    elif try_wait_type is int:
-        wait_time=try_wait
+    if try_wait:
+        try_wait_type=type(try_wait)
+        if try_wait_type is list:
+            if len(try_wait) == 1:
+                wait_time=int(try_wait[0])
+            else:
+                wait_time=random.randint(int(try_wait[0]),int(try_wait[-1]))
+        elif try_wait_type is str:
+            if try_wait.isdigit():
+                wait_time=int(try_wait)
+        elif try_wait_type is int:
+            wait_time=try_wait
     return wait_time
 
 def web_server_ip(request):
@@ -1983,14 +1997,6 @@ def web_req(host_url,**opts):
                 printf("Server({}:{}) has no response (wait {}/{} (10s))".format(server_a[0],server_a[1],j,max_try),dsp='e',log=log,log_level=log_level,logfile=logfile)
         time.sleep(10)
     return False,'TimeOut'
-
-def remove_end_new_line(data,new_line='\n'):
-    if type(data) is str:
-        data_a=data.split(new_line)
-        if data_a[-1] == '':
-            del data_a[-1]
-        return '\n'.join(data_a)
-    return data
 
 def screen_logging(title,cmd):
     # ipmitool -I lanplus -H 172.16.114.80 -U ADMIN -P ADMIN sol activate
@@ -2084,57 +2090,24 @@ def screen_monitor(title,cmd,find=[],timeout=600):
             time.sleep(1)
     return False
 
-def value_check(src,val,key=None):
+def check_value(src,find,idx=None):
+    '''Check key or value in the dict, list or tuple then True, not then False'''
     type_src=type(src)
-    if type_src is list:
-        len_src=len(src)
-        if key is None:
-            if val in src:
+    if type_src in [list,tuple,str,dict]:
+        if idx is None:
+            if find in src:
                 return True
         else:
-            if type(key) in [str,int]:
-                key=int(key)
-                if len_src > key:
-                    if src[key] == val:
+            if type_src in [list,tuple,dict]:
+                if src[idx] == find:
+                    return True
+            elif type_src is str:
+                if idx < 0:
+                    if src[idx-len(find):idx] == find:
                         return True
-    elif type_src is dict:
-        if key is None:
-            for ii in src:
-                if val == src[ii]:
-                    return True
-        else:
-            if key in src and val == src[key]:
-                return True
-    elif type_src is str:
-        if key is None:
-            if val in src:
-                return True
-        else:
-            if type(key) is int:
-                if key < 0:
-                    if val == src[key-len(val):]:
-                         return True
-                elif key == 0:
-                    if val == src[:len(val)]:
-                         return True
                 else:
-                    if val == src[key:key+len(val)]:
-                         return True
-    return False
-
-def check_value(val,pool):
-    type_pool=type(pool)
-    if type_pool is dict:
-        pool=list(pool.keys())
-        type_pool=list
-    if type_pool in [list,tuple]:
-        for ii in pool:
-            if isinstance(ii,bool):
-                if isinstance(val,bool) and ii == val:
-                    return True
-            else:
-                if ii == val:
-                    return True
+                    if src[idx:idx+len(find)] == find:
+                        return True
     return False
 
 def get_value(src,key=None,default=None):
@@ -2224,6 +2197,24 @@ def unmount(mount_point,del_dir=False):
         os.system('[ -d {0} ] && rmdir {0}'.format(mount_point))
     return rc
 
+def append(src,addendum):
+    type_src=type(src)
+    type_data=type(addendum)
+    if type_src == type_data:
+        if type_src is dict:
+            return src.update(addendum)
+        elif type_src in [list,tuple]:
+            src=list(src)
+            for ii in addendum:
+                if ii not in src:
+                    src.append(ii)
+            if type_src is tuple:
+                src=tuple(src)
+            return src
+        elif type_src is str:
+            return src+addendum
+    return False
+
 if __name__ == "__main__":
     class ABC:
         uu=3
@@ -2233,3 +2224,4 @@ if __name__ == "__main__":
     print(get_value(ABC(),'b',default=None))
     print(get_value(ABC(),'uu',default=None))
     print(get_value(ABC(),'ux',default=None))
+
