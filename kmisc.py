@@ -82,6 +82,8 @@ def format_string(string,inps):
             if re.compile('{(\w.*)}').findall(string):
                 return False,"{} format string can't get name placeholder format"
             return True,string.format(*tuple(inps))
+        else:
+            return None,string
 
 def format_string_dict(string):
     if '%(' in string or re.compile('{(\w.*)}').findall(string):
@@ -883,6 +885,7 @@ def is_lost(ip,**opts):
     timeout_sec=opts.get('timeout',1800)
     interval=opts.get('interval',5)
     stop_func=opts.get('stop_func',None)
+    cancel_func=opts.get('cancel_func',None)
     log=opts.get('log',None)
     init_time=None
     while True:
@@ -890,7 +893,9 @@ def is_lost(ip,**opts):
         if ttt:
             return True,'Timeout monitor'
         if stop_func:
-            return True,'Stopped monitor by Custom'
+            return True,'Stopped monitor by Error'
+        if cancel_func:
+            return True,'Cencel monitor by Custom'
         if ping(ip):
             return False,'OK'
         if log:
@@ -902,6 +907,7 @@ def is_comeback(ip,**opts):
     interval=opts.get('interval',3)
     keep=opts.get('keep',20)
     stop_func=opts.get('stop_func',None)
+    cancel_func=opts.get('cancel_func',None)
     log=opts.get('log',None)
     init_time=None
     run_time=int_sec()
@@ -910,6 +916,8 @@ def is_comeback(ip,**opts):
         if ttt:
             return False,'Timeout monitor'
         if stop_func is True:
+            return True,'Stopped monitor by Error'
+        if cancel_func is True:
             return True,'Stopped monitor by Custom'
         if ping(ip):
             if (int_sec() - run_time) > keep:

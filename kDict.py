@@ -214,10 +214,15 @@ class kDict(dict):
             self.__getitem__(key).PROPER('force',True)
         self.__delitem__(key) # delete data with __delitem() in this class
 
-    def CD(self,path):
+    def CD(self,path,force=False):
         path_a=path.split('/')
         for p in path_a:
+            if self._d_ in self:
+                self=self[self._d_]
             if p in self:
+                self=self[p]
+            elif force:
+                super(kDict, self).__setitem__(p, kDict.MARKER)
                 self=self[p]
             else:
                 return False
@@ -290,8 +295,11 @@ class kDict(dict):
             return len(self)-1
         return len(self)
 
-    def PRINT(self):
-        pprint.pprint(self)
+    def PRINT(self,whole=False):
+        if whole:
+            pprint.pprint(self)
+        else:
+            pprint.pprint(self.GET())
 
     def SAVE(self):
         if self._dfile_ :
