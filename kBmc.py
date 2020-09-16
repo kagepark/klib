@@ -15,7 +15,7 @@ class Ipmitool:
         self.__name__='ipmitool'
         self.tool_path=None
         self.log=opts.get('log',None)
-        self.power_mode=opts.get('power_mode',{'on':['chassis power on'],'off':['chassis power off'],'reset':['chassis power reset'],'off_on':['chassis power off','chassis power on'],'on_off':['chassis power on','chassis power off'],'cycle':['chassis power cycle'],'status':['chassis power status']})
+        self.power_mode=opts.get('power_mode',{'on':['chassis power on'],'off':['chassis power off'],'reset':['chassis power reset'],'off_on':['chassis power off','chassis power on'],'on_off':['chassis power on','chassis power off'],'cycle':['chassis power cycle'],'status':['chassis power status'],'shutdown':['chassis power soft']})
         self.ipmitool=True
         if find_executable('ipmitool') is False:
             self.ipmitool=False
@@ -46,7 +46,7 @@ class Smcipmitool:
         if self.tool_path and os.path.isdir(self.tool_path):
             self.smc_file='{}/{}'.format(self.tool_path,opts.get('smc_file',None))
         self.log=opts.get('log',None)
-        self.power_mode=opts.get('power_mode',{'on':['chassis power on'],'off':['chassis power off'],'reset':['chassis power reset'],'off_on':['chassis power off','chassis power on'],'on_off':['chassis power on','chassis power off'],'cycle':['chassis power cycle'],'status':['chassis power status']})
+        self.power_mode=opts.get('power_mode',{'on':['ipmi power up'],'off':['ipmi power down'],'reset':['ipmi power reset'],'off_on':['ipmi power down','ipmi power up'],'on_off':['ipmi power up','ipmi power down'],'cycle':['ipmi power cycle'],'status':['ipmi power status'],'shutdown':['ipmi power softshutdown']})
 
     def cmd_str(self,cmd,**opts):
         cmd_a=cmd.split()
@@ -408,33 +408,54 @@ class kBmc:
                             return True,ii_a[-1]
         return False,None
 
-    def bootorder(self,mode=None,ipxe=False,persistent=False,force=False,boot_mode=['pxe','ipxe','bios','hdd']):
-        mm=self.get_mode('ipmitool')
-        if not mm:
-            return False,'ipmitool module not found'
-        if mode in [None,'order']:
-            rc=self.run_cmd(mm.cmd_str('chassis bootparam get 5'))
-            if mode == 'order':
+    def bootorder(self,mode=None,ipxe=False,persistent=False,force=False,boot_mode={'smc':['pxe','bios','hdd','cd','usb'],'ipmitool':['pxe','ipxe','bios','hdd']}):
+        available_module=self.root.ipmi_mode.GET()
+        if not available_module:
+            return False,'Not available module'
+        rc=False,"Unknown boot mode({})".format(mode)
+        for mm in available_module:
+            name=mm.__name__
+            chk_boot_mode=boot_mode[name]
+            if name == 'smc' and mode in chk_boot_mode:
+                if mode == 'pxe':
+                    rc=self.run_cmd(mm.cmd_str('ipmi power bootoption 1'))
+                elif mode == 'hdd':
+                    rc=self.run_cmd(mm.cmd_str('ipmi power bootoption 2'))
+                elif mode == 'cd':
+                    rc=self.run_cmd(mm.cmd_str('ipmi power bootoption 3'))
+                elif mode == 'bios':
+                    rc=self.run_cmd(mm.cmd_str('ipmi power bootoption 4'))
+                elif mode == 'usb':
+                    rc=self.run_cmd(mm.cmd_str('ipmi power bootoption 6'))
                 if rc[0]:
-                    rc=True,km.findstr(rc[1],'- Boot Device Selector : (\w.*)')[0]
-        elif mode not in boot_mode:
-            return False,'Unknown boot mode({})'.format(mode)
-        else:
-            if persistent:
-                if mode == 'pxe' and ipxe in ['on','ON','On',True,'True']:
-                    rc=self.run_cmd(mm.cmd_str('raw 0x00 0x08 0x05 0xe0 0x04 0x00 0x00 0x00'))
+                    return True,rc[1][1]
+            elif name == 'ipmitool':
+                #mm=self.get_mode('ipmitool')
+                #if not mm:
+                #    return False,'ipmitool module not found'
+                if mode in [None,'order']:
+                    rc=self.run_cmd(mm.cmd_str('chassis bootparam get 5'))
+                    if mode == 'order':
+                        if rc[0]:
+                            rc=True,km.findstr(rc[1],'- Boot Device Selector : (\w.*)')[0]
+                elif mode not in chk_boot_mode:
+                    return False,'Unknown boot mode({}) at {}'.format(mode,name)
                 else:
-                    rc=self.run_cmd(mm.cmd_str('chassis bootdev {0} options=persistent'.format(mode)))
-            else:
-                if mode == 'pxe' and ipxe in ['on','ON','On',True,'True']:
-                    rc=self.run_cmd(mm.cmd_str('chassis bootdev {0} options=efiboot'.format(mode)))
-                else:
-                    if force and boot_mode == 'pxe':
-                        rc=self.run_cmd(mm.cmd_str('chassis bootparam set bootflag force_pxe'.format(mode)))
+                    if persistent:
+                        if mode == 'pxe' and ipxe in ['on','ON','On',True,'True']:
+                            rc=self.run_cmd(mm.cmd_str('raw 0x00 0x08 0x05 0xe0 0x04 0x00 0x00 0x00'))
+                        else:
+                            rc=self.run_cmd(mm.cmd_str('chassis bootdev {0} options=persistent'.format(mode)))
                     else:
-                        rc=self.run_cmd(mm.cmd_str('chassis bootdev {0}'.format(mode)))
-        if rc[0]:
-            return True,rc[1][1]
+                        if mode == 'pxe' and ipxe in ['on','ON','On',True,'True']:
+                            rc=self.run_cmd(mm.cmd_str('chassis bootdev {0} options=efiboot'.format(mode)))
+                        else:
+                            if force and chk_boot_mode == 'pxe':
+                                rc=self.run_cmd(mm.cmd_str('chassis bootparam set bootflag force_pxe'.format(mode)))
+                            else:
+                                rc=self.run_cmd(mm.cmd_str('chassis bootdev {0}'.format(mode)))
+                if rc[0]:
+                    return True,rc[1][1]
         return False,rc[-1]
 
     def get_eth_mac(self):
