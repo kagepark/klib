@@ -1,7 +1,6 @@
 #!/bin/python
 # -*- coding: utf-8 -*-
 # Kage personal stuff
-# Since 2016
 #
 from __future__ import print_function
 import sys,os,re,subprocess,traceback,copy
@@ -2222,6 +2221,16 @@ def append(src,addendum):
             return src
         elif type_src is str:
             return src+addendum
+    return False
+
+def is_xml(filename):
+    if type(filename) is str and os.path.isfile(filename):
+        chk_type_file=open(filename,'r')
+        firstLine=chk_type_file.readline()
+    else:
+        firstLine=filename.split('\n')[0]
+    if firstLine.split(' ')[0] == '<?xml':
+        return True
     return False
 
 if __name__ == "__main__":

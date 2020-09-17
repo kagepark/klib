@@ -35,7 +35,7 @@ class Ipmitool:
                 cmd_a=['lan','print']
         elif km.check_value(cmd_a,'ipmi',0) and km.check_value(cmd_a,'sensor',1):
             cmd_a=['sdr','type','Temperature']
-        return True,'''ipmitool -I %s -H {ipmi_ip} -U {ipmi_user} -P '{ipmi_pass}' %s'''%(option,' '.join(cmd_a)),None,{'ok':[0],'fail':[1]}
+        return True,'''ipmitool -I %s -H {ipmi_ip} -U {ipmi_user} -P '{ipmi_pass}' %s'''%(option,' '.join(cmd_a)),None,{'ok':[0],'fail':[1]},None
 
 
 class Smcipmitool:
@@ -61,7 +61,7 @@ class Smcipmitool:
             cmd_a=['ipmi','lan','mac']
         elif km.check_value(cmd_a,'sdr',0) and km.check_value(cmd_a,'Temperature',2):
             cmd_a=['ipmi','sensor']
-        return True,'''sudo java -jar %s {ipmi_ip} {ipmi_user} '{ipmi_pass}' %s'''%(self.smc_file,' '.join(cmd_a)),None,{'ok':[0,144],'error':[180],'err_bmc_user':[146],'err_connection':[145]}
+        return True,'''sudo java -jar %s {ipmi_ip} {ipmi_user} '{ipmi_pass}' %s'''%(self.smc_file,' '.join(cmd_a)),None,{'ok':[0,144],'error':[180],'err_bmc_user':[146],'err_connection':[145]},None
 
 def move2first(item,pool):
     if item in pool:
@@ -138,6 +138,61 @@ class kBmc:
                 if opts.get('top_root',None):
                     self.top_root=kDict.kDict(opts.get('top_root'))
                     self.top_root.bmc.UPDATE(self.root.GET())
+
+    def redfish(self,**opts):
+        cmd=opts.get('cmd','')
+        mode=opts.get('mode','get')
+        sub=opts.get('sub',False)
+        rec=opts.get('rec',False)
+        ipmi_ip=self.root.ipmi_ip.GET()
+        ipmi_user=self.root.ipmi_user.GET()
+        ipmi_pass=self.root.ipmi_pass.GET()
+
+        def do_redfish(mode):
+           cmd_a=cmd.split('/')
+           if len(cmd_a) > 2 and cmd_a[1] == 'redfish' and cmd_a[2] == 'v1':
+               cmd='/'.join(cmd_a[3:])
+           if mode == 'put':
+               mode='post'
+           rc=km.web_req('https://{}/redfish/v1/{}'.format(ipmi_ip,cmd),user=ipmi_user,passwd=ipmi_pass,mode=mode)
+           if rc[0] is False  or rc[1].status_code == 404:
+               return False
+           else:
+               return json.loads(rc[1].text)
+
+        def get_cmd(dic):
+           if type(dic) is dict and '@odata.id' in dic and len(dic) == 1:
+               return True,dic['@odata.id']
+           return False,dic
+
+        def get_data(data=None,sub=False,rec=False):
+           if data is None:
+               data=do_redfish('get')
+           if sub:
+               for key in data:
+                   if type(data[key]) is list:
+                       for ii in range(0,len(data[key])):
+                           zz=get_cmd(data[key][ii])
+                           if zz[0] is True:
+                               zz_sub_data=do_redfish(zz[1],'get')
+                               if rec:
+                                   data[key][ii]=get_data(data=zz_sub_data,sub=True,rec=True)
+                               else:
+                                   data[key][ii]=zz_sub_data
+                   else:
+                       s_cmd=get_cmd(data[key])
+                       if s_cmd[0] is True:
+                           sub_data=do_redfish(s_cmd[1],'get')
+                           if rec:
+                               data[key]=get_data(data=sub_data,sub=True,rec=True)
+                           else:
+                               data[key]=sub_data
+           return data
+
+        if mode in ['put','post']:
+            return do_redfish('post')
+        else:
+            return get_data(sub=sub,rec=rec)
 
     def get_mode(self,name):
         for mm in self.root.ipmi_mode.GET():
@@ -254,12 +309,14 @@ class kBmc:
             else:
                 break
         type_cmd=type(cmd)
-        if type_cmd is tuple and len(cmd) == 4 and type(cmd[0]) is bool:
-            ok,cmd,_path,_return_code=cmd
+        if type_cmd is tuple and len(cmd) == 5 and type(cmd[0]) is bool:
+            ok,cmd,_path,_return_code,_timeout=cmd
             if _path:
                 path=_path
             if _return_code:
                 return_code=_return_code
+            if _timeout:
+                timeout=_timeout
             if not ok:
                 return False,(-1,'command format error(2)','command format error',0,0,cmd,path),'command({}) format error'.format(cmd)
         elif type_cmd is not str:
@@ -287,17 +344,27 @@ class kBmc:
 
             if log and (dbg or show_str):
                log('** CMD     : {}'.format(cmd_str),log_level=1)
-            if log and dbg:
                log(' - PATH    : {}'.format(path),log_level=1)
-               log(' - RCODE   : {}'.format(return_code),log_level=1)
+            if log and dbg:
+               log(' - CHK_CODE: {}'.format(return_code),log_level=1)
             if mode == 'redfish':
                 # code here for run redfish
-                pass
+                # how to put sub, rec variable from kBmc?
+                start_time=km.int_sec()
+                rf_rt=redfish(cmd=cmd_str)
+                end_time=km.int_sec()
+                if type(rf_rt) is dict and 'Members' in rf_rt:
+                    rf_rc=0
+                else:
+                    rf_rc=1
+                rc=rf_rc,rf_rt['Members'],'',start_time,end_time,cmd_str,'web'
             else:
                 rc=km.rshell(cmd_str,path=path,timeout=timeout)
+            if log and show_str:
+               log(' - RT_CODE : {}'.format(rc[0]),log_level=1)
             if log and dbg:
-                log(' - RC: {}'.format(rc),log_level=1)
-            if km.check_value([0]+rc_ok,rc[0]):
+               log(' - Output  : {}'.format(rc),log_level=1)
+            if (not rc_ok and rc[0] == 0) or km.check_value(rc_ok,rc[0]):
                 return True,rc,'ok'
             elif km.check_value(rc_err_connection,rc[0]): # retry condition1
                 msg='err_connection'
@@ -305,31 +372,49 @@ class kBmc:
                     log('Connection Error:',direct=True,log_level=1)
                 #Check connection
                 if km.is_lost(ipmi_ip,log=log,stop_func=self.error(_type='break')[0],cancel_func=cancel_func)[0]:
+                    if log:
+                        log('Lost network',log_level=1)
                     return False,rc,'net error'
-            elif i < 1 or km.check_value(rc_err_bmc_user,rc[0]): # retry condition1
+            elif km.check_value(rc_err_bmc_user,rc[0]): # retry condition1
                 #Check connection
                 if km.is_lost(ipmi_ip,log=log,stop_func=self.error(_type='break')[0],cancel_func=cancel_func)[0]:
+                    if log:
+                        log('Lost network',log_level=1)
                     return False,rc,'net error'
                 # Find Password
                 ok,ipmi_user,ipmi_pass=self.find_user_pass()
                 if not ok:
                     return False,'Can not find working IPMI USER and PASSWORD','user error'
-                if log:
-                    log('Check IPMI User and Password: Found ({}/{})'.format(ipmi_user,ipmi_pass),log_level=5)
+                if log and dbg:
+                    log('Check IPMI User and Password: Found ({}/{})'.format(ipmi_user,ipmi_pass),log_level=1)
                 time.sleep(1)
-            elif i > 0:
-                if km.check_value(rc_ignore,rc[0]):
-                    return True,rc,'ignore'
-                elif km.check_value(rc_fail,rc[0]):
-                    return False,rc,'fail'
-                elif km.check_value([127],rc[0]):
-                    return False,rc,'no command'
-                elif km.check_value(rc_error,rc[0]):
-                    return False,rc,'error'
-                elif km.check_value(rc_err_key,rc[0]):
-                    return False,rc,'err_key'
             else:
-                return False,rc,'unknown'
+                if 'ipmitool' in cmd_str and i < 1:
+                    #Check connection
+                    if km.is_lost(ipmi_ip,log=log,stop_func=self.error(_type='break')[0],cancel_func=cancel_func)[0]:
+                        if log:
+                            log('Lost network',log_level=1)
+                        return False,rc,'net error'
+                    # Find Password
+                    ok,ipmi_user,ipmi_pass=self.find_user_pass()
+                    if not ok:
+                        return False,'Can not find working IPMI USER and PASSWORD','user error'
+                    if log and dbg:
+                        log('Check IPMI User and Password: Found ({}/{})'.format(ipmi_user,ipmi_pass),log_level=1)
+                    time.sleep(1)
+                else:
+                    if km.check_value(rc_ignore,rc[0]):
+                        return True,rc,'ignore'
+                    elif km.check_value(rc_fail,rc[0]):
+                        return False,rc,'fail'
+                    elif km.check_value([127],rc[0]):
+                        return False,rc,'no command'
+                    elif km.check_value(rc_error,rc[0]):
+                        return False,rc,'error'
+                    elif km.check_value(rc_err_key,rc[0]):
+                        return False,rc,'err_key'
+                    else:
+                        return False,rc,'unknown'
         return False,(-1,'timeout','timeout',0,0,cmd,path),'user error'
 
     def reset(self,ipmi={},retry=0,keep=20):
@@ -792,7 +877,7 @@ if __name__ == "__main__":
                 ipxe=True
 
     print('Test at {}'.format(ipmi_ip))
-    bmc=kBmc(ipmi_ip=ipmi_ip,ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,test_pass=['ADMIN','Admin','Super123'],test_user=['ADMIN','Admin'],timeout=1800,log=KLog,tool_path=tool_path,ipmi_mode=[Ipmitool(),Smcipmitool(smc_file='SMCIPMITool.2.20.0.jar',tool_path='/django/sumViewer.5/tools')])
+    bmc=kBmc(ipmi_ip=ipmi_ip,ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,test_pass=['ADMIN','Admin'],test_user=['ADMIN','Admin'],timeout=1800,log=KLog,tool_path=tool_path,ipmi_mode=[Ipmitool()])
     #bmc=BMC(root,ipmi_ip='172.16.220.135',ipmi_user='ADMIN',ipmi_pass='ADMIN',test_pass=['ADMIN','Admin'],test_user=['ADMIN','Admin'],timeout=1800,log=KLog)
     print('Init')
     bmc.init()
