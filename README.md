@@ -1,3 +1,8 @@
+Open Kage's useful tools and class to public.
+(Long time use and upgrading)
+But, this is develope version.
+So, suddenly it will be big change when I got some more good idea.
+
 # Custom Dictionary Class
 
 Convert Dictionary to Object style Dictionary

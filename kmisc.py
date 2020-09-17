@@ -1,6 +1,7 @@
 #!/bin/python
 # -*- coding: utf-8 -*-
 # Kage personal stuff
+# Since 2016
 #
 from __future__ import print_function
 import sys,os,re,subprocess,traceback,copy
