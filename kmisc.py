@@ -1970,6 +1970,10 @@ def web_req(host_url,**opts):
     if data and type(data) is not dict:
         printf("data={'<key>':'<val>',...} : format(dict)",dsp='e',log=log,log_level=log_level,logfile=logfile)
         return False,"data={'<key>':'<val>',...} : format(dict)"
+    json_data=opts.get('json',None) # dictionary format
+    if json_data and type(json_data) is not dict:
+        printf("data={'<key>':'<val>',...} : format(dict)",dsp='e',log=log,log_level=log_level,logfile=logfile)
+        return False,"json={'<key>':'<val>',...} : format(dict)"
     files=opts.get('files',None) # dictionary format
     if files and type(files) is not dict:
         printf("files = { '<file parameter name>': (<filename>, open(<filename>,'rb'))} : format(dict)",dsp='e',log=log,log_level=log_level,logfile=logfile)
@@ -1992,9 +1996,9 @@ def web_req(host_url,**opts):
     for j in range(0,max_try):
         try:
             if mode == 'post':
-                r =ss.post(host_url,verify=verify,auth=auth,data=data,files=files,timeout=timeout)
+                r =ss.post(host_url,verify=verify,auth=auth,data=data,files=files,timeout=timeout,json=json_data)
             else:
-                r =ss.get(host_url,verify=verify,auth=auth,data=data,files=files,timeout=timeout)
+                r =ss.get(host_url,verify=verify,auth=auth,data=data,files=files,timeout=timeout,json=json_data)
             return True,r
         except requests.exceptions.RequestException as e:
             host_url_a=host_url.split('/')[2]

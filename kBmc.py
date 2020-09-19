@@ -9,6 +9,7 @@ import time
 import sys
 import kmisc as km
 import kDict
+import json
 
 class Ipmitool:
     def __init__(self,**opts):
@@ -62,6 +63,15 @@ class Smcipmitool:
         elif km.check_value(cmd_a,'sdr',0) and km.check_value(cmd_a,'Temperature',2):
             cmd_a=['ipmi','sensor']
         return True,'''sudo java -jar %s {ipmi_ip} {ipmi_user} '{ipmi_pass}' %s'''%(self.smc_file,' '.join(cmd_a)),None,{'ok':[0,144],'error':[180],'err_bmc_user':[146],'err_connection':[145]},None
+
+class Redfish:
+    def __init__(self,**opts):
+        self.__name__='redfish'
+        self.log=opts.get('log',None)
+        self.power_mode=opts.get('power_mode',{'on':['chassis power on'],'off':['chassis power off'],'reset':['chassis power reset'],'off_on':['chassis power off','chassis power on'],'on_off':['chassis power on','chassis power off'],'cycle':['chassis power cycle'],'status':['chassis power status'],'shutdown':['chassis power soft']})
+
+    def cmd_str(self,cmd,**opts):
+        return True,'''https://{ipmi_ip}/redfish/v1/%s'''%(cmd),None,{'ok':[0,144],'error':[180],'err_bmc_user':[146],'err_connection':[145]},None
 
 def move2first(item,pool):
     if item in pool:
@@ -141,24 +151,43 @@ class kBmc:
 
     def redfish(self,**opts):
         cmd=opts.get('cmd','')
-        mode=opts.get('mode','get')
+        sub_cmd=opts.get('sub_cmd',None)
+        data=opts.get('data',None)
+        files=opts.get('files',None)
+        mode=opts.get('mode','get').lower()
         sub=opts.get('sub',False)
         rec=opts.get('rec',False)
         ipmi_ip=self.root.ipmi_ip.GET()
         ipmi_user=self.root.ipmi_user.GET()
         ipmi_pass=self.root.ipmi_pass.GET()
-
-        def do_redfish(mode):
-           cmd_a=cmd.split('/')
-           if len(cmd_a) > 2 and cmd_a[1] == 'redfish' and cmd_a[2] == 'v1':
-               cmd='/'.join(cmd_a[3:])
-           if mode == 'put':
+        def do_redfish(cmd,mode,sub_cmd=None,data=None,file=None):
+           cmd_a=cmd.split(':')
+           if cmd_a[0] == 'power' and cmd_a[1] in ['on','off','off_on','on_ff']:
                mode='post'
-           rc=km.web_req('https://{}/redfish/v1/{}'.format(ipmi_ip,cmd),user=ipmi_user,passwd=ipmi_pass,mode=mode)
-           if rc[0] is False  or rc[1].status_code == 404:
-               return False
+               cmd='Systems/1/Actions/ComputerSystem.Reset'
+               if cmd_a[1] == 'on':
+                   sub_cmd=[{'Action': 'Reset', 'ResetType': 'On'}]
+               elif cmd_a[1] == 'off':
+                   sub_cmd=[{'Action': 'Reset', 'ResetType': 'ForceOff'}]
+               elif cmd_a[1] == 'off_on':
+                   sub_cmd=[{'Action': 'Reset', 'ResetType': 'ForceOff'},{'Action': 'Reset', 'ResetType': 'On'}]
+               elif cmd_a[1] == 'on_off':
+                   sub_cmd=[{'Action': 'Reset', 'ResetType': 'On'},{'Action': 'Reset', 'ResetType': 'ForceOff'}]
            else:
-               return json.loads(rc[1].text)
+               sub_cmd=[None]
+               cmd_a=cmd.split('/')
+               if len(cmd_a) > 2 and cmd_a[1] == 'redfish' and cmd_a[2] == 'v1':
+                   cmd='/'.join(cmd_a[3:])
+               if mode == 'put':
+                   mode='post'
+           for ss in sub_cmd:
+               rc=km.web_req('https://{}/redfish/v1/{}'.format(ipmi_ip,cmd),user=ipmi_user,passwd=ipmi_pass,mode=mode,json=ss,data=data,files=files)
+               if len(sub_cmd) > 1:
+                   time.sleep(2)
+           if rc[0] is False  or rc[1].status_code == 404:
+               return False,'Error'
+           else:
+               return True,json.loads(rc[1].text)
 
         def get_cmd(dic):
            if type(dic) is dict and '@odata.id' in dic and len(dic) == 1:
@@ -167,7 +196,7 @@ class kBmc:
 
         def get_data(data=None,sub=False,rec=False):
            if data is None:
-               data=do_redfish('get')
+               data=do_redfish(cmd,'get')
            if sub:
                for key in data:
                    if type(data[key]) is list:
@@ -190,7 +219,7 @@ class kBmc:
            return data
 
         if mode in ['put','post']:
-            return do_redfish('post')
+            return do_redfish(cmd,'post')
         else:
             return get_data(sub=sub,rec=rec)
 
@@ -345,19 +374,21 @@ class kBmc:
             if log and (dbg or show_str):
                log('** CMD     : {}'.format(cmd_str),log_level=1)
                log(' - PATH    : {}'.format(path),log_level=1)
-            if log and dbg:
                log(' - CHK_CODE: {}'.format(return_code),log_level=1)
             if mode == 'redfish':
                 # code here for run redfish
                 # how to put sub, rec variable from kBmc?
                 start_time=km.int_sec()
-                rf_rt=redfish(cmd=cmd_str)
+                print('>>cmd:',cmd,mode)
+                rf_rt=self.redfish(cmd=cmd_str)
                 end_time=km.int_sec()
-                if type(rf_rt) is dict and 'Members' in rf_rt:
+                import pprint
+                pprint.pprint(rf_rt)
+                if type(rf_rt) is dict:
                     rf_rc=0
                 else:
                     rf_rc=1
-                rc=rf_rc,rf_rt['Members'],'',start_time,end_time,cmd_str,'web'
+                rc=rf_rc,rf_rt,'',start_time,end_time,cmd_str,'web'
             else:
                 rc=km.rshell(cmd_str,path=path,timeout=timeout)
             if log and show_str:
@@ -885,9 +916,14 @@ if __name__ == "__main__":
 #    print(bmc.power(cmd='status'))
 #    print(bmc.power(cmd='off_on'))
     #print(bmc.summary())
-    print(bmc.lanmode())
+#    print(bmc.lanmode())
 #    print(bmc.info())
 #    print(bmc.get_mac())
+    #print(bmc.run_cmd('Managers/1/Actions/Manager.Reset ',mode='redfish'))
+    #print(bmc.run_cmd('Systems/1/Actions/ComputerSystem.Reset ',mode='redfish'))
+#    print(bmc.run_cmd('Systems/1',mode='redfish'))
+#    print(bmc.run_cmd('power:on',mode='redfish'))
+    print(bmc.run_cmd('power:off',mode='redfish'))
     #aa=bmc.reset()
     #print(aa)
 
