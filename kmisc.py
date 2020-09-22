@@ -68,7 +68,10 @@ def format_string(string,inps):
         if '%(' in string:
             if '%s' in string:
                 return False,"name placehoder can't get %s format"
-            return True,string % inps
+            try:
+                return True,string % inps
+            except:
+                return False,"""string:{} input:{}""".format(string,inps)
         elif re.compile('{(\w.*)}').findall(string):
             if re.compile('{\d*}').findall(string):
                 return False,"name placehoder can't get {} format"

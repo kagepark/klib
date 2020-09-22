@@ -252,10 +252,26 @@ class kBmc:
             return True,'pass'
         return rc[0],rc[2]
         
+    def is_tmp_pass(self,**opts):
+        ipmi_ip=opts.get('ipmi_ip',self.root.ipmi_ip.GET())
+        ipmi_user=opts.get('ipmi_user',self.root.ipmi_user.GET())
+        ipmi_pass=opts.get('ipmi_pass',self.root.ipmi_pass.GET())
+        tmp_pass=opts.get('tmp_pass',self.root.tmp_pass.GET())
+        if tmp_pass and ipmi_pass != tmp_pass:
+            new_str=opts.get('cmd_str','''ipmitool -I lanplus -H {ipmi_ip} -U {ipmi_user} -P '{ipmi_pass}' chassis power status'''.format(ipmi_ip=ipmi_ip,ipmi_user=ipmi_user,ipmi_pass=tmp_pass))
+            new_rc=km.rshell(new_str,timeout=2)
+            if new_rc[0] == 0:
+                old_str=opts.get('cmd_str','''ipmitool -I lanplus -H {ipmi_ip} -U {ipmi_user} -P '{ipmi_pass}' chassis power status'''.format(ipmi_ip=ipmi_ip,ipmi_user=ipmi_user,ipmi_pass=ipmi_pass))
+                old_rc=km.rshell(old_str,timeout=2)
+                if old_rc[0] != 0:
+                    return True,tmp_pass,ipmi_pass
+        return False,tmp_pass,ipmi_pass
+
     def find_user_pass(self,default_range=4,check_cmd='ipmi power status',cancel_func=None):
         ipmi_ip=self.root.ipmi_ip.GET()
         test_user=self.root.test_user.GET()
         test_pass=self.root.test_pass.GET()
+        tmp_pass=self.root.tmp_pass.GET()
         log=self.root.log.GET()
         log_level=self.root.log_level.GET()
         if len(test_pass) > default_range:
@@ -267,6 +283,8 @@ class kBmc:
             for t in range(0,tt):
                 if t == 0:
                     test_pass_sample=test_pass[:default_range]
+                    if tmp_pass:
+                        test_pass_sample=[tmp_pass]+test_pass_sample
                 else:
                     test_pass_sample=test_pass[default_range:]
                 for uu in test_user:
@@ -296,6 +314,7 @@ class kBmc:
         ipmi_pass=self.root.ipmi_pass.GET()
         org_user=self.root.org_user.GET()
         org_pass=self.root.org_pass.GET()
+        tmp_pass=self.root.tmp_pass.GET()
         log=self.root.log.GET()
         same_user=self.root.ipmi_user.CHECK(org_user)
         same_pass=self.root.ipmi_pass.CHECK(org_pass)
@@ -310,6 +329,8 @@ class kBmc:
             rc=self.run_cmd(mm.cmd_str("""user add 2 {} '{}' 4""".format(org_user,org_pass)))
         if rc[0]:
             km.logging("""Recovered BMC: from User({}) and Password({}) to User({}) and Password({})""".format(ipmi_user,ipmi_pass,org_user,org_pass),log=log,log_level=6)
+            if tmp_pass:
+                self.root.DEL('tmp_pass')
             return True,org_user,org_pass
         else:
             km.logging("""Not support {}. Looks need more length. So Try again with Super123""",log=log,log_level=6)
@@ -321,6 +342,8 @@ class kBmc:
                 rrc=self.run_cmd(mm.cmd_str("""user add 2 {} 'Super123' 4""".format(org_user)))
             if rrc[0]:
                 km.logging("""Recovered BMC: from User({}) and Password({}) to User({}) and Password(Super123)""".format(ipmi_user,ipmi_pass,org_user),log=log,log_level=6)
+                if tmp_pass:
+                    self.root.DEL('tmp_pass')
                 return True,org_user,'Super123'
             else:
                 km.logging("""Recover ERROR!! Please checkup user-lock-mode on the BMC Configure.""",log=log,log_level=6)
@@ -379,11 +402,8 @@ class kBmc:
                 # code here for run redfish
                 # how to put sub, rec variable from kBmc?
                 start_time=km.int_sec()
-                print('>>cmd:',cmd,mode)
                 rf_rt=self.redfish(cmd=cmd_str)
                 end_time=km.int_sec()
-                import pprint
-                pprint.pprint(rf_rt)
                 if type(rf_rt) is dict:
                     rf_rc=0
                 else:
@@ -789,9 +809,9 @@ class kBmc:
                        checked_lanmode=lanmode_check(lanmode)
 
                     if verify_status in ['reset','cycle']:
-                         if self.is_down()[0]:
-                             km.logging(' ! can not {} the power at {} status'.format(verify_status,sys_status[1]),log=log,log_level=6)
-                             return [False,'can not {} at {} status'.format(verify_status,sys_status[1])]
+                         if init_status == 'off':
+                             km.logging(' ! can not {} the power'.format(verify_status),log=log,log_level=6)
+                             return [False,'can not {} the power'.format(verify_status)]
                     rc=self.run_cmd(mm.cmd_str(rr),retry=retry)
                     if rc[0] is True:
                         km.logging(' + Do power {}'.format(verify_status),log=log,log_level=6)
@@ -915,6 +935,8 @@ if __name__ == "__main__":
     print('Do')
 #    print(bmc.power(cmd='status'))
 #    print(bmc.power(cmd='off_on'))
+#    print(bmc.power(cmd='reset'))
+    print(bmc.is_tmp_pass(ipmi_pass='Super123',tmp_pass='SumTester23'))
     #print(bmc.summary())
 #    print(bmc.lanmode())
 #    print(bmc.info())
@@ -923,7 +945,7 @@ if __name__ == "__main__":
     #print(bmc.run_cmd('Systems/1/Actions/ComputerSystem.Reset ',mode='redfish'))
 #    print(bmc.run_cmd('Systems/1',mode='redfish'))
 #    print(bmc.run_cmd('power:on',mode='redfish'))
-    print(bmc.run_cmd('power:off',mode='redfish'))
+#    print(bmc.run_cmd('power:off',mode='redfish'))
     #aa=bmc.reset()
     #print(aa)
 
