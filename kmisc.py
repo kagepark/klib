@@ -2240,6 +2240,28 @@ def is_xml(filename):
         return True
     return False
 
+def krc(rt,chk='_',rtd={'GOOD':[True,'True','GOOD','Good','good','ok','Ok','OK',{'OK'},0],'FAIL':[False,'False','fail','Fail','FAIL',{'FAL'}],'NONE':[None,'none','None','N/A','NONE',{'NA'}],'IGNO':['IGNO','ignore','Ignore','IGNORE',{'IGN'}],'ERRO':['ERR','error','Error','ERROR',{'ERR'}],'WARN':['warn','Warn','WARN',{'WAR'}]}):
+    def trans(irt):
+        type_irt=type(irt)
+        for ii in rtd:
+            for jj in rtd[ii]:
+                if type(jj) == type_irt and jj == irt:
+                    return ii
+        return 'UNKN'
+    type_rt=type(rt)
+    if type_rt in [list,tuple]:
+        rtc=rt[0]
+    elif type_rt is dict:
+        rtc=rt.get('rc','Unknown')
+    else:
+        rtc=rt
+    nrtc=trans(rtc)
+    if chk != '_':
+        if trans(chk) == nrtc:
+            return True
+        return False
+    return nrtc
+
 if __name__ == "__main__":
     class ABC:
         uu=3
