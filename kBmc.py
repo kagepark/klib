@@ -331,6 +331,8 @@ class kBmc:
             km.logging("""Recovered BMC: from User({}) and Password({}) to User({}) and Password({})""".format(ipmi_user,ipmi_pass,org_user,org_pass),log=log,log_level=6)
             if tmp_pass:
                 self.root.DEL('tmp_pass')
+            self.root.PUT('ipmi_user',org_user)
+            self.root.PUT('ipmi_pass',org_pass)
             return True,org_user,org_pass
         else:
             km.logging("""Not support {}. Looks need more length. So Try again with Super123""",log=log,log_level=6)
@@ -344,6 +346,8 @@ class kBmc:
                 km.logging("""Recovered BMC: from User({}) and Password({}) to User({}) and Password(Super123)""".format(ipmi_user,ipmi_pass,org_user),log=log,log_level=6)
                 if tmp_pass:
                     self.root.DEL('tmp_pass')
+                self.root.PUT('ipmi_user',org_user)
+                self.root.PUT('ipmi_pass','Super123')
                 return True,org_user,'Super123'
             else:
                 km.logging("""Recover ERROR!! Please checkup user-lock-mode on the BMC Configure.""",log=log,log_level=6)
