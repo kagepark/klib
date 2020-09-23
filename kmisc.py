@@ -357,14 +357,17 @@ def is_py3():
 
 def rshell(cmd,timeout=None,ansi=True,path=None,progress=False):
     def pprog(stop):
+        chk=False
         while True:
+            time.sleep(5)
+            if stop():
+                if chk:
+                    sys.stdout.write('\n')
+                    sys.stdout.flush()
+                break
+            chk=True
             sys.stdout.write('>')
             sys.stdout.flush()
-            time.sleep(3)
-            if stop():
-                sys.stdout.write('\n')
-                sys.stdout.flush()
-                break
     start_time=datetime.now().strftime('%s')
     if type(cmd) is not str:
         return -1,'wrong command information :{0}'.format(cmd),'',start_time,start_time,datetime.now().strftime('%s'),cmd,path
