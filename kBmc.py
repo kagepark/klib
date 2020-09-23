@@ -474,17 +474,20 @@ class kBmc:
                         return 'unknown',rc,'unknown'
         return False,(-1,'timeout','timeout',0,0,cmd,path),'user error'
 
-    def reset(self,ipmi={},retry=0,keep=20):
+    def reset(self,ipmi={},retry=0,keep=20,init_wait=1):
         ipmi_ip=self.root.ipmi_ip.GET()
         log=self.root.log.GET()
         for i in range(0,1+retry):
             for mm in self.root.ipmi_mode.GET():
-                rc=self.run_cmd(mm.cmd_str('ipmi reset'))
-                if km.krc(rc[0],chk=True):
-                    if km.is_comeback(ipmi_ip,keep=keep,log=log,stop_func=self.error(_type='break')[0]):
-                        return True,'Pinging to BMC after reset BMC'
-                    else:
-                        return False,'Can not Pinging to BMC after reset BMC'
+                if km.is_comeback(ipmi_ip,keep=init_wait,log=log,stop_func=self.error(_type='break')[0]):
+                    rc=self.run_cmd(mm.cmd_str('ipmi reset'))
+                    if km.krc(rc[0],chk=True):
+                        if km.is_comeback(ipmi_ip,keep=keep,log=log,stop_func=self.error(_type='break')[0]):
+                            return True,'Pinging to BMC after reset BMC'
+                        else:
+                            return False,'Can not Pinging to BMC after reset BMC'
+                else:
+                    return False,'Can not Pinging to BMC. I am not reset the BMC. please check the network first!'
                 time.sleep(5)
         return rc
             
