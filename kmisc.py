@@ -926,11 +926,11 @@ def is_comeback(ip,**opts):
             if (int_sec() - run_time) > keep:
                 return True,'OK'
             if log:
-                log('*',direct=True,log_level=1)
+                log('.',direct=True,log_level=1)
         else:
             run_time=int_sec()
             if log:
-                log('.',direct=True,log_level=1)
+                log('!',direct=True,log_level=1)
         time.sleep(interval)
 
 def get_function_args(func,mode='defaults'):

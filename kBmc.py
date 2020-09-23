@@ -400,10 +400,10 @@ class kBmc:
             else:
                 cmd_str=km.format_string(cmd,(ipmi_ip,ipmi_user,ipmi_pass))[1] + append
 
-            if log and (dbg or show_str):
-               log('** CMD     : {}'.format(cmd_str),log_level=1)
-               log(' - PATH    : {}'.format(path),log_level=1)
-               log(' - CHK_CODE: {}'.format(return_code),log_level=1)
+            if dbg or show_str:
+                km.logging('** Do CMD  : {}'.format(cmd_str),log=log,log_level=1,dsp='d')
+                km.logging(' - Timeout : %-15s - PATH    : %s'%(timeout,path),log=log,log_level=1,dsp='d')
+                km.logging(' - CHK_CODE: {}'.format(return_code),log=log,log_level=1,dsp='d')
             if mode == 'redfish':
                 # code here for run redfish
                 # how to put sub, rec variable from kBmc?
@@ -417,10 +417,10 @@ class kBmc:
                 rc=rf_rc,rf_rt,'',start_time,end_time,cmd_str,'web'
             else:
                 rc=km.rshell(cmd_str,path=path,timeout=timeout)
-            if log and show_str:
-               log(' - RT_CODE : {}'.format(rc[0]),log_level=1)
-            if log and dbg:
-               log(' - Output  : {}'.format(rc),log_level=1)
+            if show_str:
+                km.logging(' - RT_CODE : {}'.format(rc[0]),log=log,log_level=1,dsp='d')
+            if dbg:
+                km.logging(' - Output  : {}'.format(rc),log=log,log_level=1,dsp='d')
             if (not rc_ok and rc[0] == 0) or km.check_value(rc_ok,rc[0]):
                 return True,rc,'ok'
             elif km.check_value(rc_err_connection,rc[0]): # retry condition1
