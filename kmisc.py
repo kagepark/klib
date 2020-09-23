@@ -356,9 +356,9 @@ def is_py3():
 
 
 def rshell(cmd,timeout=None,ansi=True,path=None,progress=False):
-    def pp(stop):
+    def pprog(stop):
         while True:
-            sys.stdout.write('.')
+            sys.stdout.write('>')
             sys.stdout.flush()
             time.sleep(3)
             if stop():
@@ -378,7 +378,7 @@ def rshell(cmd,timeout=None,ansi=True,path=None,progress=False):
     err=None
     if progress:
         stop_threads=False
-        ppth=Thread(target=pp,args=(lambda:stop_threads))
+        ppth=Thread(target=pprog,args=(lambda:stop_threads,))
         ppth.start()
     if timeout:
         try:
