@@ -355,7 +355,16 @@ def is_py3():
     return False
 
 
-def rshell(cmd,timeout=None,ansi=True,path=None):
+def rshell(cmd,timeout=None,ansi=True,path=None,progress=False):
+    def pp(stop):
+        while True:
+            sys.stdout.write('.')
+            sys.stdout.flush()
+            time.sleep(3)
+            if stop():
+                sys.stdout.write('\n')
+                sys.stdout.flush()
+                break
     start_time=datetime.now().strftime('%s')
     if type(cmd) is not str:
         return -1,'wrong command information :{0}'.format(cmd),'',start_time,start_time,datetime.now().strftime('%s'),cmd,path
@@ -367,6 +376,10 @@ def rshell(cmd,timeout=None,ansi=True,path=None):
     p = Popen(cmd_env+cmd , shell=True, stdout=PIPE, stderr=PIPE)
     out=None
     err=None
+    if progress:
+        stop_threads=False
+        ppth=Thread(target=pp,args=(lambda:stop_threads))
+        ppth.start()
     if timeout:
         try:
             timeout=int(timeout)
@@ -379,6 +392,9 @@ def rshell(cmd,timeout=None,ansi=True,path=None):
             out, err = p.communicate(timeout=timeout)
         except subprocess.TimeoutExpired:
             p.kill()
+            if progress:
+                stop_threads=True
+                ppth.join()
             return -1, 'Kill process after timeout ({0} sec)'.format(timeout), 'Error: Kill process after Timeout {0}'.format(timeout),start_time,datetime.now().strftime('%s'),cmd,path
     else:
         if timeout:
@@ -388,9 +404,15 @@ def rshell(cmd,timeout=None,ansi=True,path=None):
                 countdown -= 2
             if countdown < 1:
                 p.kill()
+                if progress:
+                    stop_threads=True
+                    ppth.join()
                 return -1, 'Kill process after timeout ({0} sec)'.format(timeout), 'Error: Kill process after Timeout {0}'.format(timeout),start_time,datetime.now().strftime('%s'),cmd,path
         out, err = p.communicate()
 
+    if progress:
+        stop_threads=True
+        ppth.join()
     if is_py3():
         out=out.decode("ISO-8859-1")
         err=err.decode("ISO-8859-1")

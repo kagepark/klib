@@ -355,7 +355,7 @@ class kBmc:
                 km.logging("""Recover ERROR!! Please checkup user-lock-mode on the BMC Configure.""",log=log,log_level=6)
                 return False,ipmi_user,ipmi_pass
                 
-    def run_cmd(self,cmd,append=None,path=None,retry=0,timeout=None,return_code={'ok':[0,True],'fail':[]},show_str=False,dbg=False,mode='app',cancel_func=None,peeling=False):
+    def run_cmd(self,cmd,append=None,path=None,retry=0,timeout=None,return_code={'ok':[0,True],'fail':[]},show_str=False,dbg=False,mode='app',cancel_func=None,peeling=False,progress=False):
         error=self.error()
         #error=self.error(_type='break')
         if error[0]:
@@ -416,7 +416,7 @@ class kBmc:
                     rf_rc=1
                 rc=rf_rc,rf_rt,'',start_time,end_time,cmd_str,'web'
             else:
-                rc=km.rshell(cmd_str,path=path,timeout=timeout)
+                rc=km.rshell(cmd_str,path=path,timeout=timeout,progress=progress)
             if show_str:
                 km.logging(' - RT_CODE : {}'.format(rc[0]),log=log,log_level=1,dsp='d')
             if dbg:
