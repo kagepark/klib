@@ -482,9 +482,9 @@ class kBmc:
                 rc=self.run_cmd(mm.cmd_str('ipmi reset'))
                 if km.krc(rc[0],chk=True):
                     if km.is_comeback(ipmi_ip,keep=keep,log=log,stop_func=self.error(_type='break')[0]):
-                        return True,'Reset BMC and Pinging to BMC'
+                        return True,'Pinging to BMC after reset BMC'
                     else:
-                        return False,'Reset BMC but can not Pinging to BMC'
+                        return False,'Can not Pinging to BMC after reset BMC'
                 time.sleep(5)
         return rc
             
