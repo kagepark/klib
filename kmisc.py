@@ -355,19 +355,25 @@ def is_py3():
     return False
 
 
-def rshell(cmd,timeout=None,ansi=True,path=None,progress=False):
-    def pprog(stop):
+def rshell(cmd,timeout=None,ansi=True,path=None,progress=False,log=None):
+    def pprog(stop,log=None):
         chk=False
         while True:
             time.sleep(5)
             if stop():
                 if chk:
-                    sys.stdout.write('\n')
-                    sys.stdout.flush()
+                    if log:
+                        log('\n',direct=True,log_level=1)
+                    else:
+                        sys.stdout.write('\n')
+                        sys.stdout.flush()
                 break
             chk=True
-            sys.stdout.write('>')
-            sys.stdout.flush()
+            if log:
+                log('>',direct=True,log_level=1)
+            else:
+                sys.stdout.write('>')
+                sys.stdout.flush()
     start_time=datetime.now().strftime('%s')
     if type(cmd) is not str:
         return -1,'wrong command information :{0}'.format(cmd),'',start_time,start_time,datetime.now().strftime('%s'),cmd,path
@@ -381,7 +387,7 @@ def rshell(cmd,timeout=None,ansi=True,path=None,progress=False):
     err=None
     if progress:
         stop_threads=False
-        ppth=Thread(target=pprog,args=(lambda:stop_threads,))
+        ppth=Thread(target=pprog,args=(lambda:stop_threads,log,))
         ppth.start()
     if timeout:
         try:
@@ -939,17 +945,29 @@ def is_comeback(ip,**opts):
     log=opts.get('log',None)
     init_time=None
     run_time=int_sec()
+    if keep == 0 or keep is None:
+        return True,'N/A'
+    rc=False
+    msg='Timeout monitor'
     while True:
         ttt,init_time=timeout(timeout_sec,init_time)
         if ttt:
-            return False,'Timeout monitor'
+            rc=False
+            msg='Timeout monitor'
+            break
         if stop_func is True:
-            return True,'Stopped monitor by Error'
+            rc=True
+            msg='Stopped monitor by Error'
+            break
         if cancel_func is True:
-            return True,'Stopped monitor by Custom'
+            rc=True
+            msg='Stopped monitor by Custom'
+            break
         if ping(ip):
             if (int_sec() - run_time) > keep:
-                return True,'OK'
+                rc=True
+                msg='OK'
+                break
             if log:
                 log('.',direct=True,log_level=1)
         else:
@@ -957,6 +975,9 @@ def is_comeback(ip,**opts):
             if log:
                 log('!',direct=True,log_level=1)
         time.sleep(interval)
+    if log:
+        log('\n',direct=True,log_level=1)
+    return rc,msg
 
 def get_function_args(func,mode='defaults'):
     rc={}
@@ -1407,14 +1428,6 @@ def git_ver(git_dir=None):
         gver=rshell('''cd {0} && git describe --tags'''.format(git_dir))
         if gver[0] == 0:
             return gver[1]
-#        branch=rshell('''cd {0} && git branch| head -1'''.format(git_dir))
-#        tag=rshell('''cd {0} && git tag|tail -1'''.format(git_dir))
-#        if branch[0] == 0:
-#            if branch[1].split(' ')[1] == 'master':
-#                return gver[1]
-#            else:
-#                return gver[1].replace(tag[1],'v{0}'.format(branch[1].split(' ')[1]))
-    return
 
 def load_kmod(modules=[]):
     if type(modules) is list:
@@ -2286,6 +2299,18 @@ def krc(rt,chk='_',rtd={'GOOD':[True,'True','GOOD','Good','good','ok','Ok','OK',
             return True
         return False
     return nrtc
+
+def get_data(data,key,ekey=None,default=None):
+    type_data=type(data)
+    if type_data in [tuple,list]:
+        if len(data) > key:
+            if ekey and len(data) > ekey:
+                return data[key:ekey]
+            else:
+                return data[key]
+    elif type_data is dict:
+        return data.get(key,default)
+    return default
 
 if __name__ == "__main__":
     class ABC:
