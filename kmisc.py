@@ -969,11 +969,11 @@ def is_comeback(ip,**opts):
                 msg='OK'
                 break
             if log:
-                log('.',direct=True,log_level=1)
+                log('-',direct=True,log_level=1)
         else:
             run_time=int_sec()
             if log:
-                log('!',direct=True,log_level=1)
+                log('.',direct=True,log_level=1)
         time.sleep(interval)
     if log:
         log('\n',direct=True,log_level=1)

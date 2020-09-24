@@ -669,7 +669,7 @@ class kBmc:
         stop_func=opts.get('stop_func',None)
         #stop_stop_arg=opts.get('stop_arg',{})
         cancel_func=opts.get('cancel_func',None)
-        # -: Down, +: Up, ?: Unknown sensor data, !: ipmi sensor command error
+        # _: Down, -: Up, .: Unknown sensor data, !: ipmi sensor command error
         init_time=km.int_sec()
         up_time=0
         down_chk=False
@@ -715,7 +715,7 @@ class kBmc:
                             if tmp == 'No Reading':
                                 if keep_up > 0 and up_time > 0:
                                     up_time=0
-                                km.logging('?',log=log,direct=True,log_level=2)
+                                km.logging('.',log=log,direct=True,log_level=2)
                             elif tmp in ['N/A','Disabled','0C/32F']:
                                 down_chk=True
                                 if state == 'down':
@@ -723,7 +723,7 @@ class kBmc:
                                     return True,'down'
                                 if keep_up > 0 and up_time > 0:
                                     up_time=0
-                                km.logging('-',log=log,direct=True,log_level=2)
+                                km.logging('_',log=log,direct=True,log_level=2)
                             else:
                                 if state == 'up':
                                     if keep_up > 0:
@@ -739,7 +739,7 @@ class kBmc:
                                              continue
                                          km.logging(' ',log=log,log_level=2)
                                          return True,'up'
-                                km.logging('+',log=log,direct=True,log_level=2)
+                                km.logging('-',log=log,direct=True,log_level=2)
                 else:
                     if keep_up > 0 and up_time > 0:
                         up_time=0
