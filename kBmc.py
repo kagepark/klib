@@ -478,10 +478,10 @@ class kBmc:
         log=self.root.log.GET()
         for i in range(0,1+retry):
             for mm in self.root.ipmi_mode.GET():
-                if km.is_comeback(ipmi_ip,keep=init_wait,log=log,stop_func=self.error(_type='break')[0]):
+                if km.is_comeback(ipmi_ip,keep=pre_keep_up,log=log,stop_func=self.error(_type='break')[0]):
                     rc=self.run_cmd(mm.cmd_str('ipmi reset'))
                     if km.krc(rc[0],chk=True):
-                        if km.is_comeback(ipmi_ip,keep=keep,log=log,stop_func=self.error(_type='break')[0]):
+                        if km.is_comeback(ipmi_ip,keep=post_keep_up,log=log,stop_func=self.error(_type='break')[0]):
                             return True,'Pinging to BMC after reset BMC'
                         else:
                             return False,'Can not Pinging to BMC after reset BMC'
