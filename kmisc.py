@@ -24,6 +24,7 @@ from pprint import pprint
 import ast
 import zlib
 import base64
+import ssl
 
 ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
 url_group = re.compile('^(https|http|ftp)://([^/\r\n]+)(/[^\r\n]*)?')
@@ -1628,11 +1629,11 @@ def net_receive_data(sock,key='kg',progress=None):
             return [False,'Wrong key']
     return [False,'Wrong packet({})'.format(head)]
 
-def net_put_and_get_data(IP,data,PORT=8805,key='kg',timeout=3,try_num=1,try_wait=[0,5],progress=None,enc=False,upacket=None):
+def net_put_and_get_data(IP,data,PORT=8805,key='kg',timeout=3,try_num=1,try_wait=[0,5],progress=None,enc=False,upacket=None,certfile=None):
     for ii in range(0,try_num):
         if upacket: # Update packet function for number of try information ([#/<total #>])
             data=upacket('ntry',[ii+1,try_num],data)
-        sock=net_get_socket(IP,PORT,timeout=timeout)
+        sock=net_get_socket(IP,PORT,timeout=timeout,certfile=certfile)
         sent=False
         try:
             sent=net_send_data(sock,data,key=key,enc=enc)
@@ -1650,7 +1651,7 @@ def net_put_and_get_data(IP,data,PORT=8805,key='kg',timeout=3,try_num=1,try_wait
             sleep(try_wait)
     return [False,'Send fail :\n%s'%(data)]
 
-def net_get_socket(host,port,timeout=3,dbg=0): # host : Host name or IP
+def net_get_socket(host,port,timeout=3,dbg=0,certfile=None): # host : Host name or IP
     try:
         af, socktype, proto, canonname, sa = socket.getaddrinfo(host, port, socket.AF_UNSPEC, socket.SOCK_STREAM)[0]
     except:
@@ -1664,14 +1665,19 @@ def net_get_socket(host,port,timeout=3,dbg=0): # host : Host name or IP
         print('could not open socket of {0}:{1}\n{2}'.format(host,port,msg))
         return False
     try:
-        soc.connect(sa)
-        return soc
+        if certfile:
+            ssl_soc=ssl_wrap(soc,(host,port),certfile=certfile)
+            ssl_soc.connect((host,port))
+            return ssl_soc
+        else:
+            soc.connect(sa)
+            return soc
     except socket.error as msg:
         if dbg > 3:
             print('can not connect at {0}:{1}\n{2}'.format(host,port,msg))
         return False
 
-def net_start_server(server_port,main_func_name,server_ip='',timeout=0,max_connection=10,log_file=None):
+def net_start_server(server_port,main_func_name,server_ip='',timeout=0,max_connection=10,log_file=None,certfile=None,keyfile=None):
     ssoc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     ssoc.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     if timeout > 0:
@@ -1688,12 +1694,16 @@ def net_start_server(server_port,main_func_name,server_ip='',timeout=0,max_conne
         conn, addr = ssoc.accept()
         ip, port = str(addr[0]), str(addr[1])
         try:
-            Thread(target=main_func_name, args=(conn, ip, port, log_file)).start()
+            if certfile and keyfile:
+                ssl_conn=ssl_wrap(conn,(server_ip,server_port),certfile=certfile,keyfile=keyfile)
+                Thread(target=main_func_name, args=(ssl_conn, ip, port, log_file)).start()
+            else:
+                Thread(target=main_func_name, args=(conn, ip, port, log_file)).start()
         except:
             print('No more generate thread for client from {0}:{1}'.format(ip,port))
     ssoc.close()
 
-def net_start_single_server(server_port,main_func_name,server_ip='',timeout=0,max_connection=10,log_file=None):
+def net_start_single_server(server_port,main_func_name,server_ip='',timeout=0,max_connection=10,log_file=None,certfile=None,keyfile=None):
     ssoc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     ssoc.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     if timeout > 0:
@@ -1708,7 +1718,11 @@ def net_start_single_server(server_port,main_func_name,server_ip='',timeout=0,ma
     # for handling task in separate jobs we need threading
     conn, addr = ssoc.accept()
     ip, port = str(addr[0]), str(addr[1])
-    rc=main_func_name(conn, ip, port, log_file)
+    if certfile and keyfile:
+        ssl_conn=ssl_wrap(conn,(server_ip,server_port),certfile=certfile,keyfile=keyfile)
+        rc=main_func_name(ssl_conn, ip, port, log_file)
+    else:
+        rc=main_func_name(conn, ip, port, log_file)
     ssoc.close()
     return rc
 
@@ -1852,7 +1866,7 @@ def timeout(timeout_sec,init_time=None,default=(24*3600)):
 
 def kmp(mp={},func=None,name=None,timeout=0,quit=False,log_file=None,log_screen=True,log_raw=False, argv=[],queue=None):
     # Clean
-    for n in mp:
+    for n in [k for k in mp]:
         if quit is True:
             if n != 'log':
                 mp[n]['mp'].terminate()
@@ -1867,7 +1881,7 @@ def kmp(mp={},func=None,name=None,timeout=0,quit=False,log_file=None,log_screen=
             del mp[n]
     if quit is True and 'log' in mp:
         mp['log']['queue'].put('\nterminate function log')
-        time.sleep(1)
+        time.sleep(2)
         mp['log']['mp'].terminate()
         return
 
@@ -1922,11 +1936,89 @@ def kmp(mp={},func=None,name=None,timeout=0,quit=False,log_file=None,log_screen=
             mf.start()
     return mp
 
-def net_put_data(IP,data,PORT=8805,key='kg',timeout=3,try_num=1,try_wait=[1,10],progress=None,enc=False,upacket=None,dbg=0,wait_time=3):
+def key_remove_pass(filename):
+    km.rshell('openssl rsa -in {0}.key -out {0}.nopass.key'.format(filename))
+
+def cert_file(keyfile,certfile,C='US',ST='CA',L='San Jose',O='KGC',OU='KG',CN=None,EMAIL=None,days=365,passwd=None,mode='gen'):
+    if keyfile is None and certfile is None:
+        return None,None
+    if mode == 'remove':
+        rc=rshell('openssl rsa -in {0} -out {0}.nopass'.format(keyfile))
+        if rc[0] == 0:
+            if os.path.isfile('{}'.format(certfile)):
+                return '{}.nopass'.format(keyfile),certfile
+            else:
+                return '{}.nopass.key'.format(keyfile),None
+    elif mode == 'gen' or (mode == 'auto' and (os.path.isfile(keyfile) is False or os.path.isfile(certfile) is False)):
+        subj=''
+        if C:
+            subj='{}/C={}'.format(subj,C)
+        if ST:
+            subj='{}/ST={}'.format(subj,ST)
+        if L:
+            subj='{}/L={}'.format(subj,L)
+        if O:
+            subj='{}/O={}'.format(subj,O)
+        if OU:
+            subj='{}/OU={}'.format(subj,OU)
+        if CN:
+            subj='{}/CN={}'.format(subj,CN)
+        if EMAIL:
+            subj='{}/emailAddress={}'.format(subj,EMAIL)
+        if subj:
+            subj=' -subj "{}"'.format(subj)
+        # gen 
+        rc[0]=1
+        if os.path.isfile(keyfile) is False:
+            if passwd:
+                # gen KEY
+                rc=km.rshell('openssl genrsa -aes256 -out {0} 2048'.format(keyfile))
+            else:
+                rc=km.rshell('openssl genrsa -out {0} 2048'.format(keyfile))
+        if (os.path.isfile(keyfile) and os.path.isfile(certfile) is False) or rc[0] == 0:
+            # gen CSR
+            rrc=km.rshell('openssl req -new -key {0} -out {0}.csr {1}'.format(keyfile,subj))
+            if rrc[0] == 0:
+                # gen cert
+                rrrc=km.rshell('openssl x509 -req -days {1} -in {0}.csr -signkey {0} -out {2}'.format(keyfile,days,certfile))
+                if rrrc[0] == 0:
+                    # check
+                    print(km.rshell('openssl x509 -text -noout -in {}'.format(certfile))[1])
+                    return keyfile,certfile
+    else:
+        key_file=None
+        crt_file=None
+        if os.path.isfile(keyfile):
+            key_file=keyfile
+        if os.path.isfile(certfile):
+            crt_file=certfile
+        return key_file,crt_file
+    return None,None
+
+def rreplace(source_string, replace_what, replace_with):
+    head, _sep, tail = source_string.rpartition(replace_what)
+    return head + replace_with + tail
+
+def ssl_wrap(socket,server,certfile,keyfile=None):
+    if certfile is None:
+        return socket
+    if keyfile:
+        cert_file(keyfile,certfile,mode='auto')
+        return ssl.wrap_socket(socket, server_side=True,certfile=certfile,keyfile=keyfile)
+    else:
+        if os.path.isfile(certfile) is False:
+            cert=ssl.get_server_certificate(server)
+            f=open(certfile,'wb')
+            f.write(cert)
+            f.close()
+        return ssl.wrap_socket(socket,ca_certs=certfile,cert_reqs=ssl.CERT_REQUIRED)
+
+def net_put_data(IP,data,PORT=8805,key='kg',timeout=3,try_num=1,try_wait=[1,10],progress=None,enc=False,upacket=None,dbg=0,wait_time=3,certfile=None):
     for ii in range(0,try_num):
         if upacket: # Update packet function for number of try information ([#/<total #>])
             data=upacket('ntry',[ii+1,try_num],data)
-        sock=net_get_socket(IP,PORT,timeout=timeout,dbg=dbg)
+        sock=net_get_socket(IP,PORT,timeout=timeout,dbg=dbg,certfile=certfile)
+        
         if sock is False:
             if dbg >= 3:
                 print('Can not get socket data [{}/{}], wait {}s'.format(ii+1,try_num,wait_time))
@@ -1978,6 +2070,9 @@ def web_client_ip(request):
     else:
         ip = request.META.get('REMOTE_ADDR')
     return ip
+
+def web_session(request):
+    return request.session._get_or_create_session_key()
 
 def web_req(host_url,**opts):
     # remove SSL waring error message (test)

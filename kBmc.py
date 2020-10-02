@@ -659,8 +659,16 @@ class kBmc:
         print('%10s : %s'%("BootOrder",'{}'.format(self.bootorder()[1])))
 
     def node_state(self,state='up',timeout=600,keep_up=40,interval=8, down_monitor=0,**opts): # Node state
-        if keep_up == 0 or keep_up is None:
-            return True,'N/A'
+        #if keep_up == 0 or keep_up is None:
+        #    return True,'N/A'
+        if type(timeout) is not int:
+            timeout=600
+        if type(interval) is not int:
+            interval=8
+        if type(down_monitor) is not int:
+            down_monitor=0
+        if type(keep_up) is not int:
+            keep_up=40
         log=self.root.log.GET()
         if keep_up >= timeout:
             timeout=int('{}'.format(keep_up)) + 30
@@ -673,6 +681,8 @@ class kBmc:
         init_time=km.int_sec()
         up_time=0
         down_chk=False
+        no_read=0
+        no_read_try=0
         tmp=''
         _break=False
         _timeout=False
@@ -683,9 +693,9 @@ class kBmc:
             if _break:
                 km.logging('Got STOP Signal',log=log,log_level=1,dsp='e')
                 return False,'Got STOP Signal'            
-            if _break:
+            if _timeout:
                 km.logging('Timeout',log=log,log_level=1,dsp='e')
-                return False,'Timeout'            
+                return False,'Timeout over {} seconds'.format(timeout)
             while True:
                 if stop_func and type(stop_arg) is dict:
                     #if stop_func(**stop_arg) is True:
@@ -695,7 +705,10 @@ class kBmc:
                 if cancel_func is True:
                     _break=True
                     break
-                out,init_time=km.timeout(timeout,init_time)
+                if up_time > 0:
+                    out,init_time=km.timeout(timeout+(keep_up*3),init_time)
+                else:
+                    out,init_time=km.timeout(timeout,init_time)
                 if out:
                     _timeout=True
                     break
@@ -713,18 +726,34 @@ class kBmc:
                             tmp=ii_a[4].strip()
                         if 'Temp' in find and ('CPU' in find or 'System' in find):
                             if tmp == 'No Reading':
-                                if keep_up > 0 and up_time > 0:
-                                    up_time=0
+                                up_time=0
+                                if no_read == 0:
+                                    no_read=km.int_sec()
+                                else:
+                                    if no_read_try < 2 and km.int_sec() - no_read > 180: # during 3 min can't read BMC then
+                                        no_read_try+=1
+                                        km.logging('[',log=log,direct=True,log_level=2)
+                                        rrst=self.reset()
+                                        km.logging(']',log=log,direct=True,log_level=2)
+                                        no_read=0
+                                        timeout=timeout+200
+                                        if km.krc(rrst[0],chk=True):
+                                            km.logging('O',log=log,direct=True,log_level=2)
+                                        else:
+                                            km.logging('X',log=log,direct=True,log_level=2)
                                 km.logging('.',log=log,direct=True,log_level=2)
                             elif tmp in ['N/A','Disabled','0C/32F']:
                                 down_chk=True
                                 if state == 'down':
                                     km.logging(' ',log=log,log_level=2)
                                     return True,'down'
-                                if keep_up > 0 and up_time > 0:
-                                    up_time=0
+                                #if keep_up > 0 and up_time > 0:
+                                #    up_time=0
+                                up_time=0
+                                no_read=0
                                 km.logging('_',log=log,direct=True,log_level=2)
-                            else:
+                            else: # Up state
+                                no_read=0
                                 if state == 'up':
                                     if keep_up > 0:
                                          if up_time == 0:
@@ -741,8 +770,9 @@ class kBmc:
                                          return True,'up'
                                 km.logging('-',log=log,direct=True,log_level=2)
                 else:
-                    if keep_up > 0 and up_time > 0:
-                        up_time=0
+                    #if keep_up > 0 and up_time > 0:
+                    #    up_time=0
+                    up_time=0
                     km.logging('!',log=log,direct=True,log_level=2)
                 sys.stdout.flush()
                 time.sleep(interval)
