@@ -848,7 +848,7 @@ class kBmc:
                     time.sleep(3)
                     continue
                 # keep command
-                if self.is_up(timeout=timeout,keep_up=pre_keep_up)[0] is False:
+                if pre_keep_up > 0 and self.is_up(timeout=timeout,keep_up=pre_keep_up)[0] is False:
                     time.sleep(3)
                     continue
                 init_status=init_rc[1][1].split()[-1]
