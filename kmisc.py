@@ -94,11 +94,15 @@ def format_string_dict(string):
         return True
     return False
     
-def format_time(time=0,tformat='%s'):
+def format_time(time=0,tformat='%s',time_format='%S'):
     if time in [0,'0',None]:
         return datetime.now().strftime(tformat)
     else:
-        return datetime.strptime(str(time),tformat)
+        #if type(time) is int or (type(time) is str and time.isdigit()):
+        if time_format == '%S':
+            return datetime.fromtimestamp(int(time)).strftime(tformat)
+        else:
+            return datetime.strptime(str(time),time_format).strftime(tformat)
 
 def get_caller_fcuntion_name(detail=False):
     try:
@@ -114,7 +118,7 @@ def get_caller_fcuntion_name(detail=False):
         return False
 
 def log_format(*msg,**opts):
-    log_date_format=opts.get('log_date_format','[%m/%d/%Y %H:%M:%S]')
+    log_date_format=opts.get('date_format','[%m/%d/%Y %H:%M:%S]')
     func_name=opts.get('func_name',False)
     log_intro=opts.get('log_intro',3)
     end_new_line=opts.get('end_new_line','')
@@ -123,11 +127,11 @@ def log_format(*msg,**opts):
         m_str=None
         intro=''
         intro_space=''
-        if log_date_format or log_intro > 2:
+        if log_date_format:
             intro=format_time(tformat=log_date_format)+' '
-        if func_name or log_intro > 1:
+        if func_name or log_intro > 3:
             if type(func_name) is str:
-                intro=intro+'{0}() '.format(func_name)
+                intro=intro+'{0} '.format(func_name)
             else:
                 intro=intro+'{0}() '.format(get_caller_fcuntion_name())
         if intro:
@@ -148,8 +152,9 @@ def printf(*msg,**opts):
     log=opts.get('log',None)
     log_level=opts.get('log_level',8)
     dsp=opts.get('dsp','a')
+    func_name=opts.get('func_name',None)
     date=opts.get('date',False)
-    date_format=opts.get('date_format','%m/%d/%Y %H:%M:%S')
+    date_format=opts.get('date_format','[%m/%d/%Y %H:%M:%S]')
     intro=opts.get('intro',None)
     caller=opts.get('caller',False)
     caller_detail=opts.get('caller_detail',False)
@@ -258,7 +263,7 @@ def printf(*msg,**opts):
          if 'args' in log_func_arg or 'varargs' in log_func_arg:
              log_p=True
              args=log_func_arg.get('args',[])
-             if args and len(args) <= 3 and ('direct' in args or 'log_level' in args):
+             if args and len(args) <= 4 and ('direct' in args or 'log_level' in args or 'func_name' in args):
                  tmp=[]
                  for i in range(0,len(args)):
                      tmp.append(i)
@@ -270,10 +275,18 @@ def printf(*msg,**opts):
                      lidx=args.index('log_level')
                      del tmp[lidx]
                      args[lidx]=log_level
+                 if 'func_name' in args:
+                     lidx=args.index('func_name')
+                     del tmp[lidx]
+                     args[lidx]=func_name
+                 if 'date_format' in args:
+                     lidx=args.index('date_format')
+                     del tmp[lidx]
+                     args[lidx]=date_format
                  args[tmp[0]]=msg_str
                  log(*args)
              elif 'keywards' in log_func_arg:
-                 log(msg_str,direct=direct,log_level=log_level)
+                 log(msg_str,direct=direct,log_level=log_level,func_name=func_name,date_format=date_format)
              elif 'defaults' in log_func_arg:
                  if 'direct' in log_func_arg['defaults'] and 'log_level' in log_func_arg['defaults']:
                      log(msg_str,direct=direct,log_level=log_level)
