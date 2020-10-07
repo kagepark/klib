@@ -658,134 +658,140 @@ class kBmc:
         print('%10s : %s'%("LanMode",'{}'.format(self.lanmode()[1])))
         print('%10s : %s'%("BootOrder",'{}'.format(self.bootorder()[1])))
 
-    def node_state(self,state='up',timeout=600,keep_up=40,interval=8, down_monitor=0,**opts): # Node state
-        #if keep_up == 0 or keep_up is None:
-        #    return True,'N/A'
-        if type(timeout) is not int:
-            timeout=600
-        if type(interval) is not int:
-            interval=8
-        if type(down_monitor) is not int:
-            down_monitor=0
-        if type(keep_up) is not int:
-            keep_up=40
+    def node_state(self,state='up',timeout=600,keep_up=0,keep_down=0,interval=8, check_down=False,keep_unknown=180,**opts): # Node state
         log=self.root.log.GET()
-        if keep_up >= timeout:
-            timeout=int('{}'.format(keep_up)) + 30
-        if down_monitor >= timeout:
-            timeout=int('{}'.format(down_monitor)) + 30
-        stop_func=opts.get('stop_func',None)
-        #stop_stop_arg=opts.get('stop_arg',{})
-        cancel_func=opts.get('cancel_func',None)
+        if keep_up > 0 and keep_up >= timeout:
+            timeout=int(keep_up) + 30
+        if keep_down > 0 and keep_down >= timeout:
+            timeout=int(keep_down) + 30
+        stop_func=opts.get('stop_func',False)
+        cancel_func=opts.get('cancel_func',False)
         # _: Down, -: Up, .: Unknown sensor data, !: ipmi sensor command error
-        init_time=km.int_sec()
+        def sensor_data(cmd_str,name):
+            krc=self.run_cmd(cmd_str)
+            if km.krc(krc[0],chk=True):
+                for ii in krc[1][1].split('\n'):
+                    ii_a=ii.split('|')
+                    find=''
+                    if name == 'smc' and len(ii_a) > 2:
+                        find=ii_a[1].strip()
+                        tmp=ii_a[2].strip()
+                    elif len(ii_a) > 4:
+                        find=ii_a[0].strip()
+                        tmp=ii_a[4].strip()
+                    if 'Temp' in find and ('CPU' in find or 'System' in find):
+                        if tmp == 'No Reading':
+                            return 'unknown'
+                        elif tmp in ['N/A','Disabled','0C/32F']:
+                            return 'down'
+                        else: # Up state
+                            return 'up'
+            return 'error'
+
+        def power_data():
+            pwr_info=self.power(cmd='status')
+            return pwr_info.split()[-1]
+
+        system_down=False
+        init_time=0
         up_time=0
-        down_chk=False
+        down_time=0
+        unknown_time=0
         no_read=0
         no_read_try=0
         tmp=''
-        _break=False
-        _timeout=False
-        for mm in opts.get('ipmi_mode',self.root.ipmi_mode.GET()):
-            name=mm.__name__
-            init_time=None
-            cmd_str=mm.cmd_str('ipmi sensor')
-            if _break:
-                km.logging('Got STOP Signal',log=log,log_level=1,dsp='e')
-                return False,'Got STOP Signal'            
-            if _timeout:
-                km.logging('Timeout',log=log,log_level=1,dsp='e')
-                return False,'Timeout over {} seconds'.format(timeout)
-            while True:
-                if stop_func and type(stop_arg) is dict:
-                    #if stop_func(**stop_arg) is True:
-                    if stop_func is True:
-                        _break=True
-                        break
+        while True:
+            for mm in opts.get('ipmi_mode',self.root.ipmi_mode.GET()):
+                name=mm.__name__
+                cmd_str=mm.cmd_str('ipmi sensor')
+                sensor_state=sensor_data(cmd_str,name)
+                pwr_state=power_data()
+                if stop_func is True:
+                    km.logging('Got STOP Signal',log=log,log_level=1,dsp='e')
+                    return False,'Got STOP Signal'            
                 if cancel_func is True:
-                    _break=True
-                    break
+                    km.logging('Got Cancel Signal',log=log,log_level=1,dsp='e')
+                    return False,'Got Cancel Signal'            
                 if up_time > 0:
                     out,init_time=km.timeout(timeout+(keep_up*3),init_time)
                 else:
                     out,init_time=km.timeout(timeout,init_time)
                 if out:
-                    _timeout=True
-                    break
-                krc=self.run_cmd(cmd_str)
-                if km.krc(krc[0],chk=True):
-                #if krc[0]:
-                    for ii in krc[1][1].split('\n'):
-                        ii_a=ii.split('|')
-                        find=''
-                        if name == 'smc' and len(ii_a) > 2:
-                            find=ii_a[1].strip()
-                            tmp=ii_a[2].strip()
-                        elif len(ii_a) > 4:
-                            find=ii_a[0].strip()
-                            tmp=ii_a[4].strip()
-                        if 'Temp' in find and ('CPU' in find or 'System' in find):
-                            if tmp == 'No Reading':
-                                up_time=0
-                                if no_read == 0:
-                                    no_read=km.int_sec()
+                    km.logging('Timeout',log=log,log_level=1,dsp='e')
+                    if sensor_state == 'unknown':
+                        self.root.UPDATE({'error':{'sensor':{km.int_sec():sensor_state}}})
+                    return False,'Timeout over {} seconds'.format(timeout)
+                if state == 'up':
+                    if sensor_state == 'up':
+                        down_time=0
+                        up_ok,up_time=km.timeout(keep_up,up_time)
+                        if up_ok:
+                            if check_down:
+                                if system_down:
+                                    return True,'up'
                                 else:
-                                    if no_read_try < 2 and km.int_sec() - no_read > 180: # during 3 min can't read BMC then
-                                        no_read_try+=1
-                                        km.logging('[',log=log,direct=True,log_level=2)
-                                        rrst=self.reset()
-                                        km.logging(']',log=log,direct=True,log_level=2)
-                                        no_read=0
-                                        timeout=timeout+200
-                                        if km.krc(rrst[0],chk=True):
-                                            km.logging('O',log=log,direct=True,log_level=2)
-                                        else:
-                                            km.logging('X',log=log,direct=True,log_level=2)
-                                km.logging('.',log=log,direct=True,log_level=2)
-                            elif tmp in ['N/A','Disabled','0C/32F']:
-                                down_chk=True
-                                if state == 'down':
-                                    km.logging(' ',log=log,log_level=2)
-                                    return True,'down'
-                                #if keep_up > 0 and up_time > 0:
-                                #    up_time=0
-                                up_time=0
-                                no_read=0
-                                km.logging('_',log=log,direct=True,log_level=2)
-                            else: # Up state
-                                no_read=0
-                                if state == 'up':
-                                    if keep_up > 0:
-                                         if up_time == 0:
-                                             up_time=km.int_sec()
-                                         if km.int_sec() - up_time > keep_up:
-                                             if down_monitor and down_chk is False: #check down but not down then keep check down
-                                                 continue
-                                             km.logging(' ',log=log,log_level=2)
-                                             return True,'up'
-                                    else:
-                                         if down_monitor and down_chk is False: #check down but not down then keep check down
-                                             continue
-                                         km.logging(' ',log=log,log_level=2)
-                                         return True,'up'
-                                km.logging('-',log=log,direct=True,log_level=2)
-                else:
-                    #if keep_up > 0 and up_time > 0:
-                    #    up_time=0
+                                    return False,'up'
+                            else:
+                                return True,'up'
+                    else:
+                        up_time=0
+                        up_pw_ok,down_time=km.timeout(keep_down,down_time)
+                        if up_pw_ok:
+                            if pwr_state == 'on':
+                                return False,'init'
+                            else:
+                                return False,'down'
+                elif state == 'down':
+                    system_down=True
+                    if sensor_state == 'up':
+                        down_time=0
+                        dn_ok,up_time=km.timeout(keep_up,up_time)
+                        if dn_ok:
+                            return False,'up'
+                    else:
+                        up_time=0
+                        dn_pw_ok,down_time=km.timeout(keep_down,down_time)
+                        if dn_pw_ok:
+                            if pwr_state == 'on':
+                                return False,'down' # Not real down
+                            else:
+                                return True,'down' # Real down
+
+                if sensor_state == 'unknown': # No reading data
+                    if keep_unknown > 0 and no_read_try < 2:
+                        unknown_ok,unknown_time=km.timeout(keep_unknown,unknown_time)
+                        if unknown_ok:
+                             km.logging('[',log=log,direct=True,log_level=2)
+                             rrst=self.reset()
+                             km.logging(']',log=log,direct=True,log_level=2)
+                             unknown_time=0
+                             timeout=timeout+200
+                             no_read_try+=1
+                             if km.krc(rrst[0],chk=True):
+                                 km.logging('O',log=log,direct=True,log_level=2)
+                             else:
+                                 km.logging('X',log=log,direct=True,log_level=2)
                     up_time=0
-                    km.logging('!',log=log,direct=True,log_level=2)
-                sys.stdout.flush()
+                    down_time=0
+                    km.logging('.',log=log,direct=True,log_level=2)
+                else:
+                    unknown_time=0
+                    if sensor_state == 'up':
+                        km.logging('-',log=log,direct=True,log_level=2)
+                    elif sensor_state == 'down':
+                        km.logging('_',log=log,direct=True,log_level=2)
+                    else: # error
+                        up_time=0
+                        down_time=0
+                        km.logging('!',log=log,direct=True,log_level=2)
                 time.sleep(interval)
-            km.logging(' ',log=log,log_level=2)
-            if tmp == 'No Reading':
-                self.root.UPDATE({'error':{'sensor':{km.int_sec():tmp}}})
-        return False,'timeout'
+            time.sleep(interval)
 
-    def is_up(self,timeout=1200,keep_up=40,interval=8,**opts): # Node state
-        return self.node_state(state='up',timeout=timeout,keep_up=keep_up,interval=interval,**opts) # Node state
+    def is_up(self,timeout=1200,keep_up=40,keep_down=300,interval=8,check_down=False,keep_unknown=180,**opts): # Node state
+        return self.node_state(state='up',timeout=timeout,keep_up=keep_up,keep_down=keep_down,interval=interval,check_down=check_down,keep_unknown=keep_unknown,**opts) # Node state
 
-    def is_down(self,timeout=240,interval=8,**opts): # Node state
-        return self.node_state(state='down',timeout=timeout,keep_up=0,interval=interval,**opts) # Node state
+    def is_down(self,timeout=1200,keep_up=240,interval=8,**opts): # Node state
+        return self.node_state(state='down',timeout=timeout,keep_up=keep_up,interval=interval,**opts) # Node state
 
     def power(self,cmd='status',retry=0,boot_mode=None,order=False,ipxe=False,log_file=None,log=None,force=False,mode=None,verify=True,post_keep_up=20,pre_keep_up=0,timeout=1200,lanmode=None):
         log=self.root.log.GET()
@@ -992,10 +998,11 @@ if __name__ == "__main__":
     print('Init')
     bmc.init()
     print('Do')
+    print(bmc.is_up())
 #    print(bmc.power(cmd='status'))
 #    print(bmc.power(cmd='off_on'))
 #    print(bmc.power(cmd='reset'))
-    print(bmc.is_tmp_pass(ipmi_pass='Super123',tmp_pass='SumTester23'))
+#    print(bmc.is_tmp_pass(ipmi_pass='Super123',tmp_pass='SumTester23'))
     #print(bmc.summary())
 #    print(bmc.lanmode())
 #    print(bmc.info())

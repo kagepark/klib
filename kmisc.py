@@ -1574,7 +1574,7 @@ def _u_byte2str(val,encode='latin1'):
     return val.decode(encode)
 
 def net_send_data(sock,data,key='kg',enc=False,timeout=0):
-    if type(sock).__name__ in ['socket','_socketobject'] and data and type(key) is str and len(key) > 0 and len(key) < 7:
+    if type(sock).__name__ in ['socket','_socketobject','SSLSocket'] and data and type(key) is str and len(key) > 0 and len(key) < 7:
         # encode code here
         if timeout > 0:
             sock.settimeout(timeout)
@@ -1617,11 +1617,6 @@ def net_receive_data(sock,key='kg',progress=None):
             if not newbuf: return None
             buf += newbuf
             count -= len(newbuf)
-            if progress is not None:
-                sys.stdout.write("%s: [%3.1f%%]\r" %(progress,(1 - count/file_size_d) * 100.))
-                sys.stdout.flush()
-        if progress is not None:
-            print('')
         return buf
     head=recvall(sock,10)
     if head:
@@ -1642,16 +1637,16 @@ def net_receive_data(sock,key='kg',progress=None):
             return [False,'Wrong key']
     return [False,'Wrong packet({})'.format(head)]
 
-def net_put_and_get_data(IP,data,PORT=8805,key='kg',timeout=3,try_num=1,try_wait=[0,5],progress=None,enc=False,upacket=None,certfile=None):
+def net_put_and_get_data(IP,data,PORT=8805,key='kg',timeout=3,try_num=1,try_wait=[0,5],progress=None,enc=False,upacket=None,SSLC=False,log=True):
     for ii in range(0,try_num):
         if upacket: # Update packet function for number of try information ([#/<total #>])
             data=upacket('ntry',[ii+1,try_num],data)
-        sock=net_get_socket(IP,PORT,timeout=timeout,certfile=certfile)
+        sock=net_get_socket(IP,PORT,timeout=timeout,SSLC=SSLC)
         sent=False
         try:
             sent=net_send_data(sock,data,key=key,enc=enc)
         except:
-            print('send fail, try again ... [{}/{}]'.format(ii+1,try_num))
+            os.system("""[ -f /tmp/.{0}.{1}.crt ] && rm -f /tmp/.{0}.{1}.crt""".format(host,port))
         if sent:
             try:
                 return net_receive_data(sock,key=key,progress=progress)
@@ -1660,11 +1655,12 @@ def net_put_and_get_data(IP,data,PORT=8805,key='kg',timeout=3,try_num=1,try_wait
         if sock:
             sock.close()
         if try_num > 1:
-            print('try send data ... [{}/{}]'.format(ii+1,try_num))
+            if log:
+                print('try send data ... [{}/{}]'.format(ii+1,try_num))
             sleep(try_wait)
     return [False,'Send fail :\n%s'%(data)]
 
-def net_get_socket(host,port,timeout=3,dbg=0,certfile=None): # host : Host name or IP
+def net_get_socket(host,port,timeout=3,dbg=0,SSLC=False): # host : Host name or IP
     try:
         af, socktype, proto, canonname, sa = socket.getaddrinfo(host, port, socket.AF_UNSPEC, socket.SOCK_STREAM)[0]
     except:
@@ -1677,18 +1673,37 @@ def net_get_socket(host,port,timeout=3,dbg=0,certfile=None): # host : Host name 
     except socket.error as msg:
         print('could not open socket of {0}:{1}\n{2}'.format(host,port,msg))
         return False
-    try:
-        if certfile:
-            ssl_soc=ssl_wrap(soc,(host,port),certfile=certfile)
-            ssl_soc.connect((host,port))
-            return ssl_soc
-        else:
+    ###### SSL Wrap ######
+    if SSLC:
+        for i in range(0,5):
+            icertfile='/tmp/.{}.{}.crt'.format(host,port)
+            try:
+                cert=ssl.get_server_certificate((host,port))
+            except:
+                os.system('rm -f /tmp/.{}.{}.crt'.format(host,port))
+                time.sleep(1)
+                continue
+            f=open(icertfile,'w')
+            f.write(cert)
+            f.close()
+            time.sleep(0.3)
+            try:
+                soc=ssl.wrap_socket(soc,ca_certs=icertfile,cert_reqs=ssl.CERT_REQUIRED)
+                soc.connect((host,port))
+                return soc
+            except socket.error as msg:
+                if dbg > 3:
+                    print(msg)
+                time.sleep(1)
+    ########################
+    else:
+        try:
             soc.connect(sa)
             return soc
-    except socket.error as msg:
-        if dbg > 3:
-            print('can not connect at {0}:{1}\n{2}'.format(host,port,msg))
-        return False
+        except socket.error as msg:
+            if dbg > 3:
+                print('can not connect at {0}:{1}\n{2}'.format(host,port,msg))
+    return False
 
 def net_start_server(server_port,main_func_name,server_ip='',timeout=0,max_connection=10,log_file=None,certfile=None,keyfile=None):
     ssoc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -1708,7 +1723,7 @@ def net_start_server(server_port,main_func_name,server_ip='',timeout=0,max_conne
         ip, port = str(addr[0]), str(addr[1])
         try:
             if certfile and keyfile:
-                ssl_conn=ssl_wrap(conn,(server_ip,server_port),certfile=certfile,keyfile=keyfile)
+                ssl_conn=ssl_wrap(conn,certfile,keyfile=keyfile)
                 Thread(target=main_func_name, args=(ssl_conn, ip, port, log_file)).start()
             else:
                 Thread(target=main_func_name, args=(conn, ip, port, log_file)).start()
@@ -1732,7 +1747,7 @@ def net_start_single_server(server_port,main_func_name,server_ip='',timeout=0,ma
     conn, addr = ssoc.accept()
     ip, port = str(addr[0]), str(addr[1])
     if certfile and keyfile:
-        ssl_conn=ssl_wrap(conn,(server_ip,server_port),certfile=certfile,keyfile=keyfile)
+        ssl_conn=ssl_wrap(conn,certfile,keyfile=keyfile)
         rc=main_func_name(ssl_conn, ip, port, log_file)
     else:
         rc=main_func_name(conn, ip, port, log_file)
@@ -1867,12 +1882,14 @@ def now():
     return int_sec()
 
 def timeout(timeout_sec,init_time=None,default=(24*3600)):
+    if type(init_time) is not int or init_time == 0:
+        init_time=int_sec()
+    if timeout_sec == 0:
+        return False,init_time
     if type(timeout_sec) is not int:
         timeout_sec=default
         if timeout_sec < 3:
            timeout_sec=3
-    if type(init_time) is not int:
-        init_time=int_sec()
     if int_sec() - init_time >  timeout_sec:
         return True,init_time
     return False,init_time
@@ -1950,7 +1967,7 @@ def kmp(mp={},func=None,name=None,timeout=0,quit=False,log_file=None,log_screen=
     return mp
 
 def key_remove_pass(filename):
-    km.rshell('openssl rsa -in {0}.key -out {0}.nopass.key'.format(filename))
+    rshell('openssl rsa -in {0}.key -out {0}.nopass.key'.format(filename))
 
 def cert_file(keyfile,certfile,C='US',ST='CA',L='San Jose',O='KGC',OU='KG',CN=None,EMAIL=None,days=365,passwd=None,mode='gen'):
     if keyfile is None and certfile is None:
@@ -1963,6 +1980,10 @@ def cert_file(keyfile,certfile,C='US',ST='CA',L='San Jose',O='KGC',OU='KG',CN=No
             else:
                 return '{}.nopass.key'.format(keyfile),None
     elif mode == 'gen' or (mode == 'auto' and (os.path.isfile(keyfile) is False or os.path.isfile(certfile) is False)):
+        if mode == 'gen':
+            os.system('''rm -f {}'''.format(certfile))
+            os.system('''rm -f {}'''.format(keyfile))
+            os.system('''rm -f {}.csr'''.format(keyfile))
         subj=''
         if C:
             subj='{}/C={}'.format(subj,C)
@@ -1981,22 +2002,29 @@ def cert_file(keyfile,certfile,C='US',ST='CA',L='San Jose',O='KGC',OU='KG',CN=No
         if subj:
             subj=' -subj "{}"'.format(subj)
         # gen 
-        rc[0]=1
+        rc=(1,'error','error',0,0,'','')
         if os.path.isfile(keyfile) is False:
             if passwd:
                 # gen KEY
-                rc=km.rshell('openssl genrsa -aes256 -out {0} 2048'.format(keyfile))
+                rc=rshell('openssl genrsa -aes256 -out {0} 2048'.format(keyfile))
             else:
-                rc=km.rshell('openssl genrsa -out {0} 2048'.format(keyfile))
+                #print('openssl genrsa -out {0} 2048'.format(keyfile))
+                rc=rshell('openssl genrsa -out {0} 2048'.format(keyfile))
         if (os.path.isfile(keyfile) and os.path.isfile(certfile) is False) or rc[0] == 0:
             # gen CSR
-            rrc=km.rshell('openssl req -new -key {0} -out {0}.csr {1}'.format(keyfile,subj))
+    #        time.sleep(0.1)
+            os.system('''rm -f {}'''.format(certfile))
+            os.system('''rm -f {}.csr'''.format(keyfile))
+            rrc=rshell('openssl req -new -key {0} -out {0}.csr {1}'.format(keyfile,subj))
             if rrc[0] == 0:
                 # gen cert
-                rrrc=km.rshell('openssl x509 -req -days {1} -in {0}.csr -signkey {0} -out {2}'.format(keyfile,days,certfile))
+                #print('openssl x509 -req -days {1} -in {0}.csr -signkey {0} -out {2}'.format(keyfile,days,certfile))
+#                time.sleep(0.1)
+                rrrc=rshell('openssl x509 -req -days {1} -in {0}.csr -signkey {0} -out {2}'.format(keyfile,days,certfile))
                 if rrrc[0] == 0:
                     # check
-                    print(km.rshell('openssl x509 -text -noout -in {}'.format(certfile))[1])
+#                    print(rshell('openssl x509 -text -noout -in {}'.format(certfile))[1])
+#                    time.sleep(3)
                     return keyfile,certfile
     else:
         key_file=None
@@ -2012,25 +2040,11 @@ def rreplace(source_string, replace_what, replace_with):
     head, _sep, tail = source_string.rpartition(replace_what)
     return head + replace_with + tail
 
-def ssl_wrap(socket,server,certfile,keyfile=None):
-    if certfile is None:
-        return socket
-    if keyfile:
-        cert_file(keyfile,certfile,mode='auto')
-        return ssl.wrap_socket(socket, server_side=True,certfile=certfile,keyfile=keyfile)
-    else:
-        if os.path.isfile(certfile) is False:
-            cert=ssl.get_server_certificate(server)
-            f=open(certfile,'wb')
-            f.write(cert)
-            f.close()
-        return ssl.wrap_socket(socket,ca_certs=certfile,cert_reqs=ssl.CERT_REQUIRED)
-
-def net_put_data(IP,data,PORT=8805,key='kg',timeout=3,try_num=1,try_wait=[1,10],progress=None,enc=False,upacket=None,dbg=0,wait_time=3,certfile=None):
+def net_put_data(IP,data,PORT=8805,key='kg',timeout=3,try_num=1,try_wait=[1,10],progress=None,enc=False,upacket=None,dbg=0,wait_time=3,SSLC=False):
     for ii in range(0,try_num):
         if upacket: # Update packet function for number of try information ([#/<total #>])
             data=upacket('ntry',[ii+1,try_num],data)
-        sock=net_get_socket(IP,PORT,timeout=timeout,dbg=dbg,certfile=certfile)
+        sock=net_get_socket(IP,PORT,timeout=timeout,dbg=dbg,SSLC=SSLC)
         
         if sock is False:
             if dbg >= 3:
