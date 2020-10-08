@@ -97,6 +97,8 @@ class kBmc:
                 test_pass.remove(ipmi_pass)
             self.root.PUT('test_pass',test_pass)
             self.root.PUT('ipmi_mode',opts.get('ipmi_mode',[Ipmitool()]))
+            self.root.PUT('log_level',opts.get('log_level',5))
+            self.root.PUT('timeout',opts.get('timeout',1800))
         if opts:
             if opts.get('log',None):
                 self.root.PUT('log',opts.get('log'))
@@ -136,12 +138,10 @@ class kBmc:
                 if test_pass:
                     self.root.PUT('test_pass',move2first(self.root.uniq_pass.GET(),opts.get('test_pass')))
                     self.root.PUT('test_pass',move2first(self.root.ipmi_pass.GET(),self.root.test_pass.GET()))
-                if opts.get('log_level',None):
-                    self.root.PUT('log_level',opts.get('log_level',5))
-                if opts.get('timeout',None):
-                    self.root.PUT('timeout',opts.get('timeout',1800))
-                if opts.get('ipmi_mode',None):
-                    self.root.PUT('ipmi_mode',opts.get('ipmi_mode'))
+#                if opts.get('timeout',None):
+#                    self.root.PUT('timeout',opts.get('timeout',1800))
+#                if opts.get('ipmi_mode',None):
+#                    self.root.PUT('ipmi_mode',opts.get('ipmi_mode'))
                 if opts.get('rc',None):
                     self.root.PUT('rc',opts.get('rc',None))
                 if opts.get('top_root',None):
