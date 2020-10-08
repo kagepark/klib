@@ -1554,7 +1554,7 @@ def find_cdrom_dev():
 #Payload Port                    : 623
 
 def _u_str2int(val,encode='utf-8'):
-    if sys.version_info > (3,0):
+    if is_py3():
         if type(val) is bytes:
             return int(val.hex(),16)
         else:
@@ -1562,16 +1562,22 @@ def _u_str2int(val,encode='utf-8'):
     return int(val.encode('hex'),16)
 
 def _u_bytes(val,encode='utf-8'):
-    if sys.version_info > (3,0):
+    if is_py3():
         if type(val) is bytes:
             return val
         else:
             return bytes(val,encode)
-    return bytes(val)
+    #return bytes(val)
+    return val.decode(encode)
 
 #def _u_byte2str(val,encode='windows-1252'):
+def _u_bytes2str(val,encode='latin1'):
+    return _u_byte2str(val,encode=encode)
+
 def _u_byte2str(val,encode='latin1'):
-    return val.decode(encode)
+    if is_py3():
+        return val.decode(encode)
+    return val.encode(encode)
 
 def net_send_data(sock,data,key='kg',enc=False,timeout=0):
     if type(sock).__name__ in ['socket','_socketobject','SSLSocket'] and data and type(key) is str and len(key) > 0 and len(key) < 7:
@@ -2392,10 +2398,10 @@ def append(src,addendum):
 
 def is_xml(filename):
     if type(filename) is str and os.path.isfile(filename):
-        chk_type_file=open(filename,'r')
-        firstLine=chk_type_file.readline()
+        chk_type_file=open(filename,'rb')
+        firstLine=_u_byte2str(chk_type_file.readline())
     else:
-        firstLine=filename.split('\n')[0]
+        firstLine=_u_byte2str(filename).split('\n')[0]
     if firstLine.split(' ')[0] == '<?xml':
         return True
     return False
@@ -2433,6 +2439,22 @@ def get_data(data,key,ekey=None,default=None):
     elif type_data is dict:
         return data.get(key,default)
     return default
+
+def compare(a,sym,b,ignore=None):
+    if type(a) is not int or type(b) is not int:
+        return False
+    if ignore is not None:
+        if eval('{} == {}'.format(a,ignore)) or eval('{} == {}'.format(b,ignore)):
+            return False
+    return eval('{} {} {}'.format(a,sym,b))
+
+def integer(a,default=0):
+    if type(a) is not int:
+        try:
+            a=int(a)
+        except:
+            return default
+    return a
 
 if __name__ == "__main__":
     class ABC:

@@ -402,7 +402,7 @@ class kBmc:
             if dbg or show_str:
                 km.logging('** Do CMD  : {}'.format(cmd_str),log=log,log_level=1,dsp='d')
                 km.logging(' - Timeout : %-15s - PATH    : %s'%(timeout,path),log=log,log_level=1,dsp='d')
-                km.logging(' - CHK_CODE: {}'.format(return_code),log=log,log_level=1,dsp='d')
+                km.logging(' - CHK_CODE: {}\n'.format(return_code),log=log,log_level=1,dsp='d')
             if mode == 'redfish':
                 # code here for run redfish
                 # how to put sub, rec variable from kBmc?
@@ -634,6 +634,11 @@ class kBmc:
         return False,[]
 
     def ping(self,test_num=3,retry=1,wait=1,keep=0,timeout=30): # BMC is on (pinging)
+        test_num=km.integer(test_num,default=3)
+        retry=km.integer(retry,default=1)
+        wait=km.integer(wait,default=1)
+        keep=km.integer(keep,default=0)
+        timeout=km.integer(timeout,default=30)
         return km.ping(self.root.ipmi_ip.GET(),test_num=test_num,retry=retry,wait=wait,keep=keep,log=self.root.log.GET())
 
     def summary(self): # BMC is ready(hardware is ready)
@@ -658,11 +663,18 @@ class kBmc:
         print('%10s : %s'%("LanMode",'{}'.format(self.lanmode()[1])))
         print('%10s : %s'%("BootOrder",'{}'.format(self.bootorder()[1])))
 
-    def node_state(self,state='up',timeout=600,keep_up=0,keep_down=0,interval=8, check_down=False,keep_unknown=180,**opts): # Node state
+    #def node_state(self,state='up',timeout=600,keep_up=0,keep_down=0,interval=8, check_down=False,keep_unknown=180,**opts): # Node state
+    def node_state(self,state='up',**opts): # Node state
         log=self.root.log.GET()
-        if keep_up > 0 and keep_up >= timeout:
+        timeout=km.integer(opts.get('timeout'),default=600)
+        keep_up=km.integer(opts.get('keep_up'),default=0)
+        keep_down=km.integer(opts.get('keep_down'),default=0)
+        keep_unknown=km.integer(opts.get('keep_unknown'),default=180)
+        interval=km.integer(opts.get('interval'),default=0)
+        check_down=opts.get('check_down',False)
+        if km.compare(keep_up,'>=',timeout,ignore=0):
             timeout=int(keep_up) + 30
-        if keep_down > 0 and keep_down >= timeout:
+        if km.compare(keep_down,'>=',timeout,ignore=0):
             timeout=int(keep_down) + 30
         stop_func=opts.get('stop_func',False)
         cancel_func=opts.get('cancel_func',False)
@@ -794,6 +806,10 @@ class kBmc:
         return self.node_state(state='down',timeout=timeout,keep_up=keep_up,interval=interval,**opts) # Node state
 
     def power(self,cmd='status',retry=0,boot_mode=None,order=False,ipxe=False,log_file=None,log=None,force=False,mode=None,verify=True,post_keep_up=20,pre_keep_up=0,timeout=1200,lanmode=None):
+        retry=km.integer(retry,default=0)
+        timeout=km.integer(timeout,default=1200)
+        pre_keep_up=km.integer(pre_keep_up,default=0)
+        post_keep_up=km.integer(post_keep_up,default=20)
         log=self.root.log.GET()
         if cmd == 'status':
             return self.do_power('status',verify=verify)[1]
