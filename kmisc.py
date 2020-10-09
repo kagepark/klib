@@ -369,24 +369,28 @@ def is_py3():
     return False
 
 
-def rshell(cmd,timeout=None,ansi=True,path=None,progress=False,log=None):
-    def pprog(stop,log=None):
-        chk=False
+def rshell(cmd,timeout=None,ansi=True,path=None,progress=False,progress_pre_new_line=False,progress_post_new_line=False,log=None):
+    def pprog(stop,progress_pre_new_line=False,progress_post_new_line=False,log=None):
+        if progress_pre_new_line:
+            if log:
+                log('\n',direct=True,log_level=1)
+            else:
+                sys.stdout.write('\n')
+                sys.stdout.flush()
         while True:
             time.sleep(5)
             if stop():
-                if chk:
-                    if log:
-                        log('\n',direct=True,log_level=1)
-                    else:
-                        sys.stdout.write('\n')
-                        sys.stdout.flush()
                 break
-            chk=True
             if log:
                 log('>',direct=True,log_level=1)
             else:
                 sys.stdout.write('>')
+                sys.stdout.flush()
+        if progress_post_new_line:
+            if log:
+                log('\n',direct=True,log_level=1)
+            else:
+                sys.stdout.write('\n')
                 sys.stdout.flush()
     start_time=datetime.now().strftime('%s')
     if type(cmd) is not str:
@@ -401,7 +405,7 @@ def rshell(cmd,timeout=None,ansi=True,path=None,progress=False,log=None):
     err=None
     if progress:
         stop_threads=False
-        ppth=Thread(target=pprog,args=(lambda:stop_threads,log,))
+        ppth=Thread(target=pprog,args=(lambda:stop_threads,progress_pre_new_line,progress_post_new_line,log,))
         ppth.start()
     if timeout:
         try:
@@ -1575,9 +1579,12 @@ def _u_bytes2str(val,encode='latin1'):
     return _u_byte2str(val,encode=encode)
 
 def _u_byte2str(val,encode='latin1'):
-    if is_py3():
+    type_val=type(val)
+    if is_py3() and type_val is bytes:
         return val.decode(encode)
-    return val.encode(encode)
+    elif type_val is unicode:
+        return val.encode(encode)
+    return val
 
 def net_send_data(sock,data,key='kg',enc=False,timeout=0):
     if type(sock).__name__ in ['socket','_socketobject','SSLSocket'] and data and type(key) is str and len(key) > 0 and len(key) < 7:
@@ -2397,10 +2404,12 @@ def append(src,addendum):
     return False
 
 def is_xml(filename):
-    if type(filename) is str and os.path.isfile(filename):
-        chk_type_file=open(filename,'rb')
-        firstLine=_u_byte2str(chk_type_file.readline())
-    else:
+    firstLine=file_rw('firstline',filename,mode='rb',out='string')
+#    if type(filename) is str and os.path.isfile(filename):
+#        chk_type_file=open(filename,'rb')
+#        firstLine=_u_byte2str(chk_type_file.readline())
+#    else:
+    if firstLine is False:
         firstLine=_u_byte2str(filename).split('\n')[0]
     if firstLine.split(' ')[0] == '<?xml':
         return True
@@ -2455,6 +2464,38 @@ def integer(a,default=0):
         except:
             return default
     return a
+
+def file_rw(cmd,name,data=None,out='string',append=False):
+    if type(name) is str and os.path.isfile(name):
+        if cmd in ['write','save'] and data is not None:
+            try:
+                if append:
+                    with open(name,'ab') as f:
+                        f.write(_u_bytes(data))
+                else:
+                    with open(name,'wb') as f:
+                        f.write(_u_bytes(data))
+                return True
+            except:
+                pass
+        else:
+            data=None
+            try:
+                if cmd in ['firstread','firstline','first_line','head','readline']:
+                    with open(name,'rb') as f:
+                        data=f.readline()
+                elif cmd == 'read':
+                    with open(name,'rb') as f:
+                        data=f.read()
+            except:
+                pass
+            if data is not None:
+                if out in ['string','str']:
+                    return _u_bytes2str(data)
+                else:
+                    return data
+    return False
+
 
 if __name__ == "__main__":
     class ABC:

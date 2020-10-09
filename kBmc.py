@@ -302,7 +302,8 @@ class kBmc:
                         if log_level < 7:
                             km.logging("""x""".format(uu,pp),log=log,direct=True,log_level=3)
             km.logging("""Can not find working BMC User and password""",log=log,log_level=1,dsp='e')
-            self.root.UPDATE({'error':{'user_pass':{km.int_sec():'Can not find working BMC User or password'}}})
+#            self.root.UPDATE({'error':{'user_pass':{km.int_sec():'Can not find working BMC User or password'}}})
+            self.root.error.UPDATE({'user_pass':{km.int_sec():'Can not find working BMC User or password'}})
         return False,None,None
 
     def recover_user_pass(self):
@@ -415,7 +416,7 @@ class kBmc:
                     rf_rc=1
                 rc=rf_rc,rf_rt,'',start_time,end_time,cmd_str,'web'
             else:
-                rc=km.rshell(cmd_str,path=path,timeout=timeout,progress=progress,log=log)
+                rc=km.rshell(cmd_str,path=path,timeout=timeout,progress=progress,log=log,progress_pre_new_line=True,progress_post_new_line=True)
             if show_str:
                 km.logging(' - RT_CODE : {}'.format(rc[0]),log=log,log_level=1,dsp='d')
             if dbg:
@@ -669,6 +670,7 @@ class kBmc:
         timeout=km.integer(opts.get('timeout'),default=600)
         keep_up=km.integer(opts.get('keep_up'),default=0)
         keep_down=km.integer(opts.get('keep_down'),default=0)
+        power_down=km.integer(opts.get('power_down'),default=0)
         keep_unknown=km.integer(opts.get('keep_unknown'),default=180)
         interval=km.integer(opts.get('interval'),default=0)
         check_down=opts.get('check_down',False)
@@ -711,6 +713,7 @@ class kBmc:
         unknown_time=0
         no_read=0
         no_read_try=0
+        power_down_time=0
         tmp=''
         while True:
             for mm in opts.get('ipmi_mode',self.root.ipmi_mode.GET()):
@@ -729,10 +732,10 @@ class kBmc:
                 else:
                     out,init_time=km.timeout(timeout,init_time)
                 if out:
-                    km.logging('Timeout',log=log,log_level=1,dsp='e')
+                    km.logging('Node state Timeout',log=log,log_level=1,dsp='e')
                     if sensor_state == 'unknown':
-                        self.root.UPDATE({'error':{'sensor':{km.int_sec():sensor_state}}})
-                    return False,'Timeout over {} seconds'.format(timeout)
+                        self.root.error.UPDATE({'sensor':{km.int_sec():sensor_state}})
+                    return False,'Node state Timeout over {} seconds'.format(timeout)
                 if state == 'up':
                     if sensor_state == 'up':
                         down_time=0
@@ -747,6 +750,12 @@ class kBmc:
                                 return True,'up'
                     else:
                         up_time=0
+                        if pwr_state == 'off':
+                            dn_pw_ok,power_down_time=km.timeout(power_down,power_down_time)
+                            if dn_pw_ok:
+                                return False,'down'
+                        else:
+                            power_down_time=0
                         up_pw_ok,down_time=km.timeout(keep_down,down_time)
                         if up_pw_ok:
                             if pwr_state == 'on':
@@ -762,6 +771,12 @@ class kBmc:
                             return False,'up'
                     else:
                         up_time=0
+                        if pwr_state == 'off':
+                            dn_pw_ok,power_down_time=km.timeout(power_down,power_down_time)
+                            if dn_pw_ok:
+                                return True,'down'
+                        else:
+                            power_down_time=0
                         dn_pw_ok,down_time=km.timeout(keep_down,down_time)
                         if dn_pw_ok:
                             if pwr_state == 'on':
@@ -799,11 +814,11 @@ class kBmc:
                 time.sleep(interval)
             time.sleep(interval)
 
-    def is_up(self,timeout=1200,keep_up=40,keep_down=300,interval=8,check_down=False,keep_unknown=180,**opts): # Node state
-        return self.node_state(state='up',timeout=timeout,keep_up=keep_up,keep_down=keep_down,interval=interval,check_down=check_down,keep_unknown=keep_unknown,**opts) # Node state
+    def is_up(self,timeout=1200,keep_up=40,keep_down=300,power_down=20,interval=8,check_down=False,keep_unknown=180,**opts): # Node state
+        return self.node_state(state='up',timeout=timeout,keep_up=keep_up,keep_down=keep_down,power_down=power_down,interval=interval,check_down=check_down,keep_unknown=keep_unknown,**opts) # Node state
 
-    def is_down(self,timeout=1200,keep_up=240,interval=8,**opts): # Node state
-        return self.node_state(state='down',timeout=timeout,keep_up=keep_up,interval=interval,**opts) # Node state
+    def is_down(self,timeout=1200,keep_up=240,interval=8,power_down=20,**opts): # Node state
+        return self.node_state(state='down',timeout=timeout,keep_up=keep_up,interval=interval,power_down=power_down,**opts) # Node state
 
     def power(self,cmd='status',retry=0,boot_mode=None,order=False,ipxe=False,log_file=None,log=None,force=False,mode=None,verify=True,post_keep_up=20,pre_keep_up=0,timeout=1200,lanmode=None):
         retry=km.integer(retry,default=0)
@@ -935,7 +950,8 @@ class kBmc:
 
     def error(self,_type=None,msg=None):
         if _type and msg:
-            self.root.UPDATE({'error':{_type:{km.int_sec():msg}}})
+#            self.root.UPDATE({'error':{_type:{km.int_sec():msg}}})
+            self.root.error.UPDATE({_type:{km.int_sec():msg}})
         else:
             err=self.root.GET('error',default=None)
             if err is not None:
