@@ -1571,20 +1571,22 @@ def _u_bytes(val,encode='utf-8'):
             return val
         else:
             return bytes(val,encode)
-    #return bytes(val)
-    return val.decode(encode)
+    return bytes(val) # if change to decode then network packet broken
+    #return val.decode(encode)
 
-#def _u_byte2str(val,encode='windows-1252'):
 def _u_bytes2str(val,encode='latin1'):
     return _u_byte2str(val,encode=encode)
 
+#def _u_byte2str(val,encode='windows-1252'):
 def _u_byte2str(val,encode='latin1'):
+    #return val.decode(encode) # this is original
     type_val=type(val)
     if is_py3() and type_val is bytes:
         return val.decode(encode)
     elif type_val is unicode:
         return val.encode(encode)
     return val
+
 
 def net_send_data(sock,data,key='kg',enc=False,timeout=0):
     if type(sock).__name__ in ['socket','_socketobject','SSLSocket'] and data and type(key) is str and len(key) > 0 and len(key) < 7:
@@ -2404,7 +2406,7 @@ def append(src,addendum):
     return False
 
 def is_xml(filename):
-    firstLine=file_rw('firstline',filename,mode='rb',out='string')
+    firstLine=file_rw('firstline',filename,out='string')
 #    if type(filename) is str and os.path.isfile(filename):
 #        chk_type_file=open(filename,'rb')
 #        firstLine=_u_byte2str(chk_type_file.readline())
@@ -2415,7 +2417,7 @@ def is_xml(filename):
         return True
     return False
 
-def krc(rt,chk='_',rtd={'GOOD':[True,'True','GOOD','Good','good','ok','Ok','OK',{'OK'},0],'FAIL':[False,'False','fail','Fail','FAIL',{'FAL'}],'NONE':[None,'none','None','N/A','NONE',{'NA'}],'IGNO':['IGNO','ignore','Ignore','IGNORE',{'IGN'}],'ERRO':['ERR','error','Error','ERROR',{'ERR'}],'WARN':['warn','Warn','WARN',{'WAR'}]}):
+def krc(rt,chk='_',rtd={'GOOD':[True,'True','GOOD','Good','good','ok','Ok','OK','pass','PASS','Pass',{'OK'},0],'FAIL':[False,'False','false','fail','Fail','FAIL',{'FAL'}],'NONE':[None,'none','None','N/A','NONE',{'NA'}],'IGNO':['IGNO','ignore','Ignore','IGNORE',{'IGN'}],'ERRO':['ERR','error','Error','ERROR',{'ERR'}],'WARN':['warn','Warn','WARN',{'WAR'}],'UNKN':['Unknown','unknown','UNKNOWN','UNKN',{'UNK'}]}):
     def trans(irt):
         type_irt=type(irt)
         for ii in rtd:
