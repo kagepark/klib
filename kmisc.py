@@ -1583,7 +1583,7 @@ def _u_byte2str(val,encode='latin1'):
     type_val=type(val)
     if is_py3() and type_val is bytes:
         return val.decode(encode)
-    elif type_val is unicode:
+    elif type_val.__name__ == 'unicode':
         return val.encode(encode)
     return val
 
