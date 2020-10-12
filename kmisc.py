@@ -302,9 +302,10 @@ def printf(*msg,**opts):
     if (log_p is False and 'a' in dsp) or 's' in dsp or 'e' in dsp:
          if 'e' in dsp:
              sys.stderr.write(msg_str+new_line)
+             sys.stderr.flush()
          else:
              sys.stdout.write(msg_str+new_line)
-         sys.stdout.flush()
+             sys.stdout.flush()
     # return msg
     if 'r' in dsp:
          return msg_str
