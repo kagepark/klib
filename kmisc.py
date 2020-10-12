@@ -371,14 +371,17 @@ def is_py3():
 
 def rshell(cmd,timeout=None,ansi=True,path=None,progress=False,progress_pre_new_line=False,progress_post_new_line=False,log=None):
     def pprog(stop,progress_pre_new_line=False,progress_post_new_line=False,log=None):
+        time.sleep(5)
+        if stop():
+            return
         if progress_pre_new_line:
             if log:
                 log('\n',direct=True,log_level=1)
             else:
                 sys.stdout.write('\n')
                 sys.stdout.flush()
+        post_chk=False
         while True:
-            time.sleep(5)
             if stop():
                 break
             if log:
@@ -386,7 +389,8 @@ def rshell(cmd,timeout=None,ansi=True,path=None,progress=False,progress_pre_new_
             else:
                 sys.stdout.write('>')
                 sys.stdout.flush()
-        if progress_post_new_line:
+            post_chk=True
+        if post_chk and progress_post_new_line:
             if log:
                 log('\n',direct=True,log_level=1)
             else:
