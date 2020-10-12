@@ -390,6 +390,7 @@ def rshell(cmd,timeout=None,ansi=True,path=None,progress=False,progress_pre_new_
                 sys.stdout.write('>')
                 sys.stdout.flush()
             post_chk=True
+            time.sleep(5)
         if post_chk and progress_post_new_line:
             if log:
                 log('\n',direct=True,log_level=1)
@@ -2502,6 +2503,27 @@ def file_rw(cmd,name,data=None,out='string',append=False):
                     return data
     return False
 
+
+def argtype(arg,want='_'):
+    type_arg=type(arg)
+    if want == "_":
+        return type_arg.__name__.lower()
+    if type(want) is str:
+        if type_arg.__name__.lower() == want.lower():
+            return True
+    else:
+        if type_arg == want:
+            return True
+    return False        
+
+def replacestr(data,org,new):
+    if type(data) is not str:
+        data=_u_bytes2str(data)
+    if type(org) is not str:
+        org=_u_bytes2str(org)
+    if type(new) is not str:
+        new=_u_bytes2str(new)
+    return data.replace(org,new)
 
 if __name__ == "__main__":
     class ABC:
