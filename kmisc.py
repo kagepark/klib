@@ -25,6 +25,7 @@ import ast
 import zlib
 import base64
 import ssl
+from distutils.version import LooseVersion
 
 ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
 url_group = re.compile('^(https|http|ftp)://([^/\r\n]+)(/[^\r\n]*)?')
@@ -809,37 +810,63 @@ def is_tempfile(filepath,tmp_dir='/tmp'):
    return True
 
 
-def mktemp(prefix='tmp-',suffix=None,opt='dry'):
-   dir=os.path.dirname(prefix)
-   if dir == '.':
-       dir=os.path.realpath(__file__)
-   elif dir == '':
-       dir='/tmp'
-
-   pfilename, file_ext = os.path.splitext(prefix)
-   filename=os.path.basename(pfilename)
-   if suffix is not None:
-       if len(file_ext) == 0:
-          file_ext='.{0}'.format(suffix)
-
-   dest_file='{0}/{1}{2}'.format(dir,filename,file_ext)
-   if opt == 'file':
-      if os.path.exists(dest_file):
-          return tempfile.TemporaryFile(prefix='{0}-'.format(filename),suffix=file_ext,dir=dir)
-      else:
-          os.mknod(dest_file)
-          return dest_file
-   elif opt == 'dir':
-      if os.path.exists(dest_file):
-          return tempfile.TemporaryDirectory(suffix='{0}-'.format(filename),prefix=prefix,dir=dir)
-      else:
-          os.mkdir(dest_file)
-          return dest_file
+def mktemp(filename=None,suffix='-XXXXXXXX',opt='dry',base_dir='/tmp'):
+   if filename is None:
+       filename=os.path.join(base_dir,random_str(length=len(suffix)-1,mode='str'))
+   dir_name=os.path.dirname(filename)
+   file_name=os.path.basename(filename)
+   name, ext = os.path.splitext(file_name)
+   if type(suffix) is not str:
+       suffix='-XXXXXXXX'
+   num_type='.%0{}d'.format(len(suffix)-1)
+   if dir_name == '.':
+       dir_name=os.path.dirname(os.path.realpath(__file__))
+   elif dir_name == '':
+       dir_name=base_dir
+   def new_name(name,ext=None,ext2=None):
+       if ext:
+           if ext2:
+               return '{}{}{}'.format(name,ext,ext2)
+           return '{}{}'.format(name,ext)
+       if ext2:
+           return '{}{}'.format(name,ext2)
+       return name
+   def new_dest(dest_dir,name,ext=None):
+       if os.path.isdir(dest_dir) is False:
+           return False
+       i=0
+       new_file=new_name(name,ext)
+       while True:
+           rfile=os.path.join(dest_dir,new_file)
+           if os.path.exists(rfile) is False:
+               return rfile
+           if suffix:
+               if '0' in suffix or 'n' in suffix or 'N' in suffix:
+                   if suffix[-1] not in ['0','n']:
+                       new_file=new_name(name,num_type%i,ext)
+                   else:
+                       new_file=new_name(name,ext,num_type%i)
+               elif 'x' in suffix or 'X' in suffix:
+                   rnd_str='.{}'.format(random_str(length=len(suffix)-1,mode='str'))
+                   if suffix[-1] not in ['X','x']:
+                       new_file=new_name(name,rnd_str,ext)
+                   else:
+                       new_file=new_name(name,ext,rnd_str)
+               else:
+                   if i == 0:
+                       new_file=new_name(name,ext,'.{}'.format(suffix))
+                   else:
+                       new_file=new_name(name,ext,'.{}.{}'.format(suffix,i))
+           else:
+               new_file=new_name(name,ext,'.{}'.format(i))
+           i+=1
+   new_dest_file=new_dest(dir_name,name,ext)
+   if opt in ['file','f']:
+      os.mknode(new_dest_file)
+   elif opt in ['dir','d','directory']:
+      os.mkdir(new_dest_file)
    else:
-      if os.path.exists(dest_file):
-         return tempfile.mktemp(prefix='{0}-'.format(filename),suffix=file_ext,dir=dir)
-      else:
-         return dest_file
+      return new_dest_file
 
 def append2list(*inp,**cond):
    org=[]
@@ -1158,21 +1185,18 @@ def str2url(string):
         return string.replace('+','%2B').replace('?','%3F').replace('/','%2F').replace(':','%3A').replace('=','%3D').replace(' ','+')
     return string
 
-def clear_version(string):
-    arr=string.split('.')
-    if arr[-1] == '00' or arr[-1] == '0':
+def clear_version(string,sym='.'):
+    if type(string) is int:
+        string='{}'.format(string)
+    arr=[]
+    for x in string.split(sym):
+        try:
+            arr.append(str(int(x)))
+        except:
+            arr.append(x)
+    if arr[-1] == '0':
         arr.pop(-1)
-#    for i in range(0,len(arr)):
-#        if int(arr[-1]) == 0:
-#            arr.pop(-1)
-    new_ver=''
-    for i in arr:
-        if len(new_ver) > 0:
-            new_ver='{0}.{1}'.format(new_ver,i)
-        else:
-            new_ver='{0}'.format(i)
-    return new_ver 
-    
+    return sym.join(arr)
 
 def find_key_from_value(dic=None,find=None):
     if type(dic) is dict and find is not None:
@@ -1180,7 +1204,14 @@ def find_key_from_value(dic=None,find=None):
             if val == find:
                 return key
 
-def random_str(length=8,strs='0aA-1b+2Bc=C3d_D,4.eE?5"fF6g7G!h8H@i9#Ij$JkK%lLmMn^N&oO*p(Pq)Q/r\Rs:St;TuUv{V<wW}x[Xy>Y]z|Z'):
+def random_str(length=8,strs=None,mode='*'):
+    if strs is None:
+        if mode in ['all','*','alphanumchar']:
+            strs='0aA-1b+2Bc=C3d_D,4.eE?5"fF6g7G!h8H@i9#Ij$JkK%lLmMn^N&oO*p(Pq)Q/r\Rs:St;TuUv{V<wW}x[Xy>Y]z|Z'
+        elif mode in ['alphanum']:
+            strs='aA1b2BcC3dD4eE5fF6g7Gh8Hi9IjJkKlLmMnNoOpPqQrRsStTuUvVwWxXyYzZ'
+        else:
+            strs='aAbBcCdDeEfFgGhHiIjJkKlLmMnNoOpPqQrRsStTuUvVwWxXyYzZ'
     new=''
     strn=len(strs)-1
     for i in range(0,length):
@@ -2377,7 +2408,9 @@ def mount_samba(url,user,passwd,mount_point):
         new_url=''
         for i in url_a[2:url_m-1]:
             new_url='{0}/{1}'.format(new_url,i)
-        return rshell('''sudo mount -t cifs -o user={0} -o password={1} /{2} {3}'''.format(user,passwd,new_url,mount_point))
+        rc=rshell('''sudo mount -t cifs -o user={0} -o password={1} /{2} {3}'''.format(user,passwd,new_url,mount_point))
+        if rc[0] == 0:
+            return True,rc[1]
     else:
         url_a=url.split('\\')
         url_m=len(url_a)
@@ -2385,10 +2418,12 @@ def mount_samba(url,user,passwd,mount_point):
         new_url=''
         for i in url_a[1:url_m-1]:
             new_url='{0}/{1}'.format(new_url,i)
-        return rshell('''sudo mount -t cifs -o user={0} -o password={1} {2} {3}'''.format(user,passwd,new_url,mount_point))
+        rc=rshell('''sudo mount -t cifs -o user={0} -o password={1} {2} {3}'''.format(user,passwd,new_url,mount_point))
+        if rc[0] == 0:
+            return True,rc[1]
 
-def unmount(mount_point,del_dir=False):
-    rc=rshell('''[ -d {0} ] && sudo mountpoint {0} && sudo umount {0} && sleep 1'''.format(mount_point))
+def umount(mount_point,del_dir=False):
+    rc=rshell('''[ -d {0} ] && sudo mountpoint {0} && sleep 1 && sudo umount {0} && sleep 1'''.format(mount_point))
     if rc[0] == 0 and del_dir:
         os.system('[ -d {0} ] && rmdir {0}'.format(mount_point))
     return rc
@@ -2412,7 +2447,7 @@ def append(src,addendum):
     return False
 
 def is_xml(filename):
-    firstLine=file_rw('firstline',filename,out='string')
+    firstLine=file_rw(filename,out='string',read='firstline')
 #    if type(filename) is str and os.path.isfile(filename):
 #        chk_type_file=open(filename,'rb')
 #        firstLine=_u_byte2str(chk_type_file.readline())
@@ -2445,16 +2480,37 @@ def krc(rt,chk='_',rtd={'GOOD':[True,'True','GOOD','Good','good','ok','Ok','OK',
         return False
     return nrtc
 
-def get_data(data,key,ekey=None,default=None):
-    type_data=type(data)
-    if type_data in [tuple,list]:
-        if len(data) > key:
-            if ekey and len(data) > ekey:
-                return data[key:ekey]
+def get_data(data,key=None,ekey=None,default=None,method=None,strip=True,find=[]):
+    if argtype(data,'Request'):
+        if key:
+            if method is None:
+                method=data.method
+            if method == 'GET':
+                rc=data.GET.get(key,default)
+            elif method == 'FILE':
+                rc=data.FILES.get(key,default)
             else:
-                return data[key]
-    elif type_data is dict:
-        return data.get(key,default)
+                rc=data.POST.get(key,default)
+            if argtype(rc,str) and strip:
+                rc=rc.strip()
+            if rc in find:
+                return True
+            return rc
+        else:
+            if data.METHOD == 'GET':
+                return data.GET
+            else:
+                return data.data
+    else:
+        type_data=type(data)
+        if type_data in [tuple,list]:
+            if len(data) > key:
+                if ekey and len(data) > ekey:
+                    return data[key:ekey]
+                else:
+                    return data[key]
+        elif type_data is dict:
+            return data.get(key,default)
     return default
 
 def compare(a,sym,b,ignore=None):
@@ -2473,9 +2529,9 @@ def integer(a,default=0):
             return default
     return a
 
-def file_rw(cmd,name,data=None,out='string',append=False):
-    if type(name) is str and os.path.isfile(name):
-        if cmd in ['write','save'] and data is not None:
+def file_rw(name,data=None,out='string',append=False,read=None,overwrite=True):
+    if type(name) is str:
+        if data is not None and os.path.isdir(os.path.dirname(name)):
             try:
                 if append:
                     with open(name,'ab') as f:
@@ -2486,13 +2542,12 @@ def file_rw(cmd,name,data=None,out='string',append=False):
                 return True
             except:
                 pass
-        else:
-            data=None
+        elif data is None and os.path.isfile(name):
             try:
-                if cmd in ['firstread','firstline','first_line','head','readline']:
+                if read in ['firstread','firstline','first_line','head','readline']:
                     with open(name,'rb') as f:
                         data=f.readline()
-                elif cmd == 'read':
+                else:
                     with open(name,'rb') as f:
                         data=f.read()
             except:
@@ -2504,14 +2559,20 @@ def file_rw(cmd,name,data=None,out='string',append=False):
                     return data
     return False
 
-
-def argtype(arg,want='_'):
+def argtype(arg,want='_',get_data=['_']):
     type_arg=type(arg)
-    if want == "_":
+    if want in get_data:
+        if type_arg.__name__ == 'Request':
+            return arg.method.lower()
         return type_arg.__name__.lower()
     if type(want) is str:
-        if type_arg.__name__.lower() == want.lower():
-            return True
+        if type_arg.__name__ == 'Request':
+            if want.upper() == 'REQUEST' or want.upper() == arg.method:
+                return True
+            return False
+        else:
+            if type_arg.__name__.lower() == want.lower():
+                return True
     else:
         if type_arg == want:
             return True
@@ -2525,6 +2586,38 @@ def replacestr(data,org,new):
     if type(new) is not str:
         new=_u_bytes2str(new)
     return data.replace(org,new)
+
+def check_version(a,sym,b):
+    a=clear_version(a)
+    b=clear_version(b)
+    if sym == '>':
+        if LooseVersion(a) > LooseVersion(b):
+            return True
+    elif sym == '>=':
+        if LooseVersion(a) >= LooseVersion(b):
+            return True
+    elif sym == '==':
+        if LooseVersion(a) == LooseVersion(b):
+            return True
+    elif sym == '<=':
+        if LooseVersion(a) <= LooseVersion(b):
+            return True
+    elif sym == '<':
+        if LooseVersion(a) < LooseVersion(b):
+            return True
+    return False
+    
+def get_iso_uid(filename):
+    if os.path.isfile(filename):
+        uid_cmd='''sudo /usr/sbin/blkid {}'''.format(filename)
+        rc=rshell('''sudo /usr/sbin/blkid {}'''.format(filename))
+        if rc[0] == 0:
+            uid_str='{0}_{1}'.format(findstr(rc[1],'UUID="(\w.*)" L')[0],findstr(rc[1],'LABEL="(\w.*)" T')[0]).replace(' ','_')
+            file_info=get_file(filename)
+            file_size=file_info.get('size',None)
+            return True,uid_str,file_size
+        return False,rc[1],None
+    return False,'{} not found'.format(filename),None
 
 if __name__ == "__main__":
     class ABC:
