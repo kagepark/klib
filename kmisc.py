@@ -611,11 +611,29 @@ def get_ipmi_ip():
 def get_host_name():
     return socket.gethostname()
 
-def get_host_ip(ifname=None):
-    if ifname:
+def get_host_ip(ifname=None,mac=None):
+    if ifname or mac:
+        if mac:
+            ifname=get_dev_name_from_mac(mac)
         return get_net_dev_ip(ifname)
     else:
+        ifname=get_dev_name_from_mac()
+        if ifname:
+            ip=get_net_dev_ip(ifname)
+            if ip:
+                return ip
         return socket.gethostbyname(socket.gethostname())
+
+def get_dev_name_from_mac(mac=None):
+    if mac is None:
+        mac=get_host_mac()
+    net_dir='/sys/class/net'
+    if type(mac) is str and os.path.isdir(net_dir):
+        dirpath,dirnames,filenames = list(os.walk(net_dir))[0]
+        for dev in dirnames:
+            fmac=cat('{}/{}/address'.format(dirpath,dev),no_end_newline=True)
+            if type(fmac) is str and mac.strip().lower() == mac.lower():
+                return dev
 
 def get_dev_mac(ifname):
     try:
