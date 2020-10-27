@@ -406,7 +406,8 @@ def rshell(cmd,timeout=None,ansi=True,path=None,progress=False,progress_pre_new_
     PIPE=subprocess.PIPE
     cmd_env=''
     if path is not None:
-        cmd_env='''export PATH=%s:${PATH}\n[ -d %s ] && cd %s\n'''%(path,path,path)
+        #cmd_env='''export PATH=%s:${PATH}\n[ -d %s ] && cd %s\n'''%(path,path,path)
+        cmd_env='''export PATH=%s:${PATH}; '''%(path)
     p = Popen(cmd_env+cmd , shell=True, stdout=PIPE, stderr=PIPE)
     out=None
     err=None
@@ -653,26 +654,19 @@ def get_net_dev_ip(ifname):
             return
 
 def cat(filename,no_end_newline=False):
-    if os.path.isfile(filename):
-        try:
-            with open(filename,'rb') as f:
-                tmp=f.read()
-            if no_end_newline:
-                tmp_a=tmp.split('\n')
-                ntmp=''
-                for ii in tmp_a[:-1]:
-                    if ntmp:
-                        ntmp='{}\n{}'.format(ntmp,ii)
-                    else:
-                        ntmp='{}'.format(ii)
-                if len(tmp_a[-1]) > 0:
-                    ntmp='{}\n{}'.format(ntmp,tmp_a[-1])
-                tmp=ntmp
-            return tmp
-        except:
-            #print('Can not read {}'.format(filename))
-            pass
-    return False
+    tmp=file_rw(filename)
+    if type(tmp) is str and no_end_newline:
+        tmp_a=tmp.split('\n')
+        ntmp=''
+        for ii in tmp_a[:-1]:
+            if ntmp:
+                ntmp='{}\n{}'.format(ntmp,ii)
+            else:
+                ntmp='{}'.format(ii)
+        if len(tmp_a[-1]) > 0:
+            ntmp='{}\n{}'.format(ntmp,tmp_a[-1])
+        tmp=ntmp
+    return tmp
 
 def ls(dirname,opt=''):
     if os.path.isdir(dirname):
@@ -1484,14 +1478,14 @@ def git_ver(git_dir=None):
         if gver[0] == 0:
             return gver[1]
 
-def load_kmod(modules=[]):
-    if type(modules) is list:
-        for ii in modules:
-            os.system('lsmod | grep {0} >& /dev/null && modprobe -r {1}; modprobe --ignore-install {1} || modprobe {1}'.format(ii.split('-')[0],ii))
-            #os.system('lsmod | grep {0} >& /dev/null || modprobe -i -f {1}'.format(ii.split('-')[0],ii))
-        return
-    print('modules is not list type data ({0})'.format(modules))
-    return False
+def load_kmod(modules,re_load=False):
+    if type(modules) is str:
+        modules=modules.split(',')
+    for ii in modules:
+        if re_load:
+            os.system('lsmod | grep {0} >& /dev/null && modprobe -r {0}'.format(ii.replace('-','_')))
+        os.system('lsmod | grep {0} >& /dev/null || modprobe --ignore-install {1} || modprobe {1} || modprobe -ib {1}'.format(ii.replace('-','_'),ii))
+        #os.system('lsmod | grep {0} >& /dev/null || modprobe -i -f {1}'.format(ii.split('-')[0],ii))
 
 def reduce_string(string,symbol=' ',snum=0,enum=None):
     if type(string) is str:
@@ -1560,7 +1554,8 @@ def findstr(string,find,prs=None,split_symbol='\n',patern=True):
                     found.append(nn)
     return found
 
-def find_cdrom_dev():
+def find_cdrom_dev(size=None):
+    load_kmod(['sr_mod','cdrom','libata','ata_piix','ata_generic','usb-storage'])
     if os.path.isdir('/sys/block') is False:
         return
     for r, d, f in os.walk('/sys/block'):
@@ -1575,7 +1570,15 @@ def find_cdrom_dev():
                                 model=fpp.read()
                             for ii in ['CDROM','DVD-ROM','DVD-RW']:
                                 if ii in model:
-                                    return '/dev/{0}'.format(dd)
+                                    if size is None:
+                                        return '/dev/{0}'.format(dd)
+                                    else:
+                                        if os.path.exists('{}/size'.format(rrr)):
+                                            with open('{}/size'.format(rrr),'r') as fss:
+                                                block_size=fss.read()
+                                                dev_size=int(block_size) * 512
+                                                if dev_size == int(size):
+                                                    return '/dev/{0}'.format(dd)
 
 #def ipmi_sol(ipmi_ip,ipmi_user,ipmi_pass):
 #    if is_ipv4(ipmi_ip):
@@ -2458,12 +2461,12 @@ def is_xml(filename):
         return True
     return False
 
-def krc(rt,chk='_',rtd={'GOOD':[True,'True','GOOD','Good','good','ok','Ok','OK','pass','PASS','Pass',{'OK'},0],'FAIL':[False,'False','false','fail','Fail','FAIL',{'FAL'}],'NONE':[None,'none','None','N/A','NONE',{'NA'}],'IGNO':['IGNO','ignore','Ignore','IGNORE',{'IGN'}],'ERRO':['ERR','error','Error','ERROR',{'ERR'}],'WARN':['warn','Warn','WARN',{'WAR'}],'UNKN':['Unknown','unknown','UNKNOWN','UNKN',{'UNK'}]}):
+def krc(rt,chk='_',rtd={'GOOD':[True,'True','Good','Ok','Pass',{'OK'},0],'FAIL':[False,'False','Fail',{'FAL'}],'NONE':[None,'None','N/A',{'NA'}],'IGNO':['IGNO','Ignore',{'IGN'}],'ERRO':['ERR','Error',{'ERR'}],'WARN':['Warn',{'WAR'}],'UNKN':['Unknown','UNKN',{'UNK'}]}):
     def trans(irt):
         type_irt=type(irt)
         for ii in rtd:
             for jj in rtd[ii]:
-                if type(jj) == type_irt and jj == irt:
+                if type(jj) == type_irt and ((type_irt is str and jj.lower() == irt.lower()) or jj == irt):
                     return ii
         return 'UNKN'
     type_rt=type(rt)
@@ -2480,7 +2483,7 @@ def krc(rt,chk='_',rtd={'GOOD':[True,'True','GOOD','Good','good','ok','Ok','OK',
         return False
     return nrtc
 
-def get_data(data,key=None,ekey=None,default=None,method=None,strip=True,find=[]):
+def get_data(data,key=None,ekey=None,default=None,method=None,strip=True,find=[],out_form=str):
     if argtype(data,'Request'):
         if key:
             if method is None:
@@ -2488,16 +2491,26 @@ def get_data(data,key=None,ekey=None,default=None,method=None,strip=True,find=[]
             if method == 'GET':
                 rc=data.GET.get(key,default)
             elif method == 'FILE':
-                rc=data.FILES.get(key,default)
+                if out_form is list:
+                    rc=data.FILES.getlist(key,default)
+                else:
+                    rc=data.FILES.get(key,default)
             else:
-                rc=data.POST.get(key,default)
+                if out_form is list:
+                    rc=data.POST.getlist(key,default)
+                else:
+                    rc=data.POST.get(key,default)
             if argtype(rc,str) and strip:
                 rc=rc.strip()
             if rc in find:
                 return True
+            if rc == 'true':
+                return True
+            elif rc == '':
+                return None
             return rc
         else:
-            if data.METHOD == 'GET':
+            if data.method == 'GET':
                 return data.GET
             else:
                 return data.data
@@ -2618,6 +2631,28 @@ def get_iso_uid(filename):
             return True,uid_str,file_size
         return False,rc[1],None
     return False,'{} not found'.format(filename),None
+
+def find_usb_dev(size=None):
+    rc=[]
+    load_kmod(modules=['usb-storage'])
+    if os.path.isdir('/sys/block') is False:
+        return
+    for r, d, f in os.walk('/sys/block'):
+        for dd in d:
+            for rrr,ddd,fff in os.walk(os.path.join(r,dd)):
+                if 'removable' in fff:
+                    removable=cat('{0}/removable'.format(rrr))
+                    if removable:
+                        if '1' in removable:
+                            if size is None:
+                                rc.append('/dev/{0}'.format(dd))
+                            else:
+                                file_size=cat('{0}/size'.format(rrr))
+                                if file_size:
+                                    dev_size=int(file_size) * 512
+                                    if dev_size == int(size):
+                                        rc.append('/dev/{0}'.format(dd))
+    return rc
 
 if __name__ == "__main__":
     class ABC:
