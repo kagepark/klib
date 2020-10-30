@@ -215,8 +215,9 @@ class kDict(dict):
         self.__delitem__(key) # delete data with __delitem() in this class
 
     def CD(self,path,force=False):
-        path_a=path.split('/')
-        for p in path_a:
+        if type(path) is str:
+            path=path.split('/')
+        for p in path:
             if self._d_ in self:
                 self=self[self._d_]
             if p in self:

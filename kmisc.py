@@ -479,7 +479,8 @@ def mac2str(mac,case='lower'):
             mac=mac.strip().replace(':','').replace('-','').lower()
         else:
             mac=mac.strip().replace(':','').replace('-','').upper()
-    return mac
+        return mac
+    return False
 
 def str2mac(mac,sym=':',case='lower',chk=False):
     if type(mac) is str:
@@ -632,7 +633,7 @@ def get_dev_name_from_mac(mac=None):
         dirpath,dirnames,filenames = list(os.walk(net_dir))[0]
         for dev in dirnames:
             fmac=cat('{}/{}/address'.format(dirpath,dev),no_end_newline=True)
-            if type(fmac) is str and mac.strip().lower() == mac.lower():
+            if type(fmac) is str and fmac.strip().lower() == mac.lower():
                 return dev
 
 def get_dev_mac(ifname):
@@ -2479,7 +2480,7 @@ def is_xml(filename):
         return True
     return False
 
-def krc(rt,chk='_',rtd={'GOOD':[True,'True','Good','Ok','Pass',{'OK'},0],'FAIL':[False,'False','Fail',{'FAL'}],'NONE':[None,'None','N/A',{'NA'}],'IGNO':['IGNO','Ignore',{'IGN'}],'ERRO':['ERR','Error',{'ERR'}],'WARN':['Warn',{'WAR'}],'UNKN':['Unknown','UNKN',{'UNK'}]}):
+def krc(rt,chk='_',rtd={'GOOD':[True,'True','Good','Ok','Pass',{'OK'},0],'FAIL':[False,'False','Fail',{'FAL'}],'NONE':[None,'None','N/A',{'NA'}],'IGNO':['IGNO','Ignore',{'IGN'}],'ERRO':['ERR','Error',{'ERR'}],'WARN':['Warn',{'WAR'}],'UNKN':['Unknown','UNKN',{'UNK'}],'JUMP':['Jump',{'JUMP'}]}):
     def trans(irt):
         type_irt=type(irt)
         for ii in rtd:
@@ -2506,7 +2507,7 @@ def get_data(data,key=None,ekey=None,default=None,method=None,strip=True,find=[]
         if key:
             if method is None:
                 method=data.method
-            if method == 'GET':
+            if method.upper() == 'GET':
                 rc=data.GET.get(key,default)
             elif method == 'FILE':
                 if out_form is list:
