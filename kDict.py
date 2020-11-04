@@ -45,7 +45,12 @@ class kDict(dict):
 
     def __getitem__(self, key):
         try:
-            found = dict.__getitem__(self,key)
+             found = dict.__getitem__(self,key)
+             # not dict value change to kDict value for ignore error
+             if not isinstance(found,dict): 
+                 new_found=kDict({self._d_:found})
+                 super(kDict, self).__setitem__(key, new_found)
+                 found = dict.__getitem__(self,key)
         except:
             found=kDict.MARKER
         #found=self.get(key,kDict.MARKER)
@@ -129,15 +134,23 @@ class kDict(dict):
 
     def GET(self,key=None,default=None,raw=False):
         try:
-            if len(self) == 0:
+            #if len(self) == 0:
+            if not self:
                 return default
             if key is None:
                 if raw:
                     return peeling(self)
                 return peeling(self,ignore=[self._p_],jump=self._d_)
             else:
-                found=dict.__getitem__(self,key)
-                if len(found) == 0:
+                # Add read method for dictionary or self._d_ value
+                if self._d_ in self and key in self[self._d_]:
+                    found=dict.__getitem__(self[self._d_],key)
+                elif key in self:
+                    found=self[key]
+                else:
+                    #original code
+                    found=dict.__getitem__(self,key)
+                if not found:
                     return default
                 if isinstance(found,dict):
                     if raw:
@@ -177,7 +190,8 @@ class kDict(dict):
                 return
         if force:
             self.__getitem__(key).PROPER('force',True)
-        if proper is {}:
+        #if proper is {}:
+        if proper == {}:
             self.__setitem__(key, value)
         else:
             self.__setitem__(key, {self._d_:value,self._p_:proper})

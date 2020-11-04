@@ -108,8 +108,8 @@ class kBmc:
                 self.root.PUT('ipmi_ip',opts.get('ipmi_ip'))
                 if not km.is_ipv4(self.root.GET('ipmi_ip')) or not km.is_port_ip(self.root.GET('ipmi_ip'),self.root.GET('ipmi_port')):
                     self.root.error.UPDATE({'ip':"{} is not IPMI IP".format(self.root.ipmi_ip.GET())})
-                    km.logging(self.root.error.ip.GET(),log=self.root.log.GET(),log_level=1,dsp='e')
-            if not self.root.error.ip.GET():
+                    km.logging(self.root.error.GET('ip'),log=self.root.GET('log'),log_level=1,dsp='e')
+            if not self.root.error.GET('ip'):
                 test_user=opts.get('test_user',None)
                 test_pass=opts.get('test_pass',None)
                 if opts.get('ipmi_user',None):
@@ -820,6 +820,11 @@ class kBmc:
     def is_down(self,timeout=1200,keep_up=240,interval=8,power_down=20,**opts): # Node state
         return self.node_state(state='down',timeout=timeout,keep_up=keep_up,interval=interval,power_down=power_down,**opts) # Node state
 
+    def get_boot_mode(self):
+        ipmi_ok,ipmi_ip,ipmi_user,ipmi_pass,ipmi_mode=self.info(rf='tuple')
+        if ipmi_ok:
+            return km.get_boot_mode(ipmi_ip,ipmi_user,ipmi_pass,log=self.root.GET('log'))
+
     def power(self,cmd='status',retry=0,boot_mode=None,order=False,ipxe=False,log_file=None,log=None,force=False,mode=None,verify=True,post_keep_up=20,pre_keep_up=0,timeout=1200,lanmode=None):
         retry=km.integer(retry,default=0)
         timeout=km.integer(timeout,default=1200)
@@ -1027,10 +1032,11 @@ if __name__ == "__main__":
     print('Test at {}'.format(ipmi_ip))
     bmc=kBmc(ipmi_ip=ipmi_ip,ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,test_pass=['ADMIN','Admin'],test_user=['ADMIN','Admin'],timeout=1800,log=KLog,tool_path=tool_path,ipmi_mode=[Ipmitool()])
     #bmc=BMC(root,ipmi_ip='172.16.220.135',ipmi_user='ADMIN',ipmi_pass='ADMIN',test_pass=['ADMIN','Admin'],test_user=['ADMIN','Admin'],timeout=1800,log=KLog)
-    print('Init')
-    bmc.init()
+#    print('Init')
+#    bmc.init()
     print('Do')
-    print(bmc.is_up())
+#    print(bmc.is_up())
+    print(bmc.bootorder()[1])
 #    print(bmc.power(cmd='status'))
 #    print(bmc.power(cmd='off_on'))
 #    print(bmc.power(cmd='reset'))
