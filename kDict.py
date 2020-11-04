@@ -25,7 +25,14 @@ def peeling(v,ignore=[],collect=[],jump=None):
           else:
             rc[k]=vv
       return rc
-  return v
+
+  if isinstance(v,dict) and jump and jump in v:
+      if isinstance(v[jump],dict):
+          rr=peeling(v[jump],ignore=ignore,jump=jump)
+          return rr
+      return v[jump]
+  else:
+      return v
 
 class kDict(dict):
     MARKER = {}
@@ -43,23 +50,33 @@ class kDict(dict):
         else:
             raise TypeError('expected dict')
 
+    # moving step by step with dot('.') keys
     def __getitem__(self, key):
-        try:
-             found = dict.__getitem__(self,key)
-             # not dict value change to kDict value for ignore error
-             if not isinstance(found,dict): 
-                 new_found=kDict({self._d_:found})
-                 super(kDict, self).__setitem__(key, new_found)
-                 found = dict.__getitem__(self,key)
-        except:
-            found=kDict.MARKER
-        #found=self.get(key,kDict.MARKER)
+#        try:
+#            found = dict.__getitem__(self,key)
+#            # not dict value change to kDict value for ignore error
+#            if not isinstance(found,dict): 
+#                found=kDict({self._d_:found}) # Fake for ignore error only 
+#                # Updated Dictionary with kDict
+#    #            new_found=kDict({self._d_:found})
+#    #            super(kDict, self).__setitem__(key, new_found)
+#    #            found = dict.__getitem__(self,key)
+#            print('__getitem__ found:',found)
+#        except:
+#            found=kDict.MARKER
+#            print('__getitem__ except found:',found)
+        found=self.get(key,kDict.MARKER) # same as above code
+        if not isinstance(found,dict):
+            found=kDict({self._d_:found})
         if found is kDict.MARKER:
-            found = kDict()
-            super(kDict, self).__setitem__(key, found)
+            found = kDict() # make a fake data for ignore error at GET(),PUT(),.... 
+            # Really Generate A.B.C. .... new items
+#            print('__getitem__ generate new:',found)
+#            super(kDict, self).__setitem__(key, found)
+
 # Property setting issue
         # If the data is not kDict type data then convert the data to kDict type
-        # for example: root.abc.test=[1,2,3] => root.abc.PUT('test',[1,2,3]
+        # for example: root.abc.test=[1,2,3] => root.abc.PUT('test',[1,2,3])
 
         #    new_found=kDict({self._d_:found}) # Remove property. because, can known that is fake data or not in the call function.
 #            new_found=kDict({self._d_:found, self._p_:{}})
@@ -67,6 +84,7 @@ class kDict(dict):
         #    return new_found # it just reutn fake data for ignore error for GET() when the data is not kDict type data.
         return found
 
+    # Generate new dict key with data(value)
     def __setitem__(self, key, value):
         found=self.get(key,None)
         if self._is_ro(found,key=key):
@@ -88,6 +106,7 @@ class kDict(dict):
             return False
         super(kDict, self).__delitem__(key) # delete data
 
+    # readonly property check
     def _is_ro(self,found,key=None):
         if isinstance(found, dict):
             if key and key in found:
@@ -132,9 +151,10 @@ class kDict(dict):
                 return None
 
 
-    def GET(self,key=None,default=None,raw=False):
+    def GET(self,key=None,default=None,raw=False,path=None,symbol='.'):
         try:
-            #if len(self) == 0:
+            if path:
+                self=self.CD(path,symbol=symbol)
             if not self:
                 return default
             if key is None:
@@ -182,9 +202,11 @@ class kDict(dict):
         return False
 
     # Good
-    def PUT(self,key,value,proper={},force=False,new=False):
+    def PUT(self,key,value,proper={},force=False,new=False,path=None,symbol='.'):
         if value is None:
             return
+        if path:
+            self=self.CD(path,force=True,symbol=symbol)
         if new:
             if self.__getitem__(key):
                 return
@@ -198,7 +220,9 @@ class kDict(dict):
         return value
 
     # Good proper issue
-    def UPDATE(self,data,force=False):
+    def UPDATE(self,data,force=False,path=None,symbol='.'):
+        if path:
+            self=self.CD(path,force=True,symbol=symbol)
         if force is False and isinstance(data,dict):
             for ii in data:
                 if self._is_ro(self,ii):
@@ -228,20 +252,29 @@ class kDict(dict):
             self.__getitem__(key).PROPER('force',True)
         self.__delitem__(key) # delete data with __delitem() in this class
 
-    def CD(self,path,force=False):
+    # moving key step by step with path by seperated symbol 
+    def CD(self,path,force=False,symbol='/',default='_'): #force=True, generate new key
         if type(path) is str:
-            path=path.split('/')
-        for p in path:
-            if self._d_ in self:
-                self=self[self._d_]
-            if p in self:
-                self=self[p]
-            elif force:
-                super(kDict, self).__setitem__(p, kDict.MARKER)
-                self=self[p]
-            else:
-                return False
-        return self
+            path=path.split(symbol)
+        if type(path) is list:
+            for p in path:
+                if self._d_ in self:
+                    self=self[self._d_]
+                if p in self:
+                    self=self[p]
+                elif force:
+                    super(kDict, self).__setitem__(p, kDict())
+                    self=self[p]
+                else:
+                    if default=='_':
+                        return kDict()
+                    return default
+            return self
+        return False
+
+    # generate new key
+    def MK(self,path,symbol='.'):
+        return self.CD(path,force=True,symbol=symbol)
 
     def FIND(self,value,proper=None,mode='value'):
         path=[]

@@ -73,9 +73,11 @@ class Redfish:
         return True,'''https://{ipmi_ip}/redfish/v1/%s'''%(cmd),None,{'ok':[0,144],'error':[180],'err_bmc_user':[146],'err_connection':[145]},None
 
 def move2first(item,pool):
-    if item in pool:
-        pool.remove(item)
-    return [item]+pool
+    if item: 
+        if type(pool) is list and item in pool:
+            pool.remove(item)
+        return [item]+pool
+    return pool
 
 class kBmc:
     def __init__(self,*inps,**opts):
@@ -107,7 +109,7 @@ class kBmc:
             if opts.get('ipmi_ip',None):
                 self.root.PUT('ipmi_ip',opts.get('ipmi_ip'))
                 if not km.is_ipv4(self.root.GET('ipmi_ip')) or not km.is_port_ip(self.root.GET('ipmi_ip'),self.root.GET('ipmi_port')):
-                    self.root.error.UPDATE({'ip':"{} is not IPMI IP".format(self.root.ipmi_ip.GET())})
+                    self.root.UPDATE({'ip':"{} is not IPMI IP".format(self.root.ipmi_ip.GET())},path='error')
                     km.logging(self.root.error.GET('ip'),log=self.root.GET('log'),log_level=1,dsp='e')
             if not self.root.error.GET('ip'):
                 test_user=opts.get('test_user',None)
@@ -146,7 +148,7 @@ class kBmc:
                     self.root.PUT('rc',opts.get('rc',None))
                 if opts.get('top_root',None):
                     self.top_root=kDict.kDict(opts.get('top_root'))
-                    self.top_root.bmc.UPDATE(self.root.GET())
+                    self.top_root.UPDATE(self.root.GET(),path='bmc')
 
     def redfish(self,**opts):
         cmd=opts.get('cmd','')
@@ -303,7 +305,7 @@ class kBmc:
                             km.logging("""x""".format(uu,pp),log=log,direct=True,log_level=3)
             km.logging("""Can not find working BMC User and password""",log=log,log_level=1,dsp='e')
 #            self.root.UPDATE({'error':{'user_pass':{km.int_sec():'Can not find working BMC User or password'}}})
-            self.root.error.UPDATE({'user_pass':{km.int_sec():'Can not find working BMC User or password'}})
+            self.root.UPDATE({'user_pass':{km.int_sec():'Can not find working BMC User or password'}},path='error')
         return False,None,None
 
     def recover_user_pass(self):
@@ -734,7 +736,7 @@ class kBmc:
                 if out:
                     km.logging('Node state Timeout',log=log,log_level=1,dsp='e')
                     if sensor_state == 'unknown':
-                        self.root.error.UPDATE({'sensor':{km.int_sec():sensor_state}})
+                        self.root.UPDATE({'sensor':{km.int_sec():sensor_state}},path='error')
                     return False,'Node state Timeout over {} seconds'.format(timeout)
                 if state == 'up':
                     if sensor_state == 'up':
@@ -956,7 +958,7 @@ class kBmc:
     def error(self,_type=None,msg=None):
         if _type and msg:
 #            self.root.UPDATE({'error':{_type:{km.int_sec():msg}}})
-            self.root.error.UPDATE({_type:{km.int_sec():msg}})
+            self.root.UPDATE({_type:{km.int_sec():msg}},path='error')
         else:
             err=self.root.GET('error',default=None)
             if err is not None:
