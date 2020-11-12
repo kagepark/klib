@@ -893,7 +893,6 @@ class kBmc:
                     time.sleep(3)
                     continue
                 init_status=km.get_value(km.get_value(km.get_value(init_rc,1,[]),1,'').split(),-1)
-                print('>>>> init_status:',init_status)
                 if verify is False or cmd == 'status':
                     if init_rc[0]:
                         if cmd == 'status':
