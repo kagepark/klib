@@ -122,18 +122,18 @@ class kBmc:
                 if opts.get('ipmi_user',None):
                     ipmi_user=opts.get('ipmi_user')
                     self.root.PUT('ipmi_user',ipmi_user)
-                    if not test_user:
-                        self.root.PUT('test_user',move2first(ipmi_user,self.root.test_user.GET()))
+#                    if not test_user:
+#                        self.root.PUT('test_user',move2first(ipmi_user,self.root.test_user.GET()))
                 if opts.get('uniq_pass',None):
                     upass=opts.get('uniq_pass')
                     self.root.PUT('uniq_pass',upass,proper={'readonly':True})
-                    if not test_pass:
-                        self.root.PUT('test_pass',move2first(upass,self.root.test_pass.GET()))
+#                    if not test_pass:
+#                        self.root.PUT('test_pass',move2first(upass,self.root.test_pass.GET()))
                 if opts.get('ipmi_pass',None):
                     ipmi_pass=opts.get('ipmi_pass')
                     self.root.PUT('ipmi_pass',ipmi_pass)
-                    if not test_pass:
-                        self.root.PUT('test_pass',move2first(ipmi_pass,self.root.test_pass.GET()))
+#                    if not test_pass:
+#                        self.root.PUT('test_pass',move2first(ipmi_pass,self.root.test_pass.GET()))
                 if opts.get('ipmi_mac',None):
                     self.root.PUT('ipmi_mac',opts.get('ipmi_mac'),proper={'readonly':True})
                 if not self.root.org_user.GET():
@@ -279,6 +279,10 @@ class kBmc:
         test_pass=self.root.test_pass.GET()
         tmp_pass=self.root.tmp_pass.GET()
         log_level=self.root.log_level.GET()
+        uniq_pass=self.root.GET('uniq_pass')
+        ipmi_user=self.root.GET('ipmi_user')
+        ipmi_pass=self.root.GET('ipmi_pass')
+        test_user=move2first(ipmi_user,test_user)
         if len(test_pass) > default_range:
             tt=2
         else:
@@ -288,8 +292,12 @@ class kBmc:
             for t in range(0,tt):
                 if t == 0:
                     test_pass_sample=test_pass[:default_range]
+                    if uniq_pass:
+                        test_pass_sample=move2first(uniq_pass,test_pass_sample)
+                    test_pass_sample=move2first(ipmi_pass,test_pass_sample)
                     if tmp_pass:
-                        test_pass_sample=[tmp_pass]+test_pass_sample
+                        #test_pass_sample=[tmp_pass]+test_pass_sample
+                        test_pass_sample=move2first(tmp_pass,test_pass_sample)
                 else:
                     test_pass_sample=test_pass[default_range:]
                 for uu in test_user:
@@ -308,8 +316,7 @@ class kBmc:
                         if log_level < 7:
                             km.logging("""x""".format(uu,pp),log=self.log,direct=True,log_level=3)
             km.logging("""Can not find working BMC User and password""",log=self.log,log_level=1,dsp='e')
-#            self.root.UPDATE({'error':{'user_pass':{km.int_sec():'Can not find working BMC User or password'}}})
-            self.root.UPDATE({'user_pass':{km.int_sec():'Can not find working BMC User or password'}},path='error')
+            self.error(_type='user_pass',msg="Can not find working BMC User or password from POOL\nuser: {}\npassword:{}".format(self.root.GET('test_user'),self.root.GET('test_pass')))
         return False,None,None
 
     def recover_user_pass(self):
