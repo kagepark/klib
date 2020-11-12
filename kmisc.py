@@ -3,6 +3,7 @@
 # Kage personal stuff
 #
 from __future__ import print_function
+from distutils.spawn import find_executable
 import sys,os,re,subprocess,traceback,copy
 import tarfile
 import tempfile
@@ -948,7 +949,7 @@ def isfile(filename=None):
    return False
 
 
-def ping(host,test_num=3,retry=1,wait=1,keep=0, timeout=60,lost_mon=False,log=None,stop_func=None,stop_arg={}):
+def ping_old(host,test_num=3,retry=1,wait=1,keep=0, timeout=60,lost_mon=False,log=None,stop_func=None,stop_arg={}):
     init_sec=int_sec()
     chk_sec=int_sec()
     log_type=type(log).__name__
@@ -979,6 +980,148 @@ def ping(host,test_num=3,retry=1,wait=1,keep=0, timeout=60,lost_mon=False,log=No
        time.sleep(wait)
     return False
 
+def ping(host,count=3,interval=1,keep_good=0, timeout=60,lost_mon=False,log=None,stop_func=None,log_format='.'):
+    ICMP_ECHO_REQUEST = 8 # Seems to be the same on Solaris. From /usr/include/linux/icmp.h;
+    ICMP_CODE = socket.getprotobyname('icmp')
+    ERROR_DESCR = {
+        1: ' - Note that ICMP messages can only be '
+           'sent from processes running as root.',
+        10013: ' - Note that ICMP messages can only be sent by'
+               ' users or processes with administrator rights.'
+        }
+
+    def checksum(msg):
+        sum = 0
+        size = (len(msg) // 2) * 2
+        for c in range(0,size, 2):
+            sum = (sum + ord(msg[c + 1])*256+ord(msg[c])) & 0xffffffff
+        if size < len(msg):
+            sum = (sum+ord(msg[len(msg) - 1])) & 0xffffffff
+        ra = ~((sum >> 16) + (sum & 0xffff) + (sum >> 16)) & 0xffff
+        ra = ra >> 8 | (ra << 8 & 0xff00)
+        return ra
+
+    def mk_packet(size):
+        """Make a new echo request packet according to size"""
+        # Header is type (8), code (8), checksum (16), id (16), sequence (16)
+        header = struct.pack('bbHHh', ICMP_ECHO_REQUEST, 0, 0, size, 1)
+        #data = struct.calcsize('bbHHh') * 'Q'
+        data = size * 'Q'
+        my_checksum = checksum(_u_bytes2str(header) + data)
+        header = struct.pack('bbHHh', ICMP_ECHO_REQUEST, 0,
+                             socket.htons(my_checksum), size, 1)
+        return header + _u_bytes(data)
+
+    def receive(my_socket, ssize, stime, timeout):
+        while True:
+            if timeout <= 0:
+                return
+            ready = select.select([my_socket], [], [], timeout)
+            if ready[0] == []: # Timeout
+                return
+            received_time = time.time()
+            packet, addr = my_socket.recvfrom(1024)
+            type, code, checksum, gsize, seq = struct.unpack('bbHHh', packet[20:28]) # Get Header
+            if gsize == ssize:
+                return received_time - stime
+            timeout -= received_time - stime
+
+    def pinging(ip,timeout=1,size=64):
+        try:
+            my_socket = socket.socket(socket.AF_INET, socket.SOCK_RAW, ICMP_CODE)
+        except socket.error as e:
+            if e.errno in ERROR_DESCR:
+                raise socket.error(''.join((e.args[1], ERROR_DESCR[e.errno])))
+            raise
+        if size in ['rnd','random']:
+            # Maximum size for an unsigned short int c object(65535)
+            size = int((id(timeout) * random.random()) % 65535)
+        packet = mk_packet(size)
+        while packet:
+            sent = my_socket.sendto(packet, (ip, 1)) # ICMP have no port, So just put dummy port 1
+            packet = packet[sent:]
+        delay = receive(my_socket, size, time.time(), timeout)
+        my_socket.close()
+        if delay:
+            return delay,size
+
+    def do_ping(ip,timeout=1,size=64,count=None,interval=0.7,log_format='ping'):
+        ok=1
+        i=1
+        while True:
+            delay=pinging(ip,timeout,size)
+            if delay:
+                ok=0
+                if log_format == '.':
+                    sys.stdout.write('.')
+                    sys.stdout.flush()
+                elif log_format == 'ping':
+                    sys.stdout.write('{} bytes from {}: icmp_seq={} ttl={} time={} ms\n'.format(delay[1],ip,i,size,round(delay[0]*1000.0,4)))
+                    sys.stdout.flush()
+            else:
+                ok=1
+                if log_format == '.':
+                    sys.stdout.write('x')
+                    sys.stdout.flush()
+                elif log_format == 'ping':
+                    sys.stdout.write('{} icmp_seq={} timeout ({} second)\n'.format(ip,i,timeout))
+                    sys.stdout.flush()
+            if count:
+                count-=1
+                if count < 1:
+                    return ok,'{} is alive'.format(ip)
+            i+=1
+            time.sleep(interval)
+
+
+    if log_format=='ping':
+        if find_executable('ping'):
+            os.system("ping -c {0} {1}".format(count,host))
+        else:
+            do_ping(host,timeout=timeout,size=64,count=count,log_format='ping')
+    else:
+        init_sec=int_sec()
+        chk_sec=int_sec()
+        log_type=type(log).__name__
+        found_lost=False
+        if keep_good > 0 or not count:
+           if timeout < keep_good:
+               count=keep_good+(2*interval)
+               timeout=keep_good+5
+           elif not count:
+               count=timeout//interval + 3
+           elif count * interval > timeout:
+               timeout=count*interval+timeout
+        good=False
+        while count > 0:
+           if stop_func:
+               if log_type == 'function':
+                   log(' - Stopped ping')
+               return False
+           if find_executable('ping'):
+               rc=rshell("ping -c 1 {}".format(host))
+           else:
+               rc=do_ping(host,timeout=1,size=64,count=1,log_format=None)
+           if rc[0] == 0:
+              good=True
+              if keep_good:
+                  if good and keep_good and int_sec() - chk_sec >= keep_good:
+                      return True
+              else:
+                  return True
+              if log_type == 'function':
+                  log('.',direct=True,log_level=1)
+           else:
+              good=False
+              chk_sec=int_sec()
+              if log_type == 'function':
+                  log('x',direct=True,log_level=1)
+           if int_sec() - init_sec > timeout:
+               return False
+           time.sleep(interval)
+           count-=1
+        return good
+
 def is_lost(ip,**opts):
     timeout_sec=opts.get('timeout',1800)
     interval=opts.get('interval',5)
@@ -986,19 +1129,23 @@ def is_lost(ip,**opts):
     cancel_func=opts.get('cancel_func',None)
     log=opts.get('log',None)
     init_time=None
-    while True:
-        ttt,init_time=timeout(timeout_sec,init_time)
-        if ttt:
-            return True,'Timeout monitor'
-        if stop_func:
-            return True,'Stopped monitor by Error'
-        if cancel_func:
-            return True,'Cencel monitor by Custom'
-        if ping(ip):
-            return False,'OK'
-        if log:
-            log('.',direct=True,log_level=1)
-        time.sleep(interval)
+    if not ping(ip,count=3):
+        if not ping(ip,count=0,timeout=timeout,keep_good=30,interval=2,stop_func=stop_func,log=log):
+            return True,'Lost network'
+    return False,'OK'
+#    while True:
+#        ttt,init_time=timeout(timeout_sec,init_time)
+#        if ttt:
+#            return True,'Timeout monitor'
+#        if stop_func:
+#            return True,'Stopped monitor by Error'
+#        if cancel_func:
+#            return True,'Cencel monitor by Custom'
+#        if ping(ip):
+#            return False,'OK'
+#        if log:
+#            log('.',direct=True,log_level=1)
+#        time.sleep(interval)
 
 def is_comeback(ip,**opts):
     timeout_sec=opts.get('timeout',1800)
@@ -2249,8 +2396,9 @@ def web_req(host_url,**opts):
 
 def screen_logging(title,cmd):
     # ipmitool -I lanplus -H 172.16.114.80 -U ADMIN -P ADMIN sol activate
-    tmp_file=mktemp('/tmp/.slc.cfg')
-    log_file=mktemp('/tmp/.screen_ck_{}.log'.format(title))
+    pid=os.getpid()
+    tmp_file=mktemp('/tmp/.slc.{}_{}.cfg'.format(title,pid))
+    log_file=mktemp('/tmp/.screen_ck_{}_{}.log'.format(title,pid))
     if os.path.isfile(log_file):
         log_file=''
     with open(tmp_file,'w') as f:
@@ -2287,7 +2435,15 @@ def screen_kill(title):
             return True
         return False
 
-def screen_monitor(title,cmd,find=[],timeout=600):
+def screen_monitor(title,ip,ipmi_user,ipmi_pass,find=[],timeout=600):
+    if type(title) is not str or not title:
+        print('no title')
+        return False
+    scr_id=screen_id(title)
+    if scr_id:
+        print('Already has the title at {}'.format(scr_id))
+        return False
+    cmd="ipmitool -I lanplus -H {} -U {} -P {} sol activate".format(ip,ipmi_user,ipmi_pass)
     # Linux OS Boot (Completely kernel loaded): find=['initrd0.img','\xff']
     # PXE Boot prompt: find=['boot:']
     # PXE initial : find=['PXE ']
@@ -2300,6 +2456,7 @@ def screen_monitor(title,cmd,find=[],timeout=600):
         old_mon_line=-1
         found=0
         find_num=len(find)
+        cnt=0
         while True:
             if int_sec() - init_time > timeout :
                 print('Monitoring timeout({} sec)'.format(timeout))
@@ -2308,8 +2465,7 @@ def screen_monitor(title,cmd,find=[],timeout=600):
                 break
             with open(log_file,'rb') as f:
                 tmp=f.read()
-            if type(tmp) is bytes:
-                tmp=_u_byte2str(tmp)
+            tmp=_u_byte2str(tmp)
             if '\x1b' in tmp:
                 tmp_a=tmp.split('\x1b')
             elif '\r\n' in tmp:
@@ -2319,23 +2475,39 @@ def screen_monitor(title,cmd,find=[],timeout=600):
             else:
                 tmp_a=tmp.split('\n')
             tmp_n=len(tmp_a)
-            for ii in tmp_a[mon_line:]:
-                if find_num == 0:
-                    print(ii)
+            for ss in tmp_a[tmp_n-2:]:
+                if 'SOL Session operational' in ss:
+                    # control+c : "^C", Enter: "^M", any command "<linux command> ^M"
+                    rshell('screen -S {} -p 0 -X stuff "^M"'.format(title))
+                    cnt+=1
+                    if cnt > 5:
+                        print('maybe not activated SOL or BMC issue')
+                        if screen_kill(title):
+                            os.unlink(log_file)
+                        return False
+                    continue
+            if find:
+                for ii in tmp_a[mon_line:]:
+                    if find_num == 0:
+                        print(ii)
+                    else:
+                        for ff in range(0,find_num):
+                            find_i=find[found]
+                            if ii.find(find_i) < 0:
+                                break
+                            found=found+1
+                            if found >= find_num:
+                                if screen_kill(title):
+                                    os.unlink(log_file)
+                                return True
+                if tmp_n > 1:
+                    mon_line=tmp_n -1
                 else:
-                    for ff in range(0,find_num):
-                        find_i=find[found]
-                        if ii.find(find_i) < 0:
-                            break
-                        found=found+1
-                        if found >= find_num:
-                            if screen_kill(title):
-                                os.unlink(log_file)
-                            return True
-            if tmp_n > 1:
-                mon_line=tmp_n -1
+                    mon_line=tmp_n
             else:
-                mon_line=tmp_n
+                if screen_kill(title):
+                    os.unlink(log_file)
+                return True
             time.sleep(1)
     return False
 
@@ -2380,7 +2552,7 @@ def get_value(src,key=None,default=None):
                 return tuple(rc)
             return tuple(rc)
         else:
-            if type(key) is int and len(src) > key:
+            if type(key) is int and len(src) > 0 and len(src) > key:
                 return src[key]
     elif type_src is dict:
         if type_key in [list,tuple]:
@@ -2640,9 +2812,11 @@ def check_version(a,sym,b):
     return False
     
 def get_iso_uid(filename):
-    if os.path.isfile(filename):
+    if type(filename) is not str:
+        return False,None,None
+    if os.path.exists(filename):
         uid_cmd='''sudo /usr/sbin/blkid {}'''.format(filename)
-        rc=rshell('''sudo /usr/sbin/blkid {}'''.format(filename))
+        rc=rshell(uid_cmd)
         if rc[0] == 0:
             uid_str='{0}_{1}'.format(findstr(rc[1],'UUID="(\w.*)" L')[0],findstr(rc[1],'LABEL="(\w.*)" T')[0]).replace(' ','_')
             file_info=get_file(filename)
@@ -2672,6 +2846,9 @@ def find_usb_dev(size=None):
                                     if dev_size == int(size):
                                         rc.append('/dev/{0}'.format(dd))
     return rc
+
+def get_my_directory():
+    return os.path.dirname(os.path.realpath(__file__))
 
 if __name__ == "__main__":
     class ABC:
