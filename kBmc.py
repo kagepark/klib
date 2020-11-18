@@ -379,14 +379,9 @@ class kBmc:
             else:
                 break
         type_cmd=type(cmd)
-        if type_cmd is tuple and len(cmd) == 5 and type(cmd[0]) is bool:
-            ok,cmd,_path,_return_code,_timeout=cmd
-            if _path:
-                path=_path
-            if _return_code:
-                return_code=_return_code
-            if _timeout:
-                timeout=_timeout
+        #if type_cmd in [tuple,list] and len(cmd) == 5 and type(cmd[0]) is bool:
+        if type_cmd in [tuple,list] and len(cmd) >= 2 and type(cmd[0]) is bool:
+            ok,cmd,path,return_code,timemout=tuple(km.get_value(cmd,[0,1,2,3,4]))
             if not ok:
                 return False,(-1,'command format error(2)','command format error',0,0,cmd,path),'command({}) format error'.format(cmd)
         elif type_cmd is not str:
@@ -1047,7 +1042,7 @@ if __name__ == "__main__":
     print('Do')
 #    print(bmc.is_up())
     print(bmc.bootorder()[1])
-#    print(bmc.power(cmd='status'))
+    print(bmc.power(cmd='status'))
 #    print(bmc.power(cmd='off_on'))
 #    print(bmc.power(cmd='reset'))
 #    print(bmc.is_tmp_pass(ipmi_pass='Super123',tmp_pass='SumTester23'))

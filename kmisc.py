@@ -2068,22 +2068,23 @@ def get_file(filename,**opts):
         return rc
 
     rc={'exist':False,'includes':[]}
-    rc.update(get_file_data(filename))
-    if rc['dir']:
-        root_path=filename
-        real_filename=None
-    else:
-        root_path=os.path.dirname(filename)
-        real_filename=os.path.basename(filename)
-    if include_dir:
-        for dirPath, subDirs, fileList in os.walk(root_path):
-            curDir=os.path.join(dirPath.lstrip('{}/'.format(root_path)))
-            for sfile in fileList:
-                curFile=os.path.join(curDir,sfile)
-                if curFile != real_filename:
-                    rc['includes'].append(get_file_data(curFile,root_path))
-            if include_sub_dir is False:
-                break
+    if type(filename) is str:
+        rc.update(get_file_data(filename))
+        if rc['dir']:
+            root_path=filename
+            real_filename=None
+        else:
+            root_path=os.path.dirname(filename)
+            real_filename=os.path.basename(filename)
+        if include_dir:
+            for dirPath, subDirs, fileList in os.walk(root_path):
+                curDir=os.path.join(dirPath.lstrip('{}/'.format(root_path)))
+                for sfile in fileList:
+                    curFile=os.path.join(curDir,sfile)
+                    if curFile != real_filename:
+                        rc['includes'].append(get_file_data(curFile,root_path))
+                if include_sub_dir is False:
+                    break
     return rc
         
 
@@ -2544,7 +2545,7 @@ def get_value(src,key=None,default=None):
         if type_key in [list,tuple]:
             rc=[]
             for kk in key:
-                if type(kk) in int and len(src) > kk:
+                if type(kk) is int and len(src) > kk:
                     rc.append(src[kk])
                 else:
                     rc.append(default)
