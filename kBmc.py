@@ -114,7 +114,7 @@ class kBmc:
                     self.error(_type='ip',msg='Destination Host({}) Unreachable/Network problem'.format(self.root.ipmi_ip.GET()))
                     km.logging(self.root.error.GET('ip'),log=self.log,log_level=1,dsp='e')
                 elif not km.is_port_ip(self.root.GET('ipmi_ip'),self.root.GET('ipmi_port')):
-                    self.error(_type='ip',msgs="{} is not IPMI IP".format(self.root.ipmi_ip.GET()))
+                    self.error(_type='ip',msg="{} is not IPMI IP".format(self.root.ipmi_ip.GET()))
                     km.logging(self.root.error.GET('ip'),log=self.log,log_level=1,dsp='e')
             if not self.root.error.GET('ip'):
                 test_user=opts.get('test_user',None)
@@ -410,19 +410,22 @@ class kBmc:
                 km.logging('** Do CMD  : {}'.format(cmd_str),log=self.log,log_level=1,dsp='d')
                 km.logging(' - Timeout : %-15s - PATH    : %s'%(timeout,path),log=self.log,log_level=1,dsp='d')
                 km.logging(' - CHK_CODE: {}\n'.format(return_code),log=self.log,log_level=1,dsp='d')
-            if mode == 'redfish':
-                # code here for run redfish
-                # how to put sub, rec variable from kBmc?
-                start_time=km.int_sec()
-                rf_rt=self.redfish(cmd=cmd_str)
-                end_time=km.int_sec()
-                if type(rf_rt) is dict:
-                    rf_rc=0
+            try:
+                if mode == 'redfish':
+                    # code here for run redfish
+                    # how to put sub, rec variable from kBmc?
+                    start_time=km.int_sec()
+                    rf_rt=self.redfish(cmd=cmd_str)
+                    end_time=km.int_sec()
+                    if type(rf_rt) is dict:
+                        rf_rc=0
+                    else:
+                        rf_rc=1
+                    rc=rf_rc,rf_rt,'',start_time,end_time,cmd_str,'web'
                 else:
-                    rf_rc=1
-                rc=rf_rc,rf_rt,'',start_time,end_time,cmd_str,'web'
-            else:
-                rc=km.rshell(cmd_str,path=path,timeout=timeout,progress=progress,log=self.log,progress_pre_new_line=True,progress_post_new_line=True)
+                    rc=km.rshell(cmd_str,path=path,timeout=timeout,progress=progress,log=self.log,progress_pre_new_line=True,progress_post_new_line=True)
+            except:
+                return 'error',(-1,'unknown','unknown',0,0,cmd,path),'Your command got error'
             if show_str:
                 km.logging(' - RT_CODE : {}'.format(rc[0]),log=self.log,log_level=1,dsp='d')
             if dbg:
@@ -463,19 +466,22 @@ class kBmc:
                         km.logging('Check IPMI User and Password: Found ({}/{})'.format(ipmi_user,ipmi_pass),log=self.log,log_level=1,dsp='d')
                     time.sleep(1)
                 else:
-                    if km.check_value(rc_ignore,rc[0]):
-                        return 'ignore',rc,'return code({}) is in ignore condition({})'.format(rc[0],rc_ignore)
-                    elif km.check_value(rc_fail,rc[0]):
-                        return 'fail',rc,'return code({}) is in fail condition({})'.format(rc[0],rc_fail)
-                    elif km.check_value([127],rc[0]):
-                        return False,rc,'no command'
-                    elif km.check_value(rc_error,rc[0]):
-                        return 'error',rc,'return code({}) is in error condition({})'.format(rc[0],rc_error)
-                    elif km.check_value(rc_err_key,rc[0]):
-                        return 'error',rc,'return code({}) is in key error condition({})'.format(rc[0],rc_err_key)
-                    else:
-                        return 'unknown',rc,'unknown'
-        return False,(-1,'timeout','timeout',0,0,cmd,path),'user error'
+                    try:
+                        if km.check_value(rc_ignore,rc[0]):
+                            return 'ignore',rc,'return code({}) is in ignore condition({})'.format(rc[0],rc_ignore)
+                        elif km.check_value(rc_fail,rc[0]):
+                            return 'fail',rc,'return code({}) is in fail condition({})'.format(rc[0],rc_fail)
+                        elif km.check_value([127],rc[0]):
+                            return False,rc,'no command'
+                        elif km.check_value(rc_error,rc[0]):
+                            return 'error',rc,'return code({}) is in error condition({})'.format(rc[0],rc_error)
+                        elif km.check_value(rc_err_key,rc[0]):
+                            return 'error',rc,'return code({}) is in key error condition({})'.format(rc[0],rc_err_key)
+                        elif isinstance(rc,tuple) and rc[0] > 0:
+                            return 'fail',rc,'Not defined return-condition, So it will be fail'
+                    except:
+                        return 'unknown',rc,'Unknown result'
+        return False,(-1,'timeout','timeout',0,0,cmd,path),'Time out the running command'
 
     def reset(self,ipmi={},retry=0,post_keep_up=20,pre_keep_up=0):
         ipmi_ip=self.root.ipmi_ip.GET()

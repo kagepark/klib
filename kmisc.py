@@ -2851,6 +2851,13 @@ def find_usb_dev(size=None):
 def get_my_directory():
     return os.path.dirname(os.path.realpath(__file__))
 
+def is_json_format(data):
+    try:
+        json.loads(data)
+        return True
+    except:
+        return False
+
 if __name__ == "__main__":
     class ABC:
         uu=3
