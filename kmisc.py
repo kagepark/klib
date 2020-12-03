@@ -36,6 +36,15 @@ log_new_line='\n'
 
 cdrom_ko=['sr_mod','cdrom','libata','ata_piix','ata_generic','usb-storage']
 
+def is_cancel(func):
+    if func:
+        if type(func).__name__ == 'function':
+            if func():
+                return True
+        else:
+            return True
+    return False
+
 def log_file_info(name):
     log_file_str=''
     if name and len(name) > 0:
@@ -983,7 +992,7 @@ def ping_old(host,test_num=3,retry=1,wait=1,keep=0, timeout=60,lost_mon=False,lo
        time.sleep(wait)
     return False
 
-def ping(host,count=3,interval=1,keep_good=0, timeout=60,lost_mon=False,log=None,stop_func=None,log_format='.'):
+def ping(host,count=3,interval=1,keep_good=0, timeout=60,lost_mon=False,log=None,stop_func=None,log_format='.',cancel_func=None):
     ICMP_ECHO_REQUEST = 8 # Seems to be the same on Solaris. From /usr/include/linux/icmp.h;
     ICMP_CODE = socket.getprotobyname('icmp')
     ERROR_DESCR = {
@@ -1048,10 +1057,12 @@ def ping(host,count=3,interval=1,keep_good=0, timeout=60,lost_mon=False,log=None
         if delay:
             return delay,size
 
-    def do_ping(ip,timeout=1,size=64,count=None,interval=0.7,log_format='ping'):
+    def do_ping(ip,timeout=1,size=64,count=None,interval=0.7,log_format='ping',cancel_func=None):
         ok=1
         i=1
         while True:
+            if is_cancel(cancel_func):
+                return -1,'canceled'
             delay=pinging(ip,timeout,size)
             if delay:
                 ok=0
@@ -1081,7 +1092,7 @@ def ping(host,count=3,interval=1,keep_good=0, timeout=60,lost_mon=False,log=None
         if find_executable('ping'):
             os.system("ping -c {0} {1}".format(count,host))
         else:
-            do_ping(host,timeout=timeout,size=64,count=count,log_format='ping')
+            do_ping(host,timeout=timeout,size=64,count=count,log_format='ping',cancel_func=cancel_func)
     else:
         init_sec=int_sec()
         chk_sec=int_sec()
@@ -1097,6 +1108,9 @@ def ping(host,count=3,interval=1,keep_good=0, timeout=60,lost_mon=False,log=None
                timeout=count*interval+timeout
         good=False
         while count > 0:
+           if is_cancel(cancel_func):
+               log(' - Canceled ping')
+               return False
            if stop_func:
                if log_type == 'function':
                    log(' - Stopped ping')
@@ -1133,22 +1147,9 @@ def is_lost(ip,**opts):
     log=opts.get('log',None)
     init_time=None
     if not ping(ip,count=3):
-        if not ping(ip,count=0,timeout=timeout,keep_good=30,interval=2,stop_func=stop_func,log=log):
+        if not ping(ip,count=0,timeout=timeout,keep_good=30,interval=2,stop_func=stop_func,log=log,cancel_func=cancel_func):
             return True,'Lost network'
     return False,'OK'
-#    while True:
-#        ttt,init_time=timeout(timeout_sec,init_time)
-#        if ttt:
-#            return True,'Timeout monitor'
-#        if stop_func:
-#            return True,'Stopped monitor by Error'
-#        if cancel_func:
-#            return True,'Cencel monitor by Custom'
-#        if ping(ip):
-#            return False,'OK'
-#        if log:
-#            log('.',direct=True,log_level=1)
-#        time.sleep(interval)
 
 def is_comeback(ip,**opts):
     timeout_sec=opts.get('timeout',1800)
@@ -1173,11 +1174,11 @@ def is_comeback(ip,**opts):
             rc=True
             msg='Stopped monitor by Error'
             break
-        if cancel_func is True:
+        if is_cancel(cancel_func):
             rc=True
             msg='Stopped monitor by Custom'
             break
-        if ping(ip):
+        if ping(ip,cancel_func=cancel_func):
             if (int_sec() - run_time) > keep:
                 rc=True
                 msg='OK'

@@ -411,6 +411,9 @@ class kBmc:
                 km.logging('** Do CMD  : {}'.format(cmd_str),log=self.log,log_level=1,dsp='d')
                 km.logging(' - Timeout : %-15s - PATH    : %s'%(timeout,path),log=self.log,log_level=1,dsp='d')
                 km.logging(' - CHK_CODE: {}\n'.format(return_code),log=self.log,log_level=1,dsp='d')
+            if self.cancel(cancel_func=cancel_func):
+                km.logging(' !! Canceled Job',log=self.log,log_level=1,dsp='d')
+                return False,(-1,'canceled','canceled',0,0,cmd,path),'canceled'
             try:
                 if mode == 'redfish':
                     # code here for run redfish
@@ -737,9 +740,8 @@ class kBmc:
                 if stop_func is True:
                     km.logging('Got STOP Signal',log=self.log,log_level=1,dsp='e')
                     return False,'Got STOP Signal'            
-                if cancel_func is True:
+                if self.cancel(cancel_func=cancel_func):
                     km.logging('Got Cancel Signal',log=self.log,log_level=1,dsp='e')
-                    self.cancel(func_name=km.get_function_name())
                     return False,'Got Cancel Signal'            
                 if up_time > 0:
                     out,init_time=km.timeout(timeout+(keep_up*3),init_time)
@@ -866,7 +868,7 @@ class kBmc:
                 time.sleep(2)
         return self.do_power(cmd,retry=retry,verify=verify,timeout=timeout,post_keep_up=post_keep_up,lanmode=lanmode)
 
-    def do_power(self,cmd,retry=0,verify=False,timeout=1200,post_keep_up=40,pre_keep_up=0,lanmode=None):
+    def do_power(self,cmd,retry=0,verify=False,timeout=1200,post_keep_up=40,pre_keep_up=0,lanmode=None,cancel_func=None):
         def lanmode_check(mode):
             # BMC Lan mode Checkup
             cur_lan_mode=self.lanmode()
@@ -907,7 +909,7 @@ class kBmc:
                     time.sleep(3)
                     continue
                 # keep command
-                if pre_keep_up > 0 and self.is_up(timeout=timeout,keep_up=pre_keep_up)[0] is False:
+                if pre_keep_up > 0 and self.is_up(timeout=timeout,keep_up=pre_keep_up,cancel_func=cancel_func)[0] is False:
                     time.sleep(3)
                     continue
                 km.logging('Power {} at {} (try:{}/{}) (limit:{} sec)'.format(cmd,ipmi_ip,ii,retry+1,timeout),log=self.log,log_level=3)
@@ -939,12 +941,12 @@ class kBmc:
                         time.sleep(5)
                         break
                     if verify_status == 'on':
-                        if self.is_up(timeout=timeout,keep_up=post_keep_up)[0]:
+                        if self.is_up(timeout=timeout,keep_up=post_keep_up,cancel_func=cancel_func)[0]:
                             if chk == len(mm.power_mode[cmd]):
                                 return True,'on',ii
                         time.sleep(3)
                     elif verify_status == 'off':
-                        if self.is_down()[0]:
+                        if self.is_down(cancel_func=cancel_func)[0]:
                             if chk == len(mm.power_mode[cmd]):
                                 return True,'off',ii
                         time.sleep(3)
@@ -987,14 +989,11 @@ class kBmc:
                 return True,err
         return False,'OK'
 
-    def cancel(self,cancel_func=None,func_name=None):
-        if func_name:
-            self.root.UPDATE({km.int_sec():func_name},path='cancel')
-            return 'canceled'
-        elif cancel_func:
+    def cancel(self,cancel_func=None):
+        if km.is_cancel(cancel_func):
             self.root.UPDATE({km.int_sec():km.get_pfunction_name()},path='cancel')
             return 'canceled'
-        elif cancel_func is None and func_name is None:
+        else:
             revoke=self.root.GET('cancel',default={})
             if revoke:
                 return revoke
