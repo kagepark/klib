@@ -588,6 +588,9 @@ def ip_in_range(ip,start,end):
 def get_function_name():
     return traceback.extract_stack(None, 2)[0][2]
 
+def get_pfunction_name():
+    return traceback.extract_stack(None, 3)[0][2]
+
 def ipmi_cmd(cmd,ipmi_ip=None,ipmi_user='ADMIN',ipmi_pass='ADMIN',log=None):
     if ipmi_ip is None:
         ipmi_str=""" ipmitool {0} """.format(cmd)

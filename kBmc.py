@@ -311,7 +311,8 @@ class kBmc:
                             self.root.PUT('ipmi_pass',pp)
                             return True,uu,pp
                         else:
-                            if km.is_lost(ipmi_ip,log=self.log,stop_func=self.error(_type='break')[0],cancel_func=cancel_func)[0]:
+                            #if km.is_lost(ipmi_ip,log=self.log,stop_func=self.error(_type='break')[0],cancel_func=cancel_func)[0]:
+                            if km.is_lost(ipmi_ip,log=self.log,stop_func=self.error(_type='break')[0],cancel_func=self.cancel(cancel_func=cancel_func))[0]:
                                 return False,rc,'net error'
                         if log_level < 7:
                             km.logging("""x""".format(uu,pp),log=self.log,direct=True,log_level=3)
@@ -436,12 +437,14 @@ class kBmc:
                 msg='err_connection'
                 km.logging('Connection Error:',log=self.log,log_level=1,dsp='d',direct=True)
                 #Check connection
-                if km.is_lost(ipmi_ip,log=self.log,stop_func=self.error(_type='break')[0],cancel_func=cancel_func)[0]:
+                #if km.is_lost(ipmi_ip,log=self.log,stop_func=self.error(_type='break')[0],cancel_func=cancel_func)[0]:
+                if km.is_lost(ipmi_ip,log=self.log,stop_func=self.error(_type='break')[0],cancel_func=self.cancel(cancel_func=cancel_func))[0]:
                     km.logging('Lost Network',log=self.log,log_level=1,dsp='d')
                     return False,rc,'net error'
             elif km.check_value(rc_err_bmc_user,rc[0]): # retry condition1
                 #Check connection
-                if km.is_lost(ipmi_ip,log=self.log,stop_func=self.error(_type='break')[0],cancel_func=cancel_func)[0]:
+                #if km.is_lost(ipmi_ip,log=self.log,stop_func=self.error(_type='break')[0],cancel_func=cancel_func)[0]:
+                if km.is_lost(ipmi_ip,log=self.log,stop_func=self.error(_type='break')[0],cancel_func=self.cancel(cancel_func=cancel_func))[0]:
                     km.logging('Lost Network',log=self.log,log_level=1,dsp='d')
                     return False,rc,'net error'
                 # Find Password
@@ -454,7 +457,8 @@ class kBmc:
             else:
                 if 'ipmitool' in cmd_str and i < 1:
                     #Check connection
-                    if km.is_lost(ipmi_ip,log=self.log,stop_func=self.error(_type='break')[0],cancel_func=cancel_func)[0]:
+                    #if km.is_lost(ipmi_ip,log=self.log,stop_func=self.error(_type='break')[0],cancel_func=cancel_func)[0]:
+                    if km.is_lost(ipmi_ip,log=self.log,stop_func=self.error(_type='break')[0],cancel_func=self.cancel(cancel_func=cancel_func))[0]:
                         self.error(_type='ip',msg="{} lost network".format(ipmi_ip))
                         km.logging('Lost Network',log=self.log,log_level=1,dsp='d')
                         return False,rc,'net error'
@@ -735,6 +739,7 @@ class kBmc:
                     return False,'Got STOP Signal'            
                 if cancel_func is True:
                     km.logging('Got Cancel Signal',log=self.log,log_level=1,dsp='e')
+                    self.cancel(func_name=km.get_function_name())
                     return False,'Got Cancel Signal'            
                 if up_time > 0:
                     out,init_time=km.timeout(timeout+(keep_up*3),init_time)
@@ -965,7 +970,6 @@ class kBmc:
 
     def error(self,_type=None,msg=None):
         if _type and msg:
-#            self.root.UPDATE({'error':{_type:{km.int_sec():msg}}})
             self.root.UPDATE({_type:{km.int_sec():msg}},path='error')
         else:
             err=self.root.GET('error',default=None)
@@ -982,6 +986,19 @@ class kBmc:
                         return True,'''User want Stop Process'''
                 return True,err
         return False,'OK'
+
+    def cancel(self,cancel_func=None,func_name=None):
+        if func_name:
+            self.root.UPDATE({km.int_sec():func_name},path='cancel')
+            return 'canceled'
+        elif cancel_func:
+            self.root.UPDATE({km.int_sec():km.get_pfunction_name()},path='cancel')
+            return 'canceled'
+        elif cancel_func is None and func_name is None:
+            revoke=self.root.GET('cancel',default={})
+            if revoke:
+                return revoke
+        return False
 
     def rc_info(self,inp=None,default={},**opts):
         chk=True
