@@ -38,10 +38,11 @@ cdrom_ko=['sr_mod','cdrom','libata','ata_piix','ata_generic','usb-storage']
 
 def is_cancel(func):
     if func:
-        if type(func).__name__ == 'function':
+        ttt=type(func).__name__
+        if ttt in ['function','instancemethod','method']:
             if func():
                 return True
-        else:
+        elif ttt in ['bool','str'] and func:
             return True
     return False
 
