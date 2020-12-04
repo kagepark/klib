@@ -1355,14 +1355,17 @@ def str2url(string):
     return string
 
 def clear_version(string,sym='.'):
-    if type(string) is int:
+    if type(string) in [int,str]:
         string='{}'.format(string)
-    arr=[]
-    for x in string.split(sym):
-        try:
-            arr.append(str(int(x)))
-        except:
-            arr.append(x)
+    else:
+        return False
+    arr=string.split(sym)
+    #arr=[]
+    #for x in string.split(sym):
+    #    try:
+    #        arr.append(str(int(x)))
+    #    except:
+    #        arr.append(x)
     if arr[-1] == '0':
         arr.pop(-1)
     return sym.join(arr)
@@ -2804,6 +2807,8 @@ def replacestr(data,org,new):
 def check_version(a,sym,b):
     a=clear_version(a)
     b=clear_version(b)
+    if a is False or b is False:
+        return False
     if sym == '>':
         if LooseVersion(a) > LooseVersion(b):
             return True
