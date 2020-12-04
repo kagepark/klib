@@ -1100,6 +1100,10 @@ def ping(host,count=3,interval=1,keep_good=0, timeout=60,lost_mon=False,log=None
         log_type=type(log).__name__
         found_lost=False
         if keep_good > 0 or not count:
+           try:
+               timeout=int(timeout)
+           except:
+               timeout=1
            if timeout < keep_good:
                count=keep_good+(2*interval)
                timeout=keep_good+5
@@ -1148,7 +1152,7 @@ def is_lost(ip,**opts):
     log=opts.get('log',None)
     init_time=None
     if not ping(ip,count=3):
-        if not ping(ip,count=0,timeout=timeout,keep_good=30,interval=2,stop_func=stop_func,log=log,cancel_func=cancel_func):
+        if not ping(ip,count=0,timeout=timeout_sec,keep_good=30,interval=2,stop_func=stop_func,log=log,cancel_func=cancel_func):
             return True,'Lost network'
     return False,'OK'
 
