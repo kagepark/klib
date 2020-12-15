@@ -76,32 +76,38 @@ def std_err(msg,direct=False):
     sys.stderr.flush()
     
 def format_string(string,inps):
+    cmd=''
+    if isinstance(string,dict):
+        cmd=string['cmd']
+        string=string['base']
     type_inps=type(inps)
     if type_inps is dict:
         if '%(' in string:
             if '%s' in string:
                 return False,"name placehoder can't get %s format"
             try:
-                return True,string % inps
+                return True,string % inps + ' '+cmd
             except:
                 return False,"""string:{} input:{}""".format(string,inps)
         elif re.compile('{(\w.*)}').findall(string):
             if re.compile('{\d*}').findall(string):
                 return False,"name placehoder can't get {} format"
-            return True,string.format(**inps)
+            return True,string.format(**inps) + ' '+cmd
     else:
         if '%s' in string and type_inps in [tuple,list]:
             if '%(' in string:
                 return False,"%s format string can't get name placeholder format"
-            return True,string % tuple(inps)
+            return True,string % tuple(inps) + ' '+cmd
         elif re.compile('{\d*}').findall(string) and type_inps in [tuple,list]:
             if re.compile('{(\w.*)}').findall(string):
                 return False,"{} format string can't get name placeholder format"
-            return True,string.format(*tuple(inps))
+            return True,string.format(*tuple(inps)) + ' '+cmd
         else:
-            return None,string
+            return None,string+' '+cmd
 
 def format_string_dict(string):
+    if isinstance(string,dict):
+        string='''{}'''.format(string['base'])
     if '%(' in string or re.compile('{(\w.*)}').findall(string):
         return True
     return False
@@ -2655,13 +2661,11 @@ def append(src,addendum):
 
 def is_xml(filename):
     firstLine=file_rw(filename,out='string',read='firstline')
-#    if type(filename) is str and os.path.isfile(filename):
-#        chk_type_file=open(filename,'rb')
-#        firstLine=_u_byte2str(chk_type_file.readline())
-#    else:
     if firstLine is False:
-        firstLine=_u_byte2str(filename).split('\n')[0]
-    if firstLine.split(' ')[0] == '<?xml':
+        filename_str=_u_byte2str(filename)
+        if isinstance(filename_str,str):
+            firstLine=filename_str.split('\n')[0]
+    if isinstance(firstLine,str) and firstLine.split(' ')[0] == '<?xml':
         return True
     return False
 
