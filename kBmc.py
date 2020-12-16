@@ -61,7 +61,6 @@ class Smcipmitool:
             cmd_a=['ipmi','lan','mac']
         elif km.check_value(cmd_a,'sdr',0) and km.check_value(cmd_a,'Temperature',2):
             cmd_a=['ipmi','sensor']
-        #return True,'''sudo java -jar %s {ipmi_ip} {ipmi_user} '{ipmi_pass}' %s'''%(self.smc_file,' '.join(cmd_a)),None,{'ok':[0,144],'error':[180],'err_bmc_user':[146],'err_connection':[145]},None
         return True,{'base':'''sudo java -jar %s {ipmi_ip} {ipmi_user} '{ipmi_pass}' '''%(self.smc_file),'cmd':'''%s'''%(' '.join(cmd_a))},None,{'ok':[0,144],'error':[180],'err_bmc_user':[146],'err_connection':[145]},None
 
 class Redfish:
@@ -251,9 +250,11 @@ class kBmc:
     def init(self):
         ipmi_ip=self.root.GET('ipmi_ip')
         if not km.is_ipv4(ipmi_ip):
+            self.warn(_type='ip',msg="IP Format Fail")
             return False,'IP Format Fail'
         if not km.is_port_ip(ipmi_ip,self.root.GET('ipmi_port')):
-            return False,'It is not BMC IP'.format(ipmi_ip)
+            self.warn(_type='ip',msg="It({}) is not BMC IP".format(ipmi_ip))
+            return False,'It({}) is not BMC IP'.format(ipmi_ip)
         rc=self.find_user_pass()
         if rc[0]:
             return True,'pass'
@@ -312,8 +313,8 @@ class kBmc:
                             self.root.PUT('ipmi_pass',pp)
                             return True,uu,pp
                         else:
-                            #if km.is_lost(ipmi_ip,log=self.log,stop_func=self.error(_type='break')[0],cancel_func=cancel_func)[0]:
                             if km.is_lost(ipmi_ip,log=self.log,stop_func=self.error(_type='break')[0],cancel_func=self.cancel(cancel_func=cancel_func))[0]:
+                                self.warn(_type='net',msg="Network lost")
                                 return False,rc,'net error'
                         if log_level < 7:
                             km.logging("""x""".format(uu,pp),log=self.log,direct=True,log_level=3)
@@ -342,6 +343,7 @@ class kBmc:
             #SMCIPMITool.jar IP ID PASS user add 2 <New User> <New Pass> 4
             rc=self.run_cmd(mm.cmd_str("""user add 2 {} '{}' 4""".format(org_user,org_pass)))
         if km.krc(rc[0],chk='error'):
+            self.warn(_type='ipmi_user',msg="Recover fail")
             return 'error',ipmi_user,ipmi_pass
         if km.krc(rc[0],chk=True):
             km.logging("""Recovered BMC: from User({}) and Password({}) to User({}) and Password({})""".format(ipmi_user,ipmi_pass,org_user,org_pass),log=self.log,log_level=6)
@@ -367,6 +369,7 @@ class kBmc:
                 self.root.PUT('ipmi_pass','Super123')
                 return True,org_user,'Super123'
             else:
+                self.warn(_type='ipmi_user',msg="Recover ERROR!! Please checkup user-lock-mode on the BMC Configure.")
                 km.logging("""Recover ERROR!! Please checkup user-lock-mode on the BMC Configure.""",log=self.log,log_level=6)
                 return False,ipmi_user,ipmi_pass
                 
@@ -387,8 +390,10 @@ class kBmc:
         if type_cmd in [tuple,list] and len(cmd) >= 2 and type(cmd[0]) is bool:
             ok,cmd,path,return_code,timemout=tuple(km.get_value(cmd,[0,1,2,3,4]))
             if not ok:
+                self.warn(_type='cmd',msg="command({}) format error".format(cmd))
                 return False,(-1,'command format error(2)','command format error',0,0,cmd,path),'command({}) format error'.format(cmd)
         elif type_cmd is not str:
+            self.warn(_type='cmd',msg="command({}) format error".format(cmd))
             return False,(-1,'command format error(3)','command format error',0,0,cmd,path),'command({}) format error'.format(cmd)
         rc_ok=return_code.get('ok',[0,True])
         rc_ignore=return_code.get('ignore',[])
@@ -416,6 +421,7 @@ class kBmc:
                 km.logging(' - CHK_CODE: {}\n'.format(return_code),log=self.log,log_level=1,dsp='d')
             if self.cancel(cancel_func=cancel_func):
                 km.logging(' !! Canceled Job',log=self.log,log_level=1,dsp='d')
+                self.warn(_type='cancel',msg="Canceled")
                 return False,(-1,'canceled','canceled',0,0,cmd,path),'canceled'
             try:
                 if mode == 'redfish':
@@ -432,6 +438,7 @@ class kBmc:
                 else:
                     rc=km.rshell(cmd_str,path=path,timeout=timeout,progress=progress,log=self.log,progress_pre_new_line=True,progress_post_new_line=True)
             except:
+                self.warn(_type='cmd',msg="Your command got error({})")
                 return 'error',(-1,'unknown','unknown',0,0,cmd,path),'Your command got error'
             if show_str:
                 km.logging(' - RT_CODE : {}'.format(rc[0]),log=self.log,log_level=1,dsp='d')
@@ -443,19 +450,20 @@ class kBmc:
                 msg='err_connection'
                 km.logging('Connection Error:',log=self.log,log_level=1,dsp='d',direct=True)
                 #Check connection
-                #if km.is_lost(ipmi_ip,log=self.log,stop_func=self.error(_type='break')[0],cancel_func=cancel_func)[0]:
                 if km.is_lost(ipmi_ip,log=self.log,stop_func=self.error(_type='break')[0],cancel_func=self.cancel(cancel_func=cancel_func))[0]:
                     km.logging('Lost Network',log=self.log,log_level=1,dsp='d')
+                    self.warn(_type='net',msg="Lost network")
                     return False,rc,'net error'
             elif km.check_value(rc_err_bmc_user,rc[0]): # retry condition1
                 #Check connection
-                #if km.is_lost(ipmi_ip,log=self.log,stop_func=self.error(_type='break')[0],cancel_func=cancel_func)[0]:
                 if km.is_lost(ipmi_ip,log=self.log,stop_func=self.error(_type='break')[0],cancel_func=self.cancel(cancel_func=cancel_func))[0]:
+                    self.error(_type='ip',msg="{} lost network".format(ipmi_ip))
                     km.logging('Lost Network',log=self.log,log_level=1,dsp='d')
                     return False,rc,'net error'
                 # Find Password
                 ok,ipmi_user,ipmi_pass=self.find_user_pass()
                 if not ok:
+                    self.warn(_type='ipmi_user',msg="Can not find working IPMI USER and PASSWORD")
                     return False,'Can not find working IPMI USER and PASSWORD','user error'
                 if dbg:
                     km.logging('Check IPMI User and Password: Found ({}/{})'.format(ipmi_user,ipmi_pass),log=self.log,log_level=1,dsp='d')
@@ -463,7 +471,6 @@ class kBmc:
             else:
                 if 'ipmitool' in cmd_str and i < 1:
                     #Check connection
-                    #if km.is_lost(ipmi_ip,log=self.log,stop_func=self.error(_type='break')[0],cancel_func=cancel_func)[0]:
                     if km.is_lost(ipmi_ip,log=self.log,stop_func=self.error(_type='break')[0],cancel_func=self.cancel(cancel_func=cancel_func))[0]:
                         self.error(_type='ip',msg="{} lost network".format(ipmi_ip))
                         km.logging('Lost Network',log=self.log,log_level=1,dsp='d')
@@ -615,6 +622,7 @@ class kBmc:
                         if rc[0]:
                             rc=True,km.findstr(rc[1],'- Boot Device Selector : (\w.*)')[0]
                 elif mode not in chk_boot_mode:
+                    self.warn(_type='boot',msg="Unknown boot mode({}) at {}".format(mode,name))
                     return False,'Unknown boot mode({}) at {}'.format(mode,name)
                 else:
                     if persistent:
@@ -726,6 +734,7 @@ class kBmc:
                         tmp=ii_a[4].strip()
                     if 'Temp' in find and ('CPU' in find or 'System' in find):
                         if tmp == 'No Reading':
+                            self.warn(_type='sensor',msg="Can not read sensor data")
                             return 'unknown'
                         elif tmp in ['N/A','Disabled','0C/32F']:
                             return 'down'
@@ -763,6 +772,7 @@ class kBmc:
                 else:
                     out,init_time=km.timeout(timeout,init_time)
                 if out:
+                    self.warn(_type='timeout',msg="node_state()")
                     km.logging('Node state Timeout',log=self.log,log_level=1,dsp='e')
                     if sensor_state == 'unknown':
                         self.root.UPDATE({'sensor':{km.int_sec():sensor_state}},path='error')
@@ -906,6 +916,7 @@ class kBmc:
         for mm in self.root.ipmi_mode.GET():
             name=mm.__name__
             if cmd not in ['status','off_on'] + list(mm.power_mode):
+                self.warn(_type='power',msg="Unknown command({})".format(cmd))
                 return False,'Unknown command({})'.format(cmd)
 
             power_step=len(mm.power_mode[cmd])-1
@@ -915,6 +926,7 @@ class kBmc:
                 if km.krc(init_rc[0],chk='error'):
                     return init_rc[0],init_rc[1],ii
                 if init_rc[0] is False:
+                    self.warn(_type='power',msg="Power status got some error ({}))".format(init_rc[-1]))
                     km.logging('Power status got some error ({})'.format(init_rc[-1]),log=self.log,log_level=3)
                     time.sleep(3)
                     continue
@@ -948,8 +960,9 @@ class kBmc:
 
                     if verify_status in ['reset','cycle']:
                          if init_status == 'off':
+                             self.warn(_type='power',msg="Can not set {} on the off mode".format(verify_status))
                              km.logging(' ! can not {} the power'.format(verify_status),log=self.log,log_level=6)
-                             return [False,'can not {} the power'.format(verify_status)]
+                             return False,'can not {} the power'.format(verify_status)
                     rc=self.run_cmd(mm.cmd_str(rr),retry=retry)
                     km.logging('rr:{} cmd:{} rc:{}'.format(rr,mm.cmd_str(rr),rc),log=self.log,log_level=8)
                     if km.krc(rc[0],chk='error'):
@@ -960,6 +973,7 @@ class kBmc:
                             verify_status='on'
                             time.sleep(10)
                     else:
+                        self.warn(_type='power',msg="power {} fail".format(verify_status))
                         km.logging(' ! power {} fail'.format(verify_status),log=self.log,log_level=3)
                         time.sleep(5)
                         break
@@ -971,6 +985,7 @@ class kBmc:
                                 return True,'on',ii
                         elif is_up[1] == 'down' and not chkd:
                             chkd=True
+                            self.warn(_type='power',msg="Something weird. Looks BMC issue")
                             km.logging(' Something weird. Try again',log=self.log,log_level=1)
                             retry=retry+1 
                             time.sleep(20)
@@ -983,6 +998,7 @@ class kBmc:
                                 return True,'off',ii
                         elif is_down[1] == 'up' and not chkd:
                             chkd=True
+                            self.warn(_type='power',msg="Something weird. Looks BMC issue")
                             km.logging(' Something weird. Try again',log=self.log,log_level=1)
                             retry=retry+1 
                             time.sleep(20)
@@ -1015,8 +1031,8 @@ class kBmc:
         if _type and msg:
             self.root.UPDATE({_type:{km.int_sec():msg}},path='error')
         else:
-            err=self.root.GET('error',default=None)
-            if err is not None:
+            err=self.root.GET('error',default={})
+            if not err:
                 if _type:
                     if err.get(_type,None) is not None:
                         return True,err[_type]
@@ -1029,6 +1045,18 @@ class kBmc:
                         return True,'''User want Stop Process'''
                 return True,err
         return False,'OK'
+
+    def warn(self,_type=None,msg=None):
+        if _type and msg:
+            self.root.UPDATE({_type:{km.int_sec():msg}},path='warn')
+        else:
+            wrn=self.root.GET('warn',default={})
+            if not wrn:
+                if _type:
+                    if wrn.get(_type,None) is not None:
+                        return True,wrn[_type]
+                return True,wrn
+        return False,None
 
     def cancel(self,cancel_func=None):
         if km.is_cancel(cancel_func):
