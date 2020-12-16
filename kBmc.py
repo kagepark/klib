@@ -1032,7 +1032,7 @@ class kBmc:
             self.root.UPDATE({_type:{km.int_sec():msg}},path='error')
         else:
             err=self.root.GET('error',default={})
-            if not err:
+            if err:
                 if _type:
                     if err.get(_type,None) is not None:
                         return True,err[_type]
