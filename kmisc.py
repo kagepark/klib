@@ -2743,12 +2743,12 @@ def compare(a,sym,b,ignore=None):
     return eval('{} {} {}'.format(a,sym,b))
 
 def integer(a,default=0):
-    if type(a) is not int:
-        try:
-            a=int(a)
-        except:
-            return default
-    return a
+    if type(a) is int:
+        return a
+    try:
+        a=int(a)
+    except:
+        return default
 
 def file_rw(name,data=None,out='string',append=False,read=None,overwrite=True):
     if type(name) is str:

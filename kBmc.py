@@ -717,6 +717,7 @@ class kBmc:
             timeout=int(keep_down) + 30
         stop_func=opts.get('stop_func',False)
         cancel_func=opts.get('cancel_func',False)
+        km.logging('Node state: timeout:{}, keep_up:{}, keep_down:{} power_down:{}, keep_unknown:{}, check_down:{}, stop:{}, cancel:{}'.format(timeout,keep_up,keep_down,power_down,keep_unknown,check_down,stop_func,cancel_func),log=self.log,log_level=7)
         # _: Down, -: Up, .: Unknown sensor data, !: ipmi sensor command error
         def sensor_data(cmd_str,name):
             krc=self.run_cmd(cmd_str)
@@ -826,6 +827,7 @@ class kBmc:
                                 return True,'down' # Real down
 
                 if sensor_state == 'unknown': # No reading data
+                    km.logging('Unknown state : keep check : {} < {}'.format(keep_unknown,unknown_time),log=self.log,log_level=7)
                     if keep_unknown > 0 and no_read_try < 2:
                         unknown_ok,unknown_time=km.timeout(keep_unknown,unknown_time)
                         if unknown_ok:
@@ -855,10 +857,12 @@ class kBmc:
                 time.sleep(interval)
             time.sleep(interval)
 
-    def is_up(self,timeout=1200,keep_up=40,keep_down=300,power_down=20,interval=8,check_down=False,keep_unknown=180,**opts): # Node state
+    def is_up(self,timeout=1200,keep_up=40,keep_down=300,power_down=20,interval=8,check_down=False,keep_unknown=300,**opts): # Node state
+        timeout=km.integer(timeout,default=1200)
         return self.node_state(state='up',timeout=timeout,keep_up=keep_up,keep_down=keep_down,power_down=power_down,interval=interval,check_down=check_down,keep_unknown=keep_unknown,**opts) # Node state
 
     def is_down(self,timeout=1200,keep_up=240,interval=8,power_down=20,**opts): # Node state
+        timeout=km.integer(timeout,default=1200)
         return self.node_state(state='down',timeout=timeout,keep_up=keep_up,interval=interval,power_down=power_down,**opts) # Node state
 
     def get_boot_mode(self):
@@ -894,6 +898,7 @@ class kBmc:
         return self.do_power(cmd,retry=retry,verify=verify,timeout=timeout,post_keep_up=post_keep_up,lanmode=lanmode)
 
     def do_power(self,cmd,retry=0,verify=False,timeout=1200,post_keep_up=40,pre_keep_up=0,lanmode=None,cancel_func=None):
+        timeout=km.integer(timeout,default=1200)
         def lanmode_check(mode):
             # BMC Lan mode Checkup
             cur_lan_mode=self.lanmode()
@@ -911,7 +916,6 @@ class kBmc:
                         return mode
 
         ipmi_ip=self.root.ipmi_ip.GET()
-        timeout=self.root.timeout.GET()
         chkd=False
         for mm in self.root.ipmi_mode.GET():
             name=mm.__name__
