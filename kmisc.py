@@ -424,7 +424,7 @@ def rshell(cmd,timeout=None,ansi=True,path=None,progress=False,progress_pre_new_
     cmd_env=''
     if path is not None:
         #cmd_env='''export PATH=%s:${PATH}\n[ -d %s ] && cd %s\n'''%(path,path,path)
-        cmd_env='''export PATH=%s:${PATH}; '''%(path)
+        cmd_env='''export PATH=%s:${PATH}; [ -d "%s" ] && cd "%s"; '''%(path,path,path)
     p = Popen(cmd_env+cmd , shell=True, stdout=PIPE, stderr=PIPE)
     out=None
     err=None
@@ -1172,28 +1172,22 @@ def is_comeback(ip,**opts):
     init_time=None
     run_time=int_sec()
     if keep == 0 or keep is None:
-        return True,'N/A'
-    rc=False
-    msg='Timeout monitor'
+        return True,'N/A(Missing keep parameter data)'
     while True:
         ttt,init_time=timeout(timeout_sec,init_time)
         if ttt:
-            rc=False
-            msg='Timeout monitor'
-            break
-        if stop_func is True:
-            rc=True
-            msg='Stopped monitor by Error'
-            break
-        if is_cancel(cancel_func):
-            rc=True
-            msg='Stopped monitor by Custom'
-            break
+            if log:
+                log('\n',direct=True,log_level=1)
+            return False,'Timeout monitor'
+        if is_cancel(cancel_func) or stop_func is True:
+            if log:
+                log('\n',direct=True,log_level=1)
+            return True,'Stopped monitor by Custom'
         if ping(ip,cancel_func=cancel_func):
             if (int_sec() - run_time) > keep:
-                rc=True
-                msg='OK'
-                break
+                if log:
+                    log('\n',direct=True,log_level=1)
+                return True,'OK'
             if log:
                 log('-',direct=True,log_level=1)
         else:
@@ -1203,7 +1197,7 @@ def is_comeback(ip,**opts):
         time.sleep(interval)
     if log:
         log('\n',direct=True,log_level=1)
-    return rc,msg
+    return False,'Timeout/Unknown issue'
 
 def get_function_args(func,mode='defaults'):
     rc={}
@@ -1366,21 +1360,31 @@ def clear_version(string,sym='.'):
     else:
         return False
     arr=string.split(sym)
-    #arr=[]
-    #for x in string.split(sym):
-    #    try:
-    #        arr.append(str(int(x)))
-    #    except:
-    #        arr.append(x)
-    if arr[-1] == '0':
-        arr.pop(-1)
+    for ii in range(len(arr)-1,0,-1):
+        if arr[ii].replace('0','') == '':
+            arr.pop(-1)
+        else:
+            break
     return sym.join(arr)
 
+def get_key(dic=None,find=None):
+    return find_key_from_value(dic=dic,find=find)
+
 def find_key_from_value(dic=None,find=None):
-    if type(dic) is dict and find is not None:
-        for key,val in dic.items():
-            if val == find:
-                return key
+    if isinstance(dic,dict):
+        if find is None:
+            return list(dic.keys())
+        else:
+            for key,val in dic.items():
+                if val == find:
+                    return key
+    elif isinstance(dic,list) or isinstance(dic,tuple):
+        if find is None:
+            return len(dic)
+        else:
+            if find in dic:
+                return dic.index(find)
+         
 
 def random_str(length=8,strs=None,mode='*'):
     if strs is None:
@@ -2122,14 +2126,14 @@ def now():
     return int_sec()
 
 def timeout(timeout_sec,init_time=None,default=(24*3600)):
-    if type(init_time) is not int or init_time == 0:
+    init_time=integer(init_time,default=0)
+    timeout_sec=integer(timeout_sec,default=default)
+    if init_time == 0:
         init_time=int_sec()
     if timeout_sec == 0:
         return False,init_time
-    if type(timeout_sec) is not int:
-        timeout_sec=default
-        if timeout_sec < 3:
-           timeout_sec=3
+    if timeout_sec < 3:
+       timeout_sec=3
     if int_sec() - init_time >  timeout_sec:
         return True,init_time
     return False,init_time
@@ -2550,7 +2554,7 @@ def check_value(src,find,idx=None):
                         return True
     return False
 
-def get_value(src,key=None,default=None):
+def get_value(src,key=None,default=None,check=[list,tuple,dict]):
     type_src=type(src)
     type_key=type(key)
     if type_src is bool:
@@ -2559,6 +2563,8 @@ def get_value(src,key=None,default=None):
         return src
     if key is None:
         return default
+    if type_src not in check:
+        return src
     if type_src in [str,list,tuple]:
         if type_key in [list,tuple]:
             rc=[]
@@ -2644,6 +2650,18 @@ def umount(mount_point,del_dir=False):
 def append(src,addendum):
     type_src=type(src)
     type_data=type(addendum)
+    if src is None:
+        if type_data is str:
+            src=''
+        elif type_data is dict:
+            src={}
+        elif type_data is list:
+            src=[]
+        elif type_data is tuple:
+            src=()
+        type_src=type(src)
+    if addendum is None:
+        return src
     if type_src == type_data:
         if type_src is dict:
             return src.update(addendum)
@@ -2715,7 +2733,7 @@ def get_data(data,key=None,ekey=None,default=None,method=None,strip=True,find=[]
             if rc == 'true':
                 return True
             elif rc == '':
-                return None
+                return default
             return rc
         else:
             if data.method == 'GET':
@@ -2743,7 +2761,7 @@ def compare(a,sym,b,ignore=None):
     return eval('{} {} {}'.format(a,sym,b))
 
 def integer(a,default=0):
-    if type(a) is int:
+    if isinstance(a,int):
         return a
     try:
         a=int(a)
@@ -2844,7 +2862,7 @@ def get_iso_uid(filename):
         return False,rc[1],None
     return False,'{} not found'.format(filename),None
 
-def find_usb_dev(size=None):
+def find_usb_dev(size=None,max_size=None):
     rc=[]
     load_kmod(modules=['usb-storage'])
     if os.path.isdir('/sys/block') is False:
@@ -2857,7 +2875,14 @@ def find_usb_dev(size=None):
                     if removable:
                         if '1' in removable:
                             if size is None:
-                                rc.append('/dev/{0}'.format(dd))
+                                if max_size:
+                                    file_size=cat('{0}/size'.format(rrr))
+                                    if file_size:
+                                        dev_size=int(file_size) * 512
+                                        if dev_size <= int(max_size):
+                                            rc.append('/dev/{0}'.format(dd))
+                                else:
+                                    rc.append('/dev/{0}'.format(dd))
                             else:
                                 file_size=cat('{0}/size'.format(rrr))
                                 if file_size:
