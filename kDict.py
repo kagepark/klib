@@ -159,8 +159,7 @@ class kDict(dict):
         try:
             if path:
                 self=self.CD(path,symbol=symbol,default=default)
-            #if not self:
-            if self == default:
+            if not self or self == default:
                 return default
             if key is None:
                 if raw:
