@@ -101,10 +101,14 @@ class kDict(dict):
             super(kDict, self).__setitem__(key, value)
 
     # del dictionary[key]
-    def __delitem__(self, key):
+    def __delitem__(self, key, default=False):
         if self._is_ro(self.get(key,None),key=key):
-            return False
-        super(kDict, self).__delitem__(key) # delete data
+            return default
+        if key in self:
+            super(kDict, self).__delitem__(key) # delete data
+            return True
+        else:
+            return default
 
     # readonly property check
     def _is_ro(self,found,key=None):
@@ -154,8 +158,9 @@ class kDict(dict):
     def GET(self,key=None,default=None,raw=False,path=None,symbol='.'):
         try:
             if path:
-                self=self.CD(path,symbol=symbol)
-            if not self:
+                self=self.CD(path,symbol=symbol,default=default)
+            #if not self:
+            if self == default:
                 return default
             if key is None:
                 if raw:
@@ -202,61 +207,64 @@ class kDict(dict):
         return False
 
     # Good
-    def PUT(self,key,value,proper={},force=False,new=False,path=None,symbol='.'):
-        if value is None:
-            return
+    def PUT(self,key,value,proper={},force=False,new=False,path=None,symbol='.',default=False):
+#        if value is None:
+#            return
         if path:
-            self=self.CD(path,force=True,symbol=symbol)
+            self=self.CD(path,force=True,symbol=symbol,default=default)
+        if key is None or self == default:
+            return default
         if new:
             if self.__getitem__(key):
                 return
         if force:
             self.__getitem__(key).PROPER('force',True)
-        #if proper is {}:
         if proper == {}:
             self.__setitem__(key, value)
         else:
             self.__setitem__(key, {self._d_:value,self._p_:proper})
-        return value
+        return True
 
     # Good proper issue
-    def UPDATE(self,data,force=False,path=None,symbol='.'):
+    def UPDATE(self,data,force=False,path=None,symbol='.',default=False):
         if path:
             self=self.CD(path,force=True,symbol=symbol)
+        if not isinstance(data,dict) or self == default:
+            return default
         if force is False and isinstance(data,dict):
             for ii in data:
                 if self._is_ro(self,ii):
-                    return False
+                    return default
         if isinstance(self,dict) and self._d_ in self:
             self[self._d_].update(data)
         else:
             super(kDict, self).update(data)
+        return True
 
     # Good dictionary.pop(key)
-    def POP(self,key,force=False):
+    def POP(self,key,force=False,default=False):
         if force:
             self.__getitem__(key).PROPER('force',True)
         found = self.GET(key, default=None)
-        #super(kDict, self).__delitem__(key) # delete data
-        rc=self.__delitem__(key) # delete data with __delitem() in this class
-        if rc is None:
+        rc=self.__delitem__(key,default=default) # delete data with __delitem() in this class
+        if rc:
             return found
         return rc
 
     # Good
-    def DEL(self,key,force=False):
+    def DEL(self,key,force=False,default=False):
         #if self._is_ro(self.__getitem__(key),key=key):
         #    return False
         #super(kDict, self).__delitem__(key) # delete data without __delitem() in this class
         if force:
             self.__getitem__(key).PROPER('force',True)
-        self.__delitem__(key) # delete data with __delitem() in this class
+        return self.__delitem__(key,default=default) # delete data with __delitem() in this class
 
     # moving key step by step with path by seperated symbol 
-    def CD(self,path,force=False,symbol='/',default='_'): #force=True, generate new key
-        if type(path) is str:
+    def CD(self,path,force=False,symbol='/',default_path='_',default=False): #force=True, generate new key
+        if isinstance(path,str):
             path=path.split(symbol)
-        if type(path) is list:
+        if isinstance(path,list):
             for p in path:
                 if self._d_ in self:
                     self=self[self._d_]
@@ -266,11 +274,11 @@ class kDict(dict):
                     super(kDict, self).__setitem__(p, kDict())
                     self=self[p]
                 else:
-                    if default=='_':
+                    if default_path=='_':
                         return kDict()
-                    return default
+                    return default_path
             return self
-        return False
+        return default
 
     # generate new key
     def MK(self,path,symbol='.'):
@@ -338,10 +346,12 @@ class kDict(dict):
                 rc.append(peeling(self[ii],ignore=[self._p_],jump=self._d_))
         return rc
 
-    def LEN(self):
-        if isinstance(self,dict) and self._p_ in self:
-            return len(self)-1
-        return len(self)
+    def LEN(self,default=False):
+        if isinstance(self,dict):
+            if self._p_ in self:
+                return len(self)-1
+            return len(self)
+        return default
 
     def PRINT(self,whole=False):
         if whole:
@@ -349,12 +359,14 @@ class kDict(dict):
         else:
             pprint.pprint(self.GET())
 
-    def SAVE(self):
+    def SAVE(self,default=False):
         if self._dfile_ :
             with open(self._dfile_,'wb') as dd:
                 pickle.dump(peeling(self),dd,protocol=2)
+                return True
+        return default
 
-    def LOAD(self):
+    def LOAD(self,default=False):
         if self._dfile_ and os.path.isfile(self._dfile_):
             with open(self._dfile_,'rb') as dd:
                 try:
@@ -362,5 +374,7 @@ class kDict(dict):
                 except:
                     return
                 self.__init__(mm)
+                return True
+        return default
 
     __setattr__, __getattr__ = __setitem__, __getitem__
