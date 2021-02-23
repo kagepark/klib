@@ -216,7 +216,7 @@ class kDict(dict):
             return default
         if new:
             if self.__getitem__(key):
-                return
+                return default
         if force:
             self.__getitem__(key).PROPER('force',True)
         if proper == {}:
