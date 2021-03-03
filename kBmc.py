@@ -86,7 +86,7 @@ class kBmc:
             self.root=inps[0].root
         else: 
             self.root=kDict.kDict()
-            self.root.PUT('ipmi_port',opts.get('ipmi_port',623))
+            self.root.PUT('ipmi_port',opts.get('ipmi_port',(623,664,443)))
             ipmi_user=opts.get('ipmi_user','ADMIN')
             self.root.PUT('ipmi_user',ipmi_user)
             ipmi_pass=opts.get('ipmi_pass','ADMIN')
@@ -288,6 +288,7 @@ class kBmc:
         ipmi_user=self.root.GET('ipmi_user')
         ipmi_pass=self.root.GET('ipmi_pass')
         test_user=move2first(ipmi_user,test_user)
+        tested_pass_sample=[]
         if len(test_pass) > default_range:
             tt=2
         else:
@@ -297,14 +298,15 @@ class kBmc:
             for t in range(0,tt):
                 if t == 0:
                     test_pass_sample=test_pass[:default_range]
-                    if uniq_pass:
-                        test_pass_sample=move2first(uniq_pass,test_pass_sample)
-                    test_pass_sample=move2first(ipmi_pass,test_pass_sample)
-                    if tmp_pass:
-                        #test_pass_sample=[tmp_pass]+test_pass_sample
-                        test_pass_sample=move2first(tmp_pass,test_pass_sample)
                 else:
                     test_pass_sample=test_pass[default_range:]
+                # Two times check for uniq,current,temporary password
+                if uniq_pass:
+                    test_pass_sample=move2first(uniq_pass,test_pass_sample)
+                test_pass_sample=move2first(ipmi_pass,test_pass_sample)
+                if tmp_pass:
+                    test_pass_sample=move2first(tmp_pass,test_pass_sample)
+                tested_pass_sample=tested_pass_sample+test_pass_sample
                 for uu in test_user:
                     for pp in test_pass_sample:
                         km.logging("""Try BMC User({}) and password({})""".format(uu,pp),log=self.log,log_level=7)
@@ -322,15 +324,17 @@ class kBmc:
                         if log_level < 7:
                             km.logging("""x""".format(uu,pp),log=self.log,direct=True,log_level=3)
             km.logging("""Can not find working BMC User and password""",log=self.log,log_level=1,dsp='e')
-            self.error(_type='user_pass',msg="Can not find working BMC User or password from POOL\nuser: {}\npassword:{}".format(self.root.GET('test_user'),self.root.GET('test_pass')))
+            self.error(_type='user_pass',msg="Can not find working BMC User or password from POOL\nuser: {}\npassword:{}".format(test_user,tested_pass_sample))
         return False,None,None
 
-    def recover_user_pass(self):
+    def recover_user_pass(self,ipmi_user=None,ipmi_pass=None):
         mm=self.get_mode('smc')
         if not mm:
             return False,'SMCIPMITool module not found'
-        ipmi_user=self.root.ipmi_user.GET()
-        ipmi_pass=self.root.ipmi_pass.GET()
+        if ipmi_user is None:
+            ipmi_user=self.root.ipmi_user.GET()
+        if ipmi_pass is None:
+            ipmi_pass=self.root.ipmi_pass.GET()
         org_user=self.root.org_user.GET()
         org_pass=self.root.org_pass.GET()
         tmp_pass=self.root.tmp_pass.GET()
@@ -425,7 +429,7 @@ class kBmc:
             if self.cancel(cancel_func=cancel_func):
                 km.logging(' !! Canceled Job',log=self.log,log_level=1,dsp='d')
                 self.warn(_type='cancel',msg="Canceled")
-                return False,(-1,'canceled','canceled',0,0,cmd,path),'canceled'
+                return False,(-1,'canceled','canceled',0,0,cmd_str,path),'canceled'
             try:
                 if mode == 'redfish':
                     # code here for run redfish
@@ -442,7 +446,7 @@ class kBmc:
                     rc=km.rshell(cmd_str,path=path,timeout=timeout,progress=progress,log=self.log,progress_pre_new_line=True,progress_post_new_line=True)
             except:
                 self.warn(_type='cmd',msg="Your command got error({})")
-                return 'error',(-1,'unknown','unknown',0,0,cmd,path),'Your command got error'
+                return 'error',(-1,'unknown','unknown',0,0,cmd_str,path),'Your command got error'
             if show_str:
                 km.logging(' - RT_CODE : {}'.format(rc[0]),log=self.log,log_level=1,dsp='d')
             if dbg:
@@ -505,13 +509,14 @@ class kBmc:
                             return 'fail',rc,'Not defined return-condition, So it will be fail'
                     except:
                         return 'unknown',rc,'Unknown result'
-        return False,(-1,'timeout','timeout',0,0,cmd,path),'Time out the running command'
+        return False,(-1,'timeout','timeout',0,0,cmd_str,path),'Time out the running command'
 
     def reset(self,ipmi={},retry=0,post_keep_up=20,pre_keep_up=0):
         ipmi_ip=self.root.ipmi_ip.GET()
         for i in range(0,1+retry):
             for mm in self.root.ipmi_mode.GET():
                 if km.is_comeback(ipmi_ip,keep=pre_keep_up,log=self.log,stop_func=self.error(_type='break')[0]):
+                    km.logging('R',log=self.log,log_level=1,direct=True)
                     rc=self.run_cmd(mm.cmd_str('ipmi reset'))
                     if km.krc(rc[0],chk='error'):
                         return rc
@@ -1053,6 +1058,7 @@ class kBmc:
         if chkd:
             km.logging(' It looks BMC issue. (Need reset the physical power)',log=self.log,log_level=1)
             self.error(_type='power',msg="It looks BMC issue. (Need reset the physical power)")
+            return False,'It looks BMC issue. (Need reset the physical power)',ii
         return False,'time out',ii
 
     def lanmode(self,mode=None):
@@ -1081,6 +1087,13 @@ class kBmc:
                 if _type:
                     if err.get(_type,None) is not None:
                         return True,err[_type]
+#                err_user_pass=err.get('user_pass',None)
+#                if err_user_pass is not None:
+#                    if km.int_sec() - max(err_user_pass,key=int) < 10:
+#                        return True,'''ERR: BMC User/Password Error'''
+#                if err.get('break',None) is not None:
+#                    if km.int_sec() - max(err_user_pass,key=int) < 60:
+#                        return True,'''User want Stop Process'''
                 return True,err
         return False,'OK'
 
@@ -1140,8 +1153,8 @@ if __name__ == "__main__":
         elif log_level < ll:
             print(msg)
 
-    tool_path=''
-    ipmi_ip=None
+    tool_path='/tools'
+    ipmi_ip='172.16.1.1'
     ipmi_user='ADMIN'
     ipmi_pass='ADMIN'
     ipxe=False
@@ -1165,6 +1178,9 @@ if __name__ == "__main__":
 
     print('Test at {}'.format(ipmi_ip))
     bmc=kBmc(ipmi_ip=ipmi_ip,ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,test_pass=['ADMIN','Admin'],test_user=['ADMIN','Admin'],timeout=1800,log=KLog,tool_path=tool_path,ipmi_mode=[Ipmitool()])
+    #bmc=BMC(root,ipmi_ip='172.16.220.135',ipmi_user='ADMIN',ipmi_pass='ADMIN',test_pass=['ADMIN','Admin'],test_user=['ADMIN','Admin'],timeout=1800,log=KLog)
+#    print('Init')
+#    bmc.init()
 #    print('Do')
 #    print(bmc.is_up())
 #    print(bmc.bootorder()[1])
@@ -1175,6 +1191,7 @@ if __name__ == "__main__":
 #    print(bmc.power(cmd='status'))
 #    print(bmc.bootorder()[1])
 #    print(bmc.power(cmd='reset'))
+    print(bmc.power(cmd='status'))
 #    print(bmc.is_tmp_pass(ipmi_pass='Super123',tmp_pass='SumTester23'))
     print(bmc.summary())
 #    print(bmc.lanmode())
