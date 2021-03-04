@@ -424,7 +424,12 @@ def rshell(cmd,timeout=None,ansi=True,path=None,progress=False,progress_pre_new_
     cmd_env=''
     if path is not None:
         #cmd_env='''export PATH=%s:${PATH}\n[ -d %s ] && cd %s\n'''%(path,path,path)
-        cmd_env='''export PATH=%s:${PATH}; [ -d "%s" ] && cd "%s"; '''%(path,path,path)
+        if os.path.isfile('{}/{}'.format(path,cmd.split()[0])):
+            cmd_env='''export PATH=%s:${PATH}; [ -d "%s" ] && cd "%s"; '''%(path,path,path)
+        elif os.path.isfile(cmd.split()[0]):
+            cmd_env='''export PATH=%s:${PATH}; ./'''%(path)
+        else:
+            cmd_env='''export PATH=%s:${PATH}; '''%(path)
     p = Popen(cmd_env+cmd , shell=True, stdout=PIPE, stderr=PIPE)
     out=None
     err=None

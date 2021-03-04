@@ -360,21 +360,21 @@ class kBmc:
             self.root.PUT('ipmi_pass',org_pass)
             return True,org_user,org_pass
         else:
-            km.logging("""Not support {}. Looks need more length. So Try again with Super123""",log=self.log,log_level=6)
+            km.logging("""Not support {}. Looks need more length. So Try again with Admin123""",log=self.log,log_level=6)
             if same_user:
                 #SMCIPMITool.jar IP ID PASS user setpwd 2 <New Pass>
-                rrc=self.run_cmd(mm.cmd_str("""user setpwd 2 'Super123'"""))
+                rrc=self.run_cmd(mm.cmd_str("""user setpwd 2 'Admin123'"""))
             else:
                 #SMCIPMITool.jar IP ID PASS user add 2 <New User> <New Pass> 4
-                rrc=self.run_cmd(mm.cmd_str("""user add 2 {} 'Super123' 4""".format(org_user)))
+                rrc=self.run_cmd(mm.cmd_str("""user add 2 {} 'Admin123' 4""".format(org_user)))
             #if rrc[0]:
             if km.krc(rrc[0],chk=True):
-                km.logging("""Recovered BMC: from User({}) and Password({}) to User({}) and Password(Super123)""".format(ipmi_user,ipmi_pass,org_user),log=self.log,log_level=6)
+                km.logging("""Recovered BMC: from User({}) and Password({}) to User({}) and Password(Admin123)""".format(ipmi_user,ipmi_pass,org_user),log=self.log,log_level=6)
                 if tmp_pass:
                     self.root.DEL('tmp_pass')
                 self.root.PUT('ipmi_user',org_user)
-                self.root.PUT('ipmi_pass','Super123')
-                return True,org_user,'Super123'
+                self.root.PUT('ipmi_pass','Admin123')
+                return True,org_user,'Admin123'
             else:
                 self.warn(_type='ipmi_user',msg="Recover ERROR!! Please checkup user-lock-mode on the BMC Configure.")
                 km.logging("""Recover ERROR!! Please checkup user-lock-mode on the BMC Configure.""",log=self.log,log_level=6)
@@ -1140,6 +1140,25 @@ class kBmc:
         else:
             return {'ok':ok,'fail':fail,'error':error,'err_connection':err_connection,'err_bmc_user':err_bmc_user,'err_key':err_key}
 
+
+    def is_admin_user(self,**opts):
+        admin_id=opts.get('admin_id',2)
+        get_info=self.info()
+        if km.krc(get_info,chk=True):
+            ipmi_info = km.get_value(get_info,1)
+            for mm in self.root.ipmi_mode.GET():
+                name=mm.__name__
+                rc=self.run_cmd(mm.cmd_str("""user list"""))
+                if km.krc(rc,chk=True):
+                    for i in km.get_value(km.get_value(rc,1),1).split('\n'):
+                        i_a=i.strip().split()
+                        if str(admin_id) in i_a:
+                            if km.get_value(i_a,-1) == 'ADMINISTRATOR':
+                                if ipmi_info.get('ipmi_user') == km.get_value(i_a,1):
+                                    return True
+        return False
+        
+
 if __name__ == "__main__":
     import sys
     import os
@@ -1192,8 +1211,8 @@ if __name__ == "__main__":
 #    print(bmc.bootorder()[1])
 #    print(bmc.power(cmd='reset'))
     print(bmc.power(cmd='status'))
-#    print(bmc.is_tmp_pass(ipmi_pass='Super123',tmp_pass='SumTester23'))
     print(bmc.summary())
+    print(bmc.is_admin_user())
 #    print(bmc.lanmode())
 #    print(bmc.info())
 #    print(bmc.get_mac())
