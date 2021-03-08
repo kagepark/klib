@@ -360,21 +360,21 @@ class kBmc:
             self.root.PUT('ipmi_pass',org_pass)
             return True,org_user,org_pass
         else:
-            km.logging("""Not support {}. Looks need more length. So Try again with Admin123""",log=self.log,log_level=6)
+            km.logging("""Not support {}. Looks need more length. So Try again with Super123""",log=self.log,log_level=6)
             if same_user:
                 #SMCIPMITool.jar IP ID PASS user setpwd 2 <New Pass>
-                rrc=self.run_cmd(mm.cmd_str("""user setpwd 2 'Admin123'"""))
+                rrc=self.run_cmd(mm.cmd_str("""user setpwd 2 'Super123'"""))
             else:
                 #SMCIPMITool.jar IP ID PASS user add 2 <New User> <New Pass> 4
-                rrc=self.run_cmd(mm.cmd_str("""user add 2 {} 'Admin123' 4""".format(org_user)))
+                rrc=self.run_cmd(mm.cmd_str("""user add 2 {} 'Super123' 4""".format(org_user)))
             #if rrc[0]:
             if km.krc(rrc[0],chk=True):
-                km.logging("""Recovered BMC: from User({}) and Password({}) to User({}) and Password(Admin123)""".format(ipmi_user,ipmi_pass,org_user),log=self.log,log_level=6)
+                km.logging("""Recovered BMC: from User({}) and Password({}) to User({}) and Password(Super123)""".format(ipmi_user,ipmi_pass,org_user),log=self.log,log_level=6)
                 if tmp_pass:
                     self.root.DEL('tmp_pass')
                 self.root.PUT('ipmi_user',org_user)
-                self.root.PUT('ipmi_pass','Admin123')
-                return True,org_user,'Admin123'
+                self.root.PUT('ipmi_pass','Super123')
+                return True,org_user,'Super123'
             else:
                 self.warn(_type='ipmi_user',msg="Recover ERROR!! Please checkup user-lock-mode on the BMC Configure.")
                 km.logging("""Recover ERROR!! Please checkup user-lock-mode on the BMC Configure.""",log=self.log,log_level=6)
@@ -708,10 +708,10 @@ class kBmc:
         print('%10s : %s'%("User",ipmi_user))
         print('%10s : %s'%("Password",ipmi_pass))
         ok,mac=self.get_mac()
-        print('%10s : %s'%("Bmc Mac",'{}'.format(mac)))
+        print('%10s : %s'%("Bmc Mac",'{}'.format(km.get_value(mac,0))))
         ok,eth_mac=self.get_eth_mac()
         if ok:
-            print('%10s : %s'%("Eth Mac",'{}'.format(eth_mac)))
+            print('%10s : %s'%("Eth Mac",'{}'.format(km.get_value(eth_mac,0))))
         print('%10s : %s'%("Power",'{}'.format(self.power('status'))))
         print('%10s : %s'%("DHCP",'{}'.format(self.dhcp()[1])))
         print('%10s : %s'%("Gateway",'{}'.format(self.gateway()[1])))
@@ -1087,13 +1087,6 @@ class kBmc:
                 if _type:
                     if err.get(_type,None) is not None:
                         return True,err[_type]
-#                err_user_pass=err.get('user_pass',None)
-#                if err_user_pass is not None:
-#                    if km.int_sec() - max(err_user_pass,key=int) < 10:
-#                        return True,'''ERR: BMC User/Password Error'''
-#                if err.get('break',None) is not None:
-#                    if km.int_sec() - max(err_user_pass,key=int) < 60:
-#                        return True,'''User want Stop Process'''
                 return True,err
         return False,'OK'
 
@@ -1162,6 +1155,7 @@ class kBmc:
 if __name__ == "__main__":
     import sys
     import os
+    import pprint
     def KLog(msg,**agc):
         direct=agc.get('direct',False)
         log_level=agc.get('log_level',6)
@@ -1172,14 +1166,40 @@ if __name__ == "__main__":
         elif log_level < ll:
             print(msg)
 
-    tool_path='/tools'
-    ipmi_ip='172.16.1.1'
+    tool_path=km.get_my_directory()
     ipmi_user='ADMIN'
     ipmi_pass='ADMIN'
     ipxe=False
-    print(sys.argv)
-    if len(sys.argv) == 2 and sys.argv[1] in ['help','-h','--help']:
-        print('{} -i <ipmi ip> -u <ipmi_user> -p <ipmi_pass> -t <tool path>'.format(sys.argv[0]))
+    smc_file=None
+    ipmi_ip=None
+    def help():
+        print('{} -i <ipmi ip> [<OPT>] <cmd>'.format(sys.argv[0]))
+        print('\n <OPT>')
+        print(' -u <ipmi_user> : default ADMIN')
+        print(' -p <ipmi_pass> : default ADMIN')
+        print(' -t <tool path> : default PWD')
+        print(' -si <SMCIPMITool file> ')
+        print('\n <cmd>')
+        print(' is_up          : node is UP?')
+        print(' summary        : show summary')
+        print(' bootorder      : show bootorder')
+        print(' bootorder pxe  : Set PXE Boot mode')
+        print(' bootorder ipxe : Set iPXE Boot mode')
+        print(' bootorder bios : Set BIOS mode')
+        print(' bootorder hdd  : Set HDD mode')
+        print(' is_admin_user  : check current user is ADMINISTRATOR user?')
+        print(' lanmode        : get current lanmode')
+        print(' info           : show Info')
+        print(' mac            : get BMC mac')
+        print(' eth_mac        : get Ethernet Mac')
+        print(' reset          : reset BMC')
+        print(' power <status|reset|off|on|off_on|shutdown|cycle> : power handle')
+        print(' redfish <sub cmd>')
+        print('     power:on  : power on')
+        print('     power:off : power off')
+        print('     Systems/1 : Get Systems/1 information')
+        print('     Systems/1/Actions/ComputerSystem.Reset')
+        print('     Managers/1/Actions/Manager.Reset')
         os._exit(1)
 
     for ii in range(1,len(sys.argv)):
@@ -1191,37 +1211,56 @@ if __name__ == "__main__":
             ipmi_pass=sys.argv[ii+1]
         elif sys.argv[ii] == '-t':
             tool_path=sys.argv[ii+1]
+        elif sys.argv[ii] == '-si':
+            smc_file=os.path.basename(sys.argv[ii+1])
+            smc_path=os.path.dirname(sys.argv[ii+1])
         elif sys.argv[ii] == '-ipxe':
             if sys.argv[ii+1] in ['true','True','on','On']:
                 ipxe=True
+    if km.is_ipv4(ipmi_ip) is False or km.get_value(sys.argv,1) in ['help','-h','--help']:
+        help()
 
-    print('Test at {}'.format(ipmi_ip))
-    bmc=kBmc(ipmi_ip=ipmi_ip,ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,test_pass=['ADMIN','Admin'],test_user=['ADMIN','Admin'],timeout=1800,log=KLog,tool_path=tool_path,ipmi_mode=[Ipmitool()])
-    #bmc=BMC(root,ipmi_ip='172.16.220.135',ipmi_user='ADMIN',ipmi_pass='ADMIN',test_pass=['ADMIN','Admin'],test_user=['ADMIN','Admin'],timeout=1800,log=KLog)
-#    print('Init')
-#    bmc.init()
-#    print('Do')
-#    print(bmc.is_up())
-#    print(bmc.bootorder()[1])
-#    print(bmc.bootorder(mode='pxe',ipxe=True,persistent=True,force=True)[1])
-#    print(bmc.bootorder(mode='pxe',persistent=True,force=True)[1])
-#    print(bmc.power(cmd='off_on'))
-#    print(bmc.bootorder()[1])
-#    print(bmc.power(cmd='status'))
-#    print(bmc.bootorder()[1])
-#    print(bmc.power(cmd='reset'))
-    print(bmc.power(cmd='status'))
-    print(bmc.summary())
-    print(bmc.is_admin_user())
-#    print(bmc.lanmode())
-#    print(bmc.info())
-#    print(bmc.get_mac())
-#    print(bmc.get_eth_mac())
-    #print(bmc.run_cmd('Managers/1/Actions/Manager.Reset ',mode='redfish'))
-    #print(bmc.run_cmd('Systems/1/Actions/ComputerSystem.Reset ',mode='redfish'))
-#    print(bmc.run_cmd('Systems/1',mode='redfish'))
-#    print(bmc.run_cmd('power:on',mode='redfish'))
-#    print(bmc.run_cmd('power:off',mode='redfish'))
-    #aa=bmc.reset()
-    #print(aa)
+    elif km.is_port_ip(ipmi_ip,(623,664,443)):
+        print('Test at {}'.format(ipmi_ip))
+        if smc_file and os.path.isfile('{}/{}'.format(tool_path,smc_file)):
+            bmc=kBmc(ipmi_ip=ipmi_ip,ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,test_pass=['ADMIN','Admin'],test_user=['ADMIN','Admin'],timeout=1800,log=KLog,tool_path=tool_path,ipmi_mode=[Ipmitool(),Smcipmitool(tool_path=tool_path,smc_file=smc_file)])
+        elif smc_file and os.path.isfile(smc_file):
+            bmc=kBmc(ipmi_ip=ipmi_ip,ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,test_pass=['ADMIN','Admin'],test_user=['ADMIN','Admin'],timeout=1800,log=KLog,tool_path=tool_path,ipmi_mode=[Ipmitool(),Smcipmitool(tool_path=smc_path,smc_file=smc_file)])
+        else:
+            bmc=kBmc(ipmi_ip=ipmi_ip,ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,test_pass=['ADMIN','Admin'],test_user=['ADMIN','Admin'],timeout=1800,log=KLog,tool_path=tool_path,ipmi_mode=[Ipmitool()])
 
+        cmd_2=km.get_value(sys.argv,-2)
+        if cmd_2 == 'power':
+            print(bmc.power(cmd=km.get_value(sys.argv,-1)))
+        elif cmd_2 == 'redfish':
+            print(bmc.run_cmd(km.get_value(sys.argv,-1),mode='redfish'))
+        elif cmd_2 == 'bootorder':
+            mode=km.get_value(sys.argv,-1)
+            if mode == 'ipxe':
+                print(km.get_value(bmc.bootorder(mode='pxe',ipxe=True,persistent=True,force=True),1))
+            else:
+                print(km.get_value(bmc.bootorder(mode=mode,persistent=True,force=True),1))
+        else:
+            cmd=km.get_value(sys.argv,-1)
+            if cmd == 'is_up':
+                print(km.get_value(bmc.is_up(),1))
+            elif cmd == 'bootorder':
+                print(km.get_value(bmc.bootorder(),1))
+            elif cmd == 'summary':
+                print(bmc.summary())
+            elif cmd == 'is_admin_user':
+                print(bmc.is_admin_user())
+            elif cmd == 'lanmode':
+                print(bmc.lanmode())
+            elif cmd == 'info':
+                pprint.pprint(km.get_value(bmc.info(),1,default={}))
+            elif cmd == 'mac':
+                print(km.get_value(bmc.get_mac(),1,default=['Can not get'])[0])
+            elif cmd == 'eth_mac':
+                print(km.get_value(bmc.get_eth_mac(),1,default=['Can not get'])[0])
+            elif cmd == 'reset':
+                print(km.get_value(bmc.reset(),1))
+            else:
+                print('Unknown command')
+    else:
+        print('Looks the IP({}) is not BMC/IPMI IP'.format(ipmi_ip))

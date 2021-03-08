@@ -115,7 +115,7 @@ def format_string_dict(string):
 def format_time(time=0,tformat='%s',time_format='%S'):
     if time in [0,'0',None]:
         return datetime.now().strftime(tformat)
-    else:
+    elif isinstance(time,int) or (isinstance(time,str) and time.isdigit()):
         #if type(time) is int or (type(time) is str and time.isdigit()):
         if time_format == '%S':
             return datetime.fromtimestamp(int(time)).strftime(tformat)
@@ -928,18 +928,12 @@ def append2list(*inp,**cond):
    add=inp[1:]
    if src_type is str:
       for jj in src.split(','):
-         if uniq:
-             if jj not in org:
-                 org.append(jj)
-         else:
-             org.append(jj)
+         if uniq and jj in org: continue
+         org.append(jj)
    elif src_type in [list,tuple]:
       for jj in src:
-          if uniq:
-              if jj not in org:
-                  org.append(jj)
-          else:
-              org.append(jj)
+          if uniq and jj in org: continue
+          org.append(jj)
    else:
       org.append(src)
 
@@ -947,24 +941,15 @@ def append2list(*inp,**cond):
       ii_type=type(ii)
       if ii_type in [list,tuple]:
          for jj in ii:
-             if uniq:
-                if jj not in org:
-                    org.append(jj)
-             else:
-                org.append(jj)
+             if uniq and jj in org: continue
+             org.append(jj)
       elif ii_type is str:
          for jj in ii.split(','):
-            if uniq:
-                if jj not in org:
-                    org.append(jj)
-            else:
-                org.append(jj)
+            if uniq and jj in org: continue
+            org.append(jj)
       else:
-         if uniq:
-            if ii not in org:
-                org.append(ii)
-         else:
-            org.append(ii)
+         if uniq and ii in org: continue
+         org.append(ii)
    return org
 
 
