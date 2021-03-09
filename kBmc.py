@@ -1005,15 +1005,15 @@ class kBmc:
                                 return True,verify_status,ii
                             chk+=1
                             continue
-                    # BMC Lan mode Checkup before power on/cycle/reset
-                    if checked_lanmode is None and lanmode and verify_status in ['on','reset','cycle']:
-                       checked_lanmode=lanmode_check(lanmode)
+                        # BMC Lan mode Checkup before power on/cycle/reset
+                        if checked_lanmode is None and lanmode and verify_status in ['on','reset','cycle']:
+                           checked_lanmode=lanmode_check(lanmode)
 
-                    if verify_status in ['reset','cycle']:
-                         if init_status == 'off':
-                             self.warn(_type='power',msg="Can not set {} on the off mode".format(verify_status))
-                             km.logging(' ! can not {} the power'.format(verify_status),log=self.log,log_level=6)
-                             return False,'can not {} the power'.format(verify_status)
+                        if verify_status in ['reset','cycle']:
+                             if init_status == 'off':
+                                 self.warn(_type='power',msg="Can not set {} on the off mode".format(verify_status))
+                                 km.logging(' ! can not {} the power'.format(verify_status),log=self.log,log_level=6)
+                                 return False,'can not {} the power'.format(verify_status)
                     rc=self.run_cmd(mm.cmd_str(rr),retry=retry)
                     km.logging('rr:{} cmd:{} rc:{}'.format(rr,mm.cmd_str(rr),rc),log=self.log,log_level=8)
                     if km.krc(rc,chk='error'):
@@ -1022,7 +1022,8 @@ class kBmc:
                         km.logging(' + Do power {}'.format(verify_status),log=self.log,log_level=3)
                         if verify_status in ['reset','cycle']:
                             verify_status='on'
-                            time.sleep(10)
+                            if verify:
+                                time.sleep(10)
                     else:
                         self.warn(_type='power',msg="power {} fail".format(verify_status))
                         km.logging(' ! power {} fail'.format(verify_status),log=self.log,log_level=3)
@@ -1238,7 +1239,7 @@ if __name__ == "__main__":
         if cmd_2 == 'power':
             sub_cmd = km.get_value(sys.argv,-1)
             if sub_cmd == 'status':
-                print(bmc.do_power(cmd=sub_cmd))
+                print(km.get_value(bmc.do_power(cmd=sub_cmd),1))
             elif sub_cmd in ['on','off','reset','cycle','shutdown']:
                 print(km.get_value(bmc.do_power(cmd=sub_cmd),1))
             else:
