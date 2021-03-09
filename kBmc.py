@@ -972,38 +972,39 @@ class kBmc:
             power_step=len(mm.power_mode[cmd])-1
             for ii in range(1,int(retry)+2):
                 checked_lanmode=None
-                init_rc=self.run_cmd(mm.cmd_str('ipmi power status'))
-                if km.krc(init_rc[0],chk='error'):
-                    return init_rc[0],init_rc[1],ii
-                if init_rc[0] is False:
-                    self.warn(_type='power',msg="Power status got some error ({}))".format(init_rc[-1]))
-                    km.logging('Power status got some error ({})'.format(init_rc[-1]),log=self.log,log_level=3)
-                    time.sleep(3)
-                    continue
-                init_status=km.get_value(km.get_value(km.get_value(init_rc,1,[]),1,'').split(),-1)
-                if verify is False or cmd == 'status':
-                    if init_rc[0]:
-                        if cmd == 'status':
-                            return True,init_rc[1][1],ii
-                        return True,rc[1][1],ii
-                    time.sleep(3)
-                    continue
-                if init_status == 'off' and cmd in ['reset','cycle']:
-                    cmd='on'
-                # keep command
-                if pre_keep_up > 0 and self.is_up(timeout=timeout,keep_up=pre_keep_up,cancel_func=cancel_func)[0] is False:
-                    time.sleep(3)
-                    continue
+                if verify or cmd == 'status':
+                    init_rc=self.run_cmd(mm.cmd_str('ipmi power status'))
+                    if km.krc(init_rc[0],chk='error'):
+                        return init_rc[0],init_rc[1],ii
+                    if init_rc[0] is False:
+                        self.warn(_type='power',msg="Power status got some error ({}))".format(init_rc[-1]))
+                        km.logging('Power status got some error ({})'.format(init_rc[-1]),log=self.log,log_level=3)
+                        time.sleep(3)
+                        continue
+                    if cmd == 'status':
+                        if init_rc[0]:
+                            if cmd == 'status':
+                                return True,init_rc[1][1],ii
+                        time.sleep(3)
+                        continue
+                    init_status=km.get_value(km.get_value(km.get_value(init_rc,1,[]),1,'').split(),-1)
+                    if init_status == 'off' and cmd in ['reset','cycle']:
+                        cmd='on'
+                    # keep command
+                    if pre_keep_up > 0 and self.is_up(timeout=timeout,keep_up=pre_keep_up,cancel_func=cancel_func)[0] is False:
+                        time.sleep(3)
+                        continue
                 km.logging('Power {} at {} (try:{}/{}) (limit:{} sec)'.format(cmd,ipmi_ip,ii,retry+1,timeout),log=self.log,log_level=3)
                 chk=1
                 for rr in list(mm.power_mode[cmd]):
                     verify_status=rr.split(' ')[-1]
                     km.logging(' + Verify Status: "{}" from "{}"'.format(verify_status,rr),log=self.log,log_level=7)
-                    if chk == 1 and init_rc[0] and init_status == verify_status:
-                        if chk == len(mm.power_mode[cmd]):
-                            return True,verify_status,ii
-                        chk+=1
-                        continue
+                    if verify:
+                        if chk == 1 and init_rc[0] and init_status == verify_status:
+                            if chk == len(mm.power_mode[cmd]):
+                                return True,verify_status,ii
+                            chk+=1
+                            continue
                     # BMC Lan mode Checkup before power on/cycle/reset
                     if checked_lanmode is None and lanmode and verify_status in ['on','reset','cycle']:
                        checked_lanmode=lanmode_check(lanmode)
@@ -1015,9 +1016,9 @@ class kBmc:
                              return False,'can not {} the power'.format(verify_status)
                     rc=self.run_cmd(mm.cmd_str(rr),retry=retry)
                     km.logging('rr:{} cmd:{} rc:{}'.format(rr,mm.cmd_str(rr),rc),log=self.log,log_level=8)
-                    if km.krc(rc[0],chk='error'):
+                    if km.krc(rc,chk='error'):
                         return rc
-                    if km.krc(rc[0],chk=True):
+                    if km.krc(rc,chk=True):
                         km.logging(' + Do power {}'.format(verify_status),log=self.log,log_level=3)
                         if verify_status in ['reset','cycle']:
                             verify_status='on'
@@ -1027,33 +1028,36 @@ class kBmc:
                         km.logging(' ! power {} fail'.format(verify_status),log=self.log,log_level=3)
                         time.sleep(5)
                         break
-                    if verify_status in ['on','up']:
-                        is_up=self.is_up(timeout=timeout,keep_up=post_keep_up,cancel_func=cancel_func)
-                        km.logging('is_up:{}'.format(is_up),log=self.log,log_level=7)
-                        if is_up[0]:
-                            if chk == len(mm.power_mode[cmd]):
-                                return True,'on',ii
-                        elif is_up[1] == 'down' and not chkd:
-                            chkd=True
-                            self.warn(_type='power',msg="Something weird. Looks BMC issue")
-                            km.logging(' Something weird. Try again',log=self.log,log_level=1)
-                            retry=retry+1 
-                            time.sleep(20)
-                        time.sleep(3)
-                    elif verify_status in ['off','down']:
-                        is_down=self.is_down(cancel_func=cancel_func)
-                        km.logging('is_down:{}'.format(is_down),log=self.log,log_level=7)
-                        if is_down[0]:
-                            if chk == len(mm.power_mode[cmd]):
-                                return True,'off',ii
-                        elif is_down[1] == 'up' and not chkd:
-                            chkd=True
-                            self.warn(_type='power',msg="Something weird. Looks BMC issue")
-                            km.logging(' Something weird. Try again',log=self.log,log_level=1)
-                            retry=retry+1 
-                            time.sleep(20)
-                        time.sleep(3)
-                    chk+=1
+                    if verify:
+                        if verify_status in ['on','up']:
+                            is_up=self.is_up(timeout=timeout,keep_up=post_keep_up,cancel_func=cancel_func)
+                            km.logging('is_up:{}'.format(is_up),log=self.log,log_level=7)
+                            if is_up[0]:
+                                if chk == len(mm.power_mode[cmd]):
+                                    return True,'on',ii
+                            elif is_up[1] == 'down' and not chkd:
+                                chkd=True
+                                self.warn(_type='power',msg="Something weird. Looks BMC issue")
+                                km.logging(' Something weird. Try again',log=self.log,log_level=1)
+                                retry=retry+1 
+                                time.sleep(20)
+                            time.sleep(3)
+                        elif verify_status in ['off','down']:
+                            is_down=self.is_down(cancel_func=cancel_func)
+                            km.logging('is_down:{}'.format(is_down),log=self.log,log_level=7)
+                            if is_down[0]:
+                                if chk == len(mm.power_mode[cmd]):
+                                    return True,'off',ii
+                            elif is_down[1] == 'up' and not chkd:
+                                chkd=True
+                                self.warn(_type='power',msg="Something weird. Looks BMC issue")
+                                km.logging(' Something weird. Try again',log=self.log,log_level=1)
+                                retry=retry+1 
+                                time.sleep(20)
+                            time.sleep(3)
+                        chk+=1
+                    else:
+                        return True,km.get_value(km.get_value(rc,1),1),ii
                 time.sleep(3)
         if chkd:
             km.logging(' It looks BMC issue. (Need reset the physical power)',log=self.log,log_level=1)
@@ -1193,13 +1197,14 @@ if __name__ == "__main__":
         print(' mac            : get BMC mac')
         print(' eth_mac        : get Ethernet Mac')
         print(' reset          : reset BMC')
-        print(' power <status|reset|off|on|off_on|shutdown|cycle> : power handle')
-        print(' redfish <sub cmd>')
-        print('     power:on  : power on')
-        print('     power:off : power off')
-        print('     Systems/1 : Get Systems/1 information')
-        print('     Systems/1/Actions/ComputerSystem.Reset')
-        print('     Managers/1/Actions/Manager.Reset')
+        print(' power <status|reset|off|on|shutdown|cycle> : Send power signal')
+        print(' vpower <status|reset|off|on|off_on|shutdown|cycle> : Send power signal and verify status')
+#        print(' redfish <sub cmd>')
+#        print('     power:on  : power on')
+#        print('     power:off : power off')
+#        print('     Systems/1 : Get Systems/1 information')
+#        print('     Systems/1/Actions/ComputerSystem.Reset')
+#        print('     Managers/1/Actions/Manager.Reset')
         os._exit(1)
 
     for ii in range(1,len(sys.argv)):
@@ -1231,7 +1236,21 @@ if __name__ == "__main__":
 
         cmd_2=km.get_value(sys.argv,-2)
         if cmd_2 == 'power':
-            print(bmc.power(cmd=km.get_value(sys.argv,-1)))
+            sub_cmd = km.get_value(sys.argv,-1)
+            if sub_cmd == 'status':
+                print(bmc.do_power(cmd=sub_cmd))
+            elif sub_cmd in ['on','off','reset','cycle','shutdown']:
+                print(km.get_value(bmc.do_power(cmd=sub_cmd),1))
+            else:
+                print('Unknown command "{}"'.format(sub_cmd))
+        elif cmd_2 == 'vpower':
+            sub_cmd = km.get_value(sys.argv,-1)
+            if sub_cmd == 'status':
+                print(bmc.power(cmd=sub_cmd))
+            elif sub_cmd in ['on','off','off_on','reset','cycle','shutdown']:
+                print(km.get_value(bmc.power(cmd=sub_cmd),1))
+            else:
+                print('Unknown command "{}"'.format(sub_cmd))
         elif cmd_2 == 'redfish':
             print(bmc.run_cmd(km.get_value(sys.argv,-1),mode='redfish'))
         elif cmd_2 == 'bootorder':
@@ -1261,6 +1280,7 @@ if __name__ == "__main__":
             elif cmd == 'reset':
                 print(km.get_value(bmc.reset(),1))
             else:
-                print('Unknown command')
+                print('Unknown command "{}"'.format(cmd))
+                help()
     else:
-        print('Looks the IP({}) is not BMC/IPMI IP'.format(ipmi_ip))
+        print('Looks the IP({}) is not BMC/IPMI IP or the BMC is not ready on network'.format(ipmi_ip))
