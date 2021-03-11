@@ -730,7 +730,7 @@ def get_net_dev_ip(ifname):
 
 def cat(filename,no_end_newline=False):
     tmp=file_rw(filename)
-    if type(tmp) is str and no_end_newline:
+    if isinstance(Get(tmp,1),str) and no_end_newline:
         tmp_a=tmp.split('\n')
         ntmp=''
         for ii in tmp_a[:-1]:
@@ -2737,8 +2737,10 @@ def append(src,addendum):
     return False
 
 def is_xml(filename):
-    firstLine=file_rw(filename,out='string',read='firstline')
-    if firstLine is False:
+    firstLine_i=file_rw(filename,out='string',read='firstline')
+    if krc(firstLine_i,chk=True):
+        firstLine=get_value(firstLine_i,1)
+    else:
         filename_str=_u_byte2str(filename)
         if isinstance(filename_str,str):
             firstLine=filename_str.split('\n')[0]
@@ -2822,34 +2824,39 @@ def integer(a,default=0):
         return default
 
 def file_rw(name,data=None,out='string',append=False,read=None,overwrite=True):
-    if type(name) is str:
-        if data is not None and os.path.isdir(os.path.dirname(name)):
-            try:
-                if append:
-                    with open(name,'ab') as f:
-                        f.write(_u_bytes(data))
-                else:
-                    with open(name,'wb') as f:
-                        f.write(_u_bytes(data))
-                return True
-            except:
-                pass
-        elif data is None and os.path.isfile(name):
-            try:
-                if read in ['firstread','firstline','first_line','head','readline']:
-                    with open(name,'rb') as f:
-                        data=f.readline()
-                else:
-                    with open(name,'rb') as f:
-                        data=f.read()
-            except:
-                pass
-            if data is not None:
-                if out in ['string','str']:
-                    return _u_bytes2str(data)
-                else:
-                    return data
-    return False
+    if isinstance(name,str):
+        if data is None:
+            if os.path.isfile(name):
+                try:
+                    if read in ['firstread','firstline','first_line','head','readline']:
+                        with open(name,'rb') as f:
+                            data=f.readline()
+                    else:
+                        with open(name,'rb') as f:
+                            data=f.read()
+                except:
+                    pass
+                if data is not None:
+                    if out in ['string','str']:
+                        return True,_u_bytes2str(data)
+                    else:
+                        return True,data
+            return False,'File({}) not found'.format(name)
+        else:
+            file_path=os.path.dirname(name)
+            if not file_path or os.path.isdir(file_path): # current dir or correct directory
+                try:
+                    if append:
+                        with open(name,'ab') as f:
+                            f.write(_u_bytes(data))
+                    else:
+                        with open(name,'wb') as f:
+                            f.write(_u_bytes(data))
+                    return True,None
+                except:
+                    pass
+            return False,'Directory({}) not found'.format(file_path)
+    return False,'Unknown type({}) filename'.format(name)
 
 def argtype(arg,want='_',get_data=['_']):
     type_arg=type(arg)
