@@ -1,3 +1,4 @@
+#Kage park
 from klib.kmisc import * # import kmisc(file)'s each function to local module's function
 from klib.IS import IS   # import Is files's Class Is to local class
 from klib.DICT import DICT
