@@ -40,7 +40,7 @@ class CONVERT:
             return self.src.encode(encode)
         return '''{}'''.format(self.src)
 
-    def Form(self,default=False):
+    def Ast(self,default=False):
         if isinstance(self.src,str):
             try:
                 ast.literal_eval(string)
@@ -49,5 +49,5 @@ class CONVERT:
         else:
             return self.src
 
-    def Ast(self,default=False):
-        return self.Form(default=default)
+    def Form(self,default=False):
+        return self.Ast(default=default)

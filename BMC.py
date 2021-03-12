@@ -6,10 +6,10 @@ import os
 from distutils.spawn import find_executable
 import time
 import sys
+import json
 import klib.kmisc as km
 import klib.DICT as DICT
 import klib.LIST as LIST
-import json
 
 class Ipmitool:
     def __init__(self,**opts):

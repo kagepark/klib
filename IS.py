@@ -3,7 +3,8 @@ import sys
 import json as _json
 import pickle
 from klib.kmisc import * # import kmisc(file)'s each function to local module's function
-import filetype
+from klib.MODULE import MODULE
+MODULE().Import('filetype')
 
 class IS:
     def __init__(self,src=None,**opts):

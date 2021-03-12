@@ -1,7 +1,11 @@
 #Kage Park
 import types
+import inspect
 from sys import modules
 from sys import version_info
+import importlib
+import pip
+
 if version_info[0] < 3:
     pass # Python 2 has built in reload
 elif version_info[0] == 3 and version_info[1] <= 4:
@@ -9,11 +13,9 @@ elif version_info[0] == 3 and version_info[1] <= 4:
 else:
     from importlib import reload # Python 3.5+
 
-# m=MODULE(globals())
-# m.XXXX()
 class MODULE:
-    def __init__(self,globalv):
-        self.src=globalv
+    def __init__(self):
+        self.src=dict(inspect.getmembers(inspect.stack()[1][0]))["f_globals"] # Get my parent's globals()
 
     def Loaded(self,name):
         if type(name).__name__ == 'module':
@@ -29,6 +31,8 @@ class MODULE:
                 modules[name]=reload(modules[name])
             else:
                 name=reload(name)
+            return True
+        return False
 
     def Unload(self,name):
         if self.Loaded(name):
@@ -50,7 +54,49 @@ class MODULE:
     #except AttributeError:
     #    name = module.__name__
     # isinstance(module,types.ModuleType)
-    def Import(self,*name):
-        for a in name:
-            #importlib.__import__(a)
-            importlib.import_module(a)
+    def Import(self,*inps,**opts):
+        force=opts.get('force',None)
+        for inp in inps:
+            classm=False
+            inp_a=inp.split()
+            if inp_a[0] in ['from','import']:
+                del inp_a[0]
+            if 'as' in inp_a:
+                name=inp_a[-1]
+                module=inp_a[0]
+            elif 'import' in inp_a:
+                name=inp_a[-1]
+                module=inp_a[0]
+                classm=True
+            elif len(inp_a) == 1:
+                name=inp
+                module=inp
+            else:
+                return
+            if force:
+                if self.Reload(name):
+                    continue
+            try:
+                if classm:
+                    self.src[name]=getattr(importlib.import_module(module),name)
+                else:
+                    self.src[name]=importlib.import_module(module)
+            except ImportError:
+                if hasattr(pip,'main'):
+                    pip.main(['install',module])
+                else:
+                    pip._internal.main(['install',module])
+            finally:
+                if classm:
+                    self.src[name]=getattr(importlib.import_module(module),name)
+                else:
+                    self.src[name]=importlib.import_module(module)
+
+    def Load(self,*inps,**opts):
+        self.Import(*inps,**opts)
+
+    def List(self):
+        return list(self.src.keys())
+
+    def Dict(self):
+        return self.src
