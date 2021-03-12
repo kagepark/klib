@@ -82,6 +82,7 @@ class Redfish:
 
 class Bmc:
     def __init__(self,*inps,**opts):
+        self.default_pass=opts.get('default_pass','Admin123')
         self.log=opts.get('log',None)
         if inps and type(inps[0]).__name__ == 'instance':
             self.root=inps[0].root
@@ -358,21 +359,21 @@ class Bmc:
             self.root.Put('ipmi_pass',org_pass)
             return True,org_user,org_pass
         else:
-            km.logging("""Not support {}. Looks need more length. So Try again with Super123""",log=self.log,log_level=6)
+            km.logging("""Not support {}. Looks need more length. So Try again with {}""".format(self.default_pass),log=self.log,log_level=6)
             if same_user:
                 #SMCIPMITool.jar IP ID PASS user setpwd 2 <New Pass>
-                rrc=self.Run_cmd(mm.Cmd_str("""user setpwd 2 'Super123'"""))
+                rrc=self.Run_cmd(mm.Cmd_str("""user setpwd 2 '{}'""".format(self.default_pass)))
             else:
                 #SMCIPMITool.jar IP ID PASS user add 2 <New User> <New Pass> 4
-                rrc=self.Run_cmd(mm.Cmd_str("""user add 2 {} 'Super123' 4""".format(org_user)))
+                rrc=self.Run_cmd(mm.Cmd_str("""user add 2 {} '{}' 4""".format(org_user,self.default_pass)))
             #if rrc[0]:
             if km.krc(rrc[0],chk=True):
-                km.logging("""Recovered BMC: from User({}) and Password({}) to User({}) and Password(Super123)""".format(ipmi_user,ipmi_pass,org_user),log=self.log,log_level=6)
+                km.logging("""Recovered BMC: from User({}) and Password({}) to User({}) and Password({})""".format(ipmi_user,ipmi_pass,org_user,self.default_pass),log=self.log,log_level=6)
                 if tmp_pass:
                     self.root.DEL('tmp_pass')
                 self.root.Put('ipmi_user',org_user)
-                self.root.Put('ipmi_pass','Super123')
-                return True,org_user,'Super123'
+                self.root.Put('ipmi_pass','{}'.format(self.default_pass))
+                return True,org_user,'{}'.format(self.default_pass)
             else:
                 self.Warn(_type='ipmi_user',msg="Recover ERROR!! Please checkup user-lock-mode on the BMC Configure.")
                 km.logging("""Recover ERROR!! Please checkup user-lock-mode on the BMC Configure.""",log=self.log,log_level=6)
