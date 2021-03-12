@@ -5,7 +5,7 @@ from klib.kmisc import *
 class LIST(list):
     def __init__(self,*inps):
         if len(inps) == 1 and isinstance(inps[0],(list,tuple)):
-            self.root=list(inps[1])
+            self.root=list(inps[0])
         else:
             self.root=list(inps)
 
@@ -198,3 +198,33 @@ class LIST(list):
             self.root=self.root+[find]
         return self.root
 
+    def Sort(self,reverse=False,func=None,order=None,field=None):
+        if order in [int,'int','digit','number']:
+            def _cint_(e):
+                try:
+                    if isinstance(field,int):
+                        if isinstance(e,(list,tuple)) and len(e) > field:
+                            return int(e[field])
+                        else:
+                            return 9999999
+                    return int(e)
+                except:
+                    return e
+            return self.root.sort(reverse=reverse,key=_cint_)
+        elif order in [str,'str']:
+            def _cint_(e):
+                if isinstance(field,int):
+                    if isinstance(e,(list,tuple)) and len(e) > field:
+                        return '''{}'''.format(e[field])
+                    else:
+                        return 'zzzzzzzzz'
+                return '''{}'''.format(e)
+            return self.root.sort(reverse=reverse,key=_cint_)
+        else:
+            if isinstance(field,int):
+                def _cint_(e):
+                    if isinstance(e,(list,tuple)) and len(e) > field:
+                        return e[field]
+                return self.root.sort(reverse=reverse,key=_cint_)
+            else:
+                return self.root.sort(reverse=reverse,key=func)

@@ -376,4 +376,38 @@ class DICT(dict):
                 return True
         return default
 
+    def Sort(self,base='key',reverse=False,func=None,order=None):
+        lst=[]
+        if base == 'key':
+            lst=list(self.keys())
+            if order in [int,'int','digit','number']:
+                def _cint_(e):
+                    try:
+                        return int(e)
+                    except:
+                        return e
+                return lst.sort(reverse=reverse,key=_cint_)
+            elif order in [str,'str']:
+                def _cint_(e):
+                    return '''{}'''.format(e)
+                return lst.sort(reverse=reverse,key=_cint_)
+            else:
+                return lst.sort(reverse=reverse,func=func)
+        elif base == 'value':
+            lst=self.items()
+            if order in [int,'int','digit','number']:
+                def _cint_(e):
+                    try:
+                        return int(e[1])
+                    except:
+                        return e[1]
+                lst.sort(reverse=reverse,key=_cint_)
+            elif order in [str,'str']:
+                def _cint_(e):
+                    return '''{}'''.format(e[1])
+                lst.sort(reverse=reverse,key=_cint_)
+            else:
+                lst.sort(reverse=reverse,func=func)
+            return [i[0] for i in lst]
+
     __setattr__, __getattr__ = __setitem__, __getitem__
