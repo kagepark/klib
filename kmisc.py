@@ -36,32 +36,6 @@ log_new_line='\n'
 
 cdrom_ko=['sr_mod','cdrom','libata','ata_piix','ata_generic','usb-storage']
 
-class CRC:
-    def __init__(self,**opts):
-        self.rtd=opts.get('rc',{'GOOD':[True,'True','Good','Ok','Pass',{'OK'},0],'FAIL':[False,'False','Fail',{'FAL'}],'NONE':[None,'None','N/A',{'NA'}],'IGNO':['IGNO','Ignore',{'IGN'}],'ERRO':['ERR','Error',{'ERR'}],'WARN':['Warn',{'WAR'}],'UNKN':['Unknown','UNKN',{'UNK'}],'JUMP':['Jump',{'JUMP'}]})
-
-    def trans(self,irt):
-        type_irt=type(irt)
-        for ii in self.rtd:
-            for jj in rtd[ii]:
-                if type(jj) == type_irt and ((type_irt is str and jj.lower() == irt.lower()) or jj == irt):
-                    return ii
-        return 'UNKN'
-
-    def check(self,rt,chk='_',rt_true=True,rt_false=False):
-        rtc=Get(rt,'0|rc',out='raw',err='ignore',check=(list,tuple,dict))
-        nrtc=self.trans(rtc)
-        if chk != '_':
-            if trans(chk) == nrtc:
-                return rt_true
-            return rt_false
-        return nrtc
-
-    def get(self,rt):
-        rtc=Get(rt,'0|rc',out='raw',err='ignore',check=(list,tuple,dict))
-        return self.trans(rtc)
-
-
 def is_cancel(func):
     if func:
         ttt=type(func).__name__

@@ -6,8 +6,9 @@ import os
 from distutils.spawn import find_executable
 import time
 import sys
-import kmisc as km
-import kDict
+import klib.kmisc as km
+import klib.DICT as DICT
+import klib.LIST as LIST
 import json
 
 class Ipmitool:
@@ -20,7 +21,7 @@ class Ipmitool:
         if find_executable('ipmitool') is False:
             self.ipmitool=False
 
-    def cmd_str(self,cmd,**opts):
+    def Cmd_str(self,cmd,**opts):
         if not self.ipmitool:
             km.logging('Install ipmitool package(yum install ipmitool)'.format(self.smc_file),log=self.log,log_level=1,dsp='e')
             return False,'ipmitool file not found',{}
@@ -48,7 +49,7 @@ class Smcipmitool:
         self.log=opts.get('log',None)
         self.power_mode=opts.get('power_mode',{'on':['ipmi power up'],'off':['ipmi power down'],'reset':['ipmi power reset'],'off_on':['ipmi power down','ipmi power up'],'on_off':['ipmi power up','ipmi power down'],'cycle':['ipmi power cycle'],'status':['ipmi power status'],'shutdown':['ipmi power softshutdown']})
 
-    def cmd_str(self,cmd,**opts):
+    def Cmd_str(self,cmd,**opts):
         cmd_a=cmd.split()
         if not self.smc_file:
             km.logging('- SMCIPMITool({}) not found'.format(self.smc_file),log=self.log,log_level=1,dsp='e')
@@ -69,95 +70,88 @@ class Redfish:
         self.log=opts.get('log',None)
         self.power_mode=opts.get('power_mode',{'on':['chassis power on'],'off':['chassis power off'],'reset':['chassis power reset'],'off_on':['chassis power off','chassis power on'],'on_off':['chassis power on','chassis power off'],'cycle':['chassis power cycle'],'status':['chassis power status'],'shutdown':['chassis power soft']})
 
-    def cmd_str(self,cmd,**opts):
+    def Cmd_str(self,cmd,**opts):
         return True,{'base':'''https://{ipmi_ip}/redfish/v1/%s'''%(cmd)},None,{'ok':[0,144],'error':[180],'err_bmc_user':[146],'err_connection':[145]},None
 
-def move2first(item,pool):
-    if item: 
-        if type(pool) is list and item in pool:
-            pool.remove(item)
-        return [item]+pool
-    return pool
+#def move2first(item,pool):
+#    if item: 
+#        if type(pool) is list and item in pool:
+#            pool.remove(item)
+#        return [item]+pool
+#    return pool
 
-class kBmc:
+class Bmc:
     def __init__(self,*inps,**opts):
         self.log=opts.get('log',None)
         if inps and type(inps[0]).__name__ == 'instance':
             self.root=inps[0].root
         else: 
-            self.root=kDict.kDict()
-            self.root.PUT('ipmi_port',opts.get('ipmi_port',(623,664,443)))
+            self.root=DICT()
+            self.root.Put('ipmi_port',opts.get('ipmi_port',(623,664,443)))
             ipmi_user=opts.get('ipmi_user','ADMIN')
-            self.root.PUT('ipmi_user',ipmi_user)
+            self.root.Put('ipmi_user',ipmi_user)
             ipmi_pass=opts.get('ipmi_pass','ADMIN')
-            self.root.PUT('ipmi_pass',ipmi_pass)
+            self.root.Put('ipmi_pass',ipmi_pass)
             test_user=opts.get('test_user',['ADMIN','Admin','admin','root','Administrator'])
             if ipmi_user in test_user:
                 test_user.remove(ipmi_user)
-            self.root.PUT('test_user',test_user)
+            self.root.Put('test_user',test_user)
             test_pass=opts.get('test_pass',['ADMIN','Admin','admin','root','Administrator'])
             if ipmi_pass in test_pass:
                 test_pass.remove(ipmi_pass)
-            self.root.PUT('test_pass',test_pass)
-            self.root.PUT('ipmi_mode',opts.get('ipmi_mode',[Ipmitool()]))
-            self.root.PUT('log_level',opts.get('log_level',5))
-            self.root.PUT('timeout',opts.get('timeout',1800))
-        if type(self.root.GET('timeout')) is not int:
-            self.root.PUT('timeout',600)
+            self.root.Put('test_pass',test_pass)
+            self.root.Put('ipmi_mode',opts.get('ipmi_mode',[Ipmitool()]))
+            self.root.Put('log_level',opts.get('log_level',5))
+            self.root.Put('timeout',opts.get('timeout',1800))
+        if type(self.root.Get('timeout')) is not int:
+            self.root.Put('timeout',600)
         if opts:
             if opts.get('ipmi_port',None):
-                self.root.PUT('ipmi_port',opts.get('ipmi_port'))
+                self.root.Put('ipmi_port',opts.get('ipmi_port'))
             if opts.get('ipmi_ip',None):
-                self.root.PUT('ipmi_ip',opts.get('ipmi_ip'))
-                if not km.is_ipv4(self.root.GET('ipmi_ip')):
-                    self.error(_type='ip',msg="{} is wrong IP Format".format(self.root.ipmi_ip.GET()))
-                    km.logging(self.root.error.GET('ip'),log=self.log,log_level=1,dsp='e')
-                elif not km.ping(self.root.GET('ipmi_ip'),count=0,timeout=self.root.GET('timeout'),log=self.log):
-                    self.error(_type='ip',msg='Destination Host({}) Unreachable/Network problem'.format(self.root.ipmi_ip.GET()))
-                    km.logging(self.root.error.GET('ip'),log=self.log,log_level=1,dsp='e')
-                elif not km.is_port_ip(self.root.GET('ipmi_ip'),self.root.GET('ipmi_port')):
-                    self.error(_type='ip',msg="{} is not IPMI IP".format(self.root.ipmi_ip.GET()))
-                    km.logging(self.root.error.GET('ip'),log=self.log,log_level=1,dsp='e')
-            if not self.root.error.GET('ip'):
+                self.root.Put('ipmi_ip',opts.get('ipmi_ip'))
+                if not km.is_ipv4(self.root.Get('ipmi_ip')):
+                    self.Error(_type='ip',msg="{} is wrong IP Format".format(self.root.ipmi_ip.Get()))
+                    km.logging(self.root.error.Get('ip'),log=self.log,log_level=1,dsp='e')
+                elif not km.ping(self.root.Get('ipmi_ip'),count=0,timeout=self.root.Get('timeout'),log=self.log):
+                    self.Error(_type='ip',msg='Destination Host({}) Unreachable/Network problem'.format(self.root.ipmi_ip.Get()))
+                    km.logging(self.root.error.Get('ip'),log=self.log,log_level=1,dsp='e')
+                elif not km.is_port_ip(self.root.Get('ipmi_ip'),self.root.Get('ipmi_port')):
+                    self.Error(_type='ip',msg="{} is not IPMI IP".format(self.root.ipmi_ip.Get()))
+                    km.logging(self.root.error.Get('ip'),log=self.log,log_level=1,dsp='e')
+            if not self.root.error.Get('ip'):
                 test_user=opts.get('test_user',None)
                 test_pass=opts.get('test_pass',None)
                 if opts.get('ipmi_user',None):
                     ipmi_user=opts.get('ipmi_user')
-                    self.root.PUT('ipmi_user',ipmi_user)
-#                    if not test_user:
-#                        self.root.PUT('test_user',move2first(ipmi_user,self.root.test_user.GET()))
+                    self.root.Put('ipmi_user',ipmi_user)
                 if opts.get('uniq_pass',None):
                     upass=opts.get('uniq_pass')
-                    self.root.PUT('uniq_pass',upass,proper={'readonly':True})
-#                    if not test_pass:
-#                        self.root.PUT('test_pass',move2first(upass,self.root.test_pass.GET()))
+                    self.root.Put('uniq_pass',upass,proper={'readonly':True})
                 if opts.get('ipmi_pass',None):
                     ipmi_pass=opts.get('ipmi_pass')
-                    self.root.PUT('ipmi_pass',ipmi_pass)
-#                    if not test_pass:
-#                        self.root.PUT('test_pass',move2first(ipmi_pass,self.root.test_pass.GET()))
+                    self.root.Put('ipmi_pass',ipmi_pass)
                 if opts.get('ipmi_mac',None):
-                    self.root.PUT('ipmi_mac',opts.get('ipmi_mac'),proper={'readonly':True})
-                if not self.root.org_user.GET():
-                    self.root.PUT('org_user',self.root.ipmi_user.GET(),proper={'readonly':True})
-                if not self.root.org_pass.GET():
-                    self.root.PUT('org_pass',self.root.ipmi_pass.GET(),proper={'readonly':True})
+                    self.root.Put('ipmi_mac',opts.get('ipmi_mac'),proper={'readonly':True})
+                if not self.root.org_user.Get():
+                    self.root.Put('org_user',self.root.ipmi_user.Get(),proper={'readonly':True})
+                if not self.root.org_pass.Get():
+                    self.root.Put('org_pass',self.root.ipmi_pass.Get(),proper={'readonly':True})
                 if test_user:
-                    self.root.PUT('test_user',move2first(self.root.ipmi_user.GET(),opts.get('test_user')))
+                    #self.root.Put('test_user',move2first(self.root.ipmi_user.Get(),opts.get('test_user')))
+                    self.root.Put('test_user',LIST(opts.get('test_user')).Move2first(self.root.ipmi_user.Get()))
                 if test_pass:
-                    self.root.PUT('test_pass',move2first(self.root.uniq_pass.GET(),opts.get('test_pass')))
-                    self.root.PUT('test_pass',move2first(self.root.ipmi_pass.GET(),self.root.test_pass.GET()))
-#                if opts.get('timeout',None):
-#                    self.root.PUT('timeout',opts.get('timeout',1800))
-#                if opts.get('ipmi_mode',None):
-#                    self.root.PUT('ipmi_mode',opts.get('ipmi_mode'))
+                    #self.root.Put('test_pass',move2first(self.root.uniq_pass.Get(),opts.get('test_pass')))
+                    #self.root.Put('test_pass',move2first(self.root.ipmi_pass.Get(),self.root.test_pass.Get()))
+                    self.root.Put('test_pass',LIST(opts.get('test_pass')).Move2first(self.root.uniq_pass.Get()))
+                    self.root.Put('test_pass',LIST(self.root.test_pass.Get()).Move2first(self.root.ipmi_pass.Get()))
                 if opts.get('rc',None):
-                    self.root.PUT('rc',opts.get('rc',None))
+                    self.root.Put('rc',opts.get('rc',None))
                 if opts.get('top_root',None):
-                    self.top_root=kDict.kDict(opts.get('top_root'))
-                    self.top_root.UPDATE(self.root.GET(),path='bmc')
+                    self.top_root=DICT(opts.get('top_root'))
+                    self.top_root.Update(self.root.Get(),path='bmc')
 
-    def redfish(self,**opts):
+    def Redfish(self,**opts):
         cmd=opts.get('cmd','')
         sub_cmd=opts.get('sub_cmd',None)
         data=opts.get('data',None)
@@ -165,9 +159,9 @@ class kBmc:
         mode=opts.get('mode','get').lower()
         sub=opts.get('sub',False)
         rec=opts.get('rec',False)
-        ipmi_ip=self.root.ipmi_ip.GET()
-        ipmi_user=self.root.ipmi_user.GET()
-        ipmi_pass=self.root.ipmi_pass.GET()
+        ipmi_ip=self.root.ipmi_ip.Get()
+        ipmi_user=self.root.ipmi_user.Get()
+        ipmi_pass=self.root.ipmi_pass.Get()
         def do_redfish(cmd,mode,sub_cmd=None,data=None,file=None):
            cmd_a=cmd.split(':')
            if cmd_a[0] == 'power' and cmd_a[1] in ['on','off','off_on','on_ff']:
@@ -197,12 +191,12 @@ class kBmc:
            else:
                return True,json.loads(rc[1].text)
 
-        def get_cmd(dic):
+        def Get_cmd(dic):
            if type(dic) is dict and '@odata.id' in dic and len(dic) == 1:
                return True,dic['@odata.id']
            return False,dic
 
-        def get_data(data=None,sub=False,rec=False):
+        def Get_data(data=None,sub=False,rec=False):
            if data is None:
                data=do_redfish(cmd,'get')
            if sub:
@@ -231,43 +225,43 @@ class kBmc:
         else:
             return get_data(sub=sub,rec=rec)
 
-    def get_mode(self,name):
-        for mm in self.root.ipmi_mode.GET():
+    def Get_mode(self,name):
+        for mm in self.root.ipmi_mode.Get():
             if mm.__name__ == name:
                 return mm
 
-    def info(self,**opts):
+    def Info(self,**opts):
         rc={}
-        rc['ipmi_ip']=self.root.ipmi_ip.GET()
-        rc['ipmi_user']=self.root.ipmi_user.GET()
-        rc['ipmi_pass']=self.root.ipmi_pass.GET()
-        rc['ipmi_upass']=self.root.uniq_pass.GET()
-        rc['ipmi_mode']=self.root.ipmi_mode.GET()
-        rc['ipmi_mac']=self.root.ipmi_mac.GET()
-        rc['ipmi_port']=self.root.ipmi_port.GET()
+        rc['ipmi_ip']=self.root.ipmi_ip.Get()
+        rc['ipmi_user']=self.root.ipmi_user.Get()
+        rc['ipmi_pass']=self.root.ipmi_pass.Get()
+        rc['ipmi_upass']=self.root.uniq_pass.Get()
+        rc['ipmi_mode']=self.root.ipmi_mode.Get()
+        rc['ipmi_mac']=self.root.ipmi_mac.Get()
+        rc['ipmi_port']=self.root.ipmi_port.Get()
         if opts.pop('rf','dict') in ['tuple',tuple]:
             return True,rc['ipmi_ip'],rc['ipmi_user'],rc['ipmi_pass'],rc['ipmi_mode']
         else:
             return True,rc
 
-    def init(self):
-        ipmi_ip=self.root.GET('ipmi_ip')
+    def Init(self):
+        ipmi_ip=self.root.Get('ipmi_ip')
         if not km.is_ipv4(ipmi_ip):
-            self.warn(_type='ip',msg="IP Format Fail")
+            self.Warn(_type='ip',msg="IP Format Fail")
             return False,'IP Format Fail'
-        if not km.is_port_ip(ipmi_ip,self.root.GET('ipmi_port')):
-            self.warn(_type='ip',msg="It({}) is not BMC IP".format(ipmi_ip))
+        if not km.is_port_ip(ipmi_ip,self.root.Get('ipmi_port')):
+            self.Warn(_type='ip',msg="It({}) is not BMC IP".format(ipmi_ip))
             return False,'It({}) is not BMC IP'.format(ipmi_ip)
-        rc=self.find_user_pass()
+        rc=self.Find_user_pass()
         if rc[0]:
             return True,'pass'
         return rc[0],rc[2]
         
-    def is_tmp_pass(self,**opts):
-        ipmi_ip=opts.get('ipmi_ip',self.root.ipmi_ip.GET())
-        ipmi_user=opts.get('ipmi_user',self.root.ipmi_user.GET())
-        ipmi_pass=opts.get('ipmi_pass',self.root.ipmi_pass.GET())
-        tmp_pass=opts.get('tmp_pass',self.root.tmp_pass.GET())
+    def Is_tmp_pass(self,**opts):
+        ipmi_ip=opts.get('ipmi_ip',self.root.ipmi_ip.Get())
+        ipmi_user=opts.get('ipmi_user',self.root.ipmi_user.Get())
+        ipmi_pass=opts.get('ipmi_pass',self.root.ipmi_pass.Get())
+        tmp_pass=opts.get('tmp_pass',self.root.tmp_pass.Get())
         if tmp_pass and ipmi_pass != tmp_pass:
             new_str=opts.get('cmd_str','''ipmitool -I lanplus -H {ipmi_ip} -U {ipmi_user} -P '{ipmi_pass}' chassis power status'''.format(ipmi_ip=ipmi_ip,ipmi_user=ipmi_user,ipmi_pass=tmp_pass))
             new_rc=km.rshell(new_str,timeout=2)
@@ -278,23 +272,24 @@ class kBmc:
                     return True,tmp_pass,ipmi_pass
         return False,tmp_pass,ipmi_pass
 
-    def find_user_pass(self,default_range=4,check_cmd='ipmi power status',cancel_func=None):
-        ipmi_ip=self.root.ipmi_ip.GET()
-        test_user=self.root.test_user.GET()
-        test_pass=self.root.test_pass.GET()
-        tmp_pass=self.root.tmp_pass.GET()
-        log_level=self.root.log_level.GET()
-        uniq_pass=self.root.GET('uniq_pass')
-        ipmi_user=self.root.GET('ipmi_user')
-        ipmi_pass=self.root.GET('ipmi_pass')
-        test_user=move2first(ipmi_user,test_user)
+    def Find_user_pass(self,default_range=4,check_cmd='ipmi power status',cancel_func=None):
+        ipmi_ip=self.root.ipmi_ip.Get()
+        test_user=self.root.test_user.Get()
+        test_pass=self.root.test_pass.Get()
+        tmp_pass=self.root.tmp_pass.Get()
+        log_level=self.root.log_level.Get()
+        uniq_pass=self.root.Get('uniq_pass')
+        ipmi_user=self.root.Get('ipmi_user')
+        ipmi_pass=self.root.Get('ipmi_pass')
+        test_user=LIST(test_user).Move2first(ipmi_user)
+        #test_user=move2first(ipmi_user,test_user)
         tested_pass_sample=[]
         if len(test_pass) > default_range:
             tt=2
         else:
             tt=1
-        for mm in self.root.ipmi_mode.GET():
-            cmd_str=mm.cmd_str(check_cmd)
+        for mm in self.root.ipmi_mode.Get():
+            cmd_str=mm.Cmd_str(check_cmd)
             for t in range(0,tt):
                 if t == 0:
                     test_pass_sample=test_pass[:default_range]
@@ -302,10 +297,13 @@ class kBmc:
                     test_pass_sample=test_pass[default_range:]
                 # Two times check for uniq,current,temporary password
                 if uniq_pass:
-                    test_pass_sample=move2first(uniq_pass,test_pass_sample)
-                test_pass_sample=move2first(ipmi_pass,test_pass_sample)
+                    #test_pass_sample=move2first(uniq_pass,test_pass_sample)
+                    test_pass_sample=LIST(test_pass_sample).Move2first(uniq_pass)
+                #test_pass_sample=move2first(ipmi_pass,test_pass_sample)
+                test_pass_sample=LIST(test_pass_sample).Move2first(ipmi_pass)
                 if tmp_pass:
-                    test_pass_sample=move2first(tmp_pass,test_pass_sample)
+                    #test_pass_sample=move2first(tmp_pass,test_pass_sample)
+                    test_pass_sample=LIST(test_pass_sample).Move2first(tmp_pass)
                 tested_pass_sample=tested_pass_sample+test_pass_sample
                 for uu in test_user:
                     for pp in test_pass_sample:
@@ -314,75 +312,75 @@ class kBmc:
                         rc=km.rshell(full_str,timeout=2)
                         if rc[0] in cmd_str[3]['ok']:
                             km.logging("""Found working BMC User({}) and Password({})""".format(uu,pp),log=self.log,log_level=6)
-                            self.root.PUT('ipmi_user',uu)
-                            self.root.PUT('ipmi_pass',pp)
+                            self.root.Put('ipmi_user',uu)
+                            self.root.Put('ipmi_pass',pp)
                             return True,uu,pp
                         else:
-                            if km.is_lost(ipmi_ip,log=self.log,stop_func=self.error(_type='break')[0],cancel_func=self.cancel(cancel_func=cancel_func))[0]:
-                                self.warn(_type='net',msg="Network lost")
+                            if km.is_lost(ipmi_ip,log=self.log,stop_func=self.Error(_type='break')[0],cancel_func=self.Cancel(cancel_func=cancel_func))[0]:
+                                self.Warn(_type='net',msg="Network lost")
                                 return False,rc,'net error'
                         if log_level < 7:
                             km.logging("""x""".format(uu,pp),log=self.log,direct=True,log_level=3)
             km.logging("""Can not find working BMC User and password""",log=self.log,log_level=1,dsp='e')
-            self.error(_type='user_pass',msg="Can not find working BMC User or password from POOL\nuser: {}\npassword:{}".format(test_user,tested_pass_sample))
+            self.Error(_type='user_pass',msg="Can not find working BMC User or password from POOL\nuser: {}\npassword:{}".format(test_user,tested_pass_sample))
         return False,None,None
 
-    def recover_user_pass(self,ipmi_user=None,ipmi_pass=None):
-        mm=self.get_mode('smc')
+    def Recover_user_pass(self,ipmi_user=None,ipmi_pass=None):
+        mm=self.Get_mode('smc')
         if not mm:
             return False,'SMCIPMITool module not found'
         if ipmi_user is None:
-            ipmi_user=self.root.ipmi_user.GET()
+            ipmi_user=self.root.ipmi_user.Get()
         if ipmi_pass is None:
-            ipmi_pass=self.root.ipmi_pass.GET()
-        org_user=self.root.org_user.GET()
-        org_pass=self.root.org_pass.GET()
-        tmp_pass=self.root.tmp_pass.GET()
+            ipmi_pass=self.root.ipmi_pass.Get()
+        org_user=self.root.org_user.Get()
+        org_pass=self.root.org_pass.Get()
+        tmp_pass=self.root.tmp_pass.Get()
         same_user=self.root.ipmi_user.CHECK(org_user)
         same_pass=self.root.ipmi_pass.CHECK(org_pass)
         if same_user and same_pass:
             km.logging("""Same user and passwrd. Do not need recover""",log=self.log,log_level=6)
-            return True,self.root.ipmi_user.GET(),self.root.ipmi_pass.GET()
+            return True,self.root.ipmi_user.Get(),self.root.ipmi_pass.Get()
         if same_user:
             #SMCIPMITool.jar IP ID PASS user setpwd 2 <New Pass>
-            rc=self.run_cmd(mm.cmd_str("""user setpwd 2 '{}'""".format(org_pass)))
+            rc=self.Run_cmd(mm.Cmd_str("""user setpwd 2 '{}'""".format(org_pass)))
         else:
             #SMCIPMITool.jar IP ID PASS user add 2 <New User> <New Pass> 4
-            rc=self.run_cmd(mm.cmd_str("""user add 2 {} '{}' 4""".format(org_user,org_pass)))
+            rc=self.Run_cmd(mm.Cmd_str("""user add 2 {} '{}' 4""".format(org_user,org_pass)))
         if km.krc(rc[0],chk='error'):
-            self.warn(_type='ipmi_user',msg="Recover fail")
+            self.Warn(_type='ipmi_user',msg="Recover fail")
             return 'error',ipmi_user,ipmi_pass
         if km.krc(rc[0],chk=True):
             km.logging("""Recovered BMC: from User({}) and Password({}) to User({}) and Password({})""".format(ipmi_user,ipmi_pass,org_user,org_pass),log=self.log,log_level=6)
             if tmp_pass:
                 self.root.DEL('tmp_pass')
-            self.root.PUT('ipmi_user',org_user)
-            self.root.PUT('ipmi_pass',org_pass)
+            self.root.Put('ipmi_user',org_user)
+            self.root.Put('ipmi_pass',org_pass)
             return True,org_user,org_pass
         else:
             km.logging("""Not support {}. Looks need more length. So Try again with Super123""",log=self.log,log_level=6)
             if same_user:
                 #SMCIPMITool.jar IP ID PASS user setpwd 2 <New Pass>
-                rrc=self.run_cmd(mm.cmd_str("""user setpwd 2 'Super123'"""))
+                rrc=self.Run_cmd(mm.Cmd_str("""user setpwd 2 'Super123'"""))
             else:
                 #SMCIPMITool.jar IP ID PASS user add 2 <New User> <New Pass> 4
-                rrc=self.run_cmd(mm.cmd_str("""user add 2 {} 'Super123' 4""".format(org_user)))
+                rrc=self.Run_cmd(mm.Cmd_str("""user add 2 {} 'Super123' 4""".format(org_user)))
             #if rrc[0]:
             if km.krc(rrc[0],chk=True):
                 km.logging("""Recovered BMC: from User({}) and Password({}) to User({}) and Password(Super123)""".format(ipmi_user,ipmi_pass,org_user),log=self.log,log_level=6)
                 if tmp_pass:
                     self.root.DEL('tmp_pass')
-                self.root.PUT('ipmi_user',org_user)
-                self.root.PUT('ipmi_pass','Super123')
+                self.root.Put('ipmi_user',org_user)
+                self.root.Put('ipmi_pass','Super123')
                 return True,org_user,'Super123'
             else:
-                self.warn(_type='ipmi_user',msg="Recover ERROR!! Please checkup user-lock-mode on the BMC Configure.")
+                self.Warn(_type='ipmi_user',msg="Recover ERROR!! Please checkup user-lock-mode on the BMC Configure.")
                 km.logging("""Recover ERROR!! Please checkup user-lock-mode on the BMC Configure.""",log=self.log,log_level=6)
                 return False,ipmi_user,ipmi_pass
                 
-    def run_cmd(self,cmd,append=None,path=None,retry=0,timeout=None,return_code={'ok':[0,True],'fail':[]},show_str=False,dbg=False,mode='app',cancel_func=None,peeling=False,progress=False):
-        error=self.error()
-        #error=self.error(_type='break')
+    def Run_cmd(self,cmd,append=None,path=None,retry=0,timeout=None,return_code={'ok':[0,True],'fail':[]},show_str=False,dbg=False,mode='app',cancel_func=None,peeling=False,progress=False):
+        error=self.Error()
+        #error=self.Error(_type='break')
         if error[0]:
             return 'error','''{}'''.format(error[1])
         # cmd format: <string> {ipmi_ip} <string2> {ipmi_user} <string3> {ipmi_pass} <string4>
@@ -397,10 +395,10 @@ class kBmc:
         if type_cmd in [tuple,list] and len(cmd) >= 2 and type(cmd[0]) is bool:
             ok,cmd,path,return_code,timemout=tuple(km.get_value(cmd,[0,1,2,3,4]))
             if not ok:
-                self.warn(_type='cmd',msg="command({}) format error".format(cmd))
+                self.Warn(_type='cmd',msg="command({}) format error".format(cmd))
                 return False,(-1,'command format error(2)','command format error',0,0,cmd,path),'command({}) format error'.format(cmd)
         elif type_cmd is not str:
-            self.warn(_type='cmd',msg="command({}) format error".format(cmd))
+            self.Warn(_type='cmd',msg="command({}) format error".format(cmd))
             return False,(-1,'command format error(3)','command format error',0,0,cmd,path),'command({}) format error'.format(cmd)
         rc_ok=return_code.get('ok',[0,True])
         rc_ignore=return_code.get('ignore',[])
@@ -411,9 +409,9 @@ class kBmc:
         rc_err_bmc_user=return_code.get('err_bmc_user',[])
         if type(append) is not str:
             append=''
-        ipmi_ip=self.root.ipmi_ip.GET()
-        ipmi_user=self.root.ipmi_user.GET()
-        ipmi_pass=self.root.ipmi_pass.GET()
+        ipmi_ip=self.root.ipmi_ip.Get()
+        ipmi_user=self.root.ipmi_user.Get()
+        ipmi_pass=self.root.ipmi_pass.Get()
         for i in range(0,2+retry):
             if i > 1:
                 km.logging('Re-try command [{}/{}]'.format(i,retry+1),log=self.log,log_level=1,dsp='d')
@@ -426,16 +424,16 @@ class kBmc:
                 km.logging('** Do CMD  : {}'.format(cmd_str),log=self.log,log_level=1,dsp='d')
                 km.logging(' - Timeout : %-15s - PATH    : %s'%(timeout,path),log=self.log,log_level=1,dsp='d')
                 km.logging(' - CHK_CODE: {}\n'.format(return_code),log=self.log,log_level=1,dsp='d')
-            if self.cancel(cancel_func=cancel_func):
+            if self.Cancel(cancel_func=cancel_func):
                 km.logging(' !! Canceled Job',log=self.log,log_level=1,dsp='d')
-                self.warn(_type='cancel',msg="Canceled")
+                self.Warn(_type='cancel',msg="Canceled")
                 return False,(-1,'canceled','canceled',0,0,cmd_str,path),'canceled'
             try:
                 if mode == 'redfish':
                     # code here for run redfish
-                    # how to put sub, rec variable from kBmc?
+                    # how to put sub, rec variable from Bmc?
                     start_time=km.int_sec()
-                    rf_rt=self.redfish(cmd=cmd_str)
+                    rf_rt=self.Redfish(cmd=cmd_str)
                     end_time=km.int_sec()
                     if type(rf_rt) is dict:
                         rf_rc=0
@@ -445,7 +443,7 @@ class kBmc:
                 else:
                     rc=km.rshell(cmd_str,path=path,timeout=timeout,progress=progress,log=self.log,progress_pre_new_line=True,progress_post_new_line=True)
             except:
-                self.warn(_type='cmd',msg="Your command got error({})")
+                self.Warn(_type='cmd',msg="Your command got error({})")
                 return 'error',(-1,'unknown','unknown',0,0,cmd_str,path),'Your command got error'
             if show_str:
                 km.logging(' - RT_CODE : {}'.format(rc[0]),log=self.log,log_level=1,dsp='d')
@@ -458,22 +456,22 @@ class kBmc:
                 km.logging('Connection error condition:{}, return:{}'.format(rc_err_connection,rc[0]),log=self.log,log_level=7)
                 km.logging('Connection Error:',log=self.log,log_level=1,dsp='d',direct=True)
                 #Check connection
-                if km.is_lost(ipmi_ip,log=self.log,stop_func=self.error(_type='break')[0],cancel_func=self.cancel(cancel_func=cancel_func))[0]:
+                if km.is_lost(ipmi_ip,log=self.log,stop_func=self.Error(_type='break')[0],cancel_func=self.Cancel(cancel_func=cancel_func))[0]:
                     km.logging('Lost Network',log=self.log,log_level=1,dsp='d')
-                    #self.warn(_type='net',msg="Lost network")
-                    self.error(_type='ip',msg="{} lost network(over 30min)".format(ipmi_ip))
+                    #self.Warn(_type='net',msg="Lost network")
+                    self.Error(_type='ip',msg="{} lost network(over 30min)".format(ipmi_ip))
                     return False,rc,'net error'
             elif km.check_value(rc_err_bmc_user,rc[0]): # retry condition1
                 #Check connection
-                if km.is_lost(ipmi_ip,log=self.log,stop_func=self.error(_type='break')[0],cancel_func=self.cancel(cancel_func=cancel_func))[0]:
-                    self.error(_type='ip',msg="{} lost network".format(ipmi_ip))
+                if km.is_lost(ipmi_ip,log=self.log,stop_func=self.Error(_type='break')[0],cancel_func=self.Cancel(cancel_func=cancel_func))[0]:
+                    self.Error(_type='ip',msg="{} lost network".format(ipmi_ip))
                     km.logging('Lost Network',log=self.log,log_level=1,dsp='d')
                     return False,rc,'net error'
                 # Find Password
-                ok,ipmi_user,ipmi_pass=self.find_user_pass()
+                ok,ipmi_user,ipmi_pass=self.Find_user_pass()
                 if not ok:
-                    self.error(_type='ipmi_user',msg="Can not find working IPMI USER and PASSWORD")
-#                    self.warn(_type='ipmi_user',msg="Can not find working IPMI USER and PASSWORD")
+                    self.Error(_type='ipmi_user',msg="Can not find working IPMI USER and PASSWORD")
+#                    self.Warn(_type='ipmi_user',msg="Can not find working IPMI USER and PASSWORD")
                     return False,'Can not find working IPMI USER and PASSWORD','user error'
                 if dbg:
                     km.logging('Check IPMI User and Password: Found ({}/{})'.format(ipmi_user,ipmi_pass),log=self.log,log_level=1,dsp='d')
@@ -481,14 +479,14 @@ class kBmc:
             else:
                 if 'ipmitool' in cmd_str and i < 1:
                     #Check connection
-                    if km.is_lost(ipmi_ip,log=self.log,stop_func=self.error(_type='break')[0],cancel_func=self.cancel(cancel_func=cancel_func))[0]:
-                        self.error(_type='ip',msg="{} lost network".format(ipmi_ip))
+                    if km.is_lost(ipmi_ip,log=self.log,stop_func=self.Error(_type='break')[0],cancel_func=self.Cancel(cancel_func=cancel_func))[0]:
+                        self.Error(_type='ip',msg="{} lost network".format(ipmi_ip))
                         km.logging('Lost Network',log=self.log,log_level=1,dsp='d')
                         return False,rc,'net error'
                     # Find Password
-                    ok,ipmi_user,ipmi_pass=self.find_user_pass()
+                    ok,ipmi_user,ipmi_pass=self.Find_user_pass()
                     if not ok:
-                        self.error(_type='ipmi_user',msg="Can not find working IPMI USER and PASSWORD")
+                        self.Error(_type='ipmi_user',msg="Can not find working IPMI USER and PASSWORD")
                         return False,'Can not find working IPMI USER and PASSWORD','user error'
                     if dbg:
                         km.logging('Check IPMI User and Password: Found ({}/{})'.format(ipmi_user,ipmi_pass),log=self.log,log_level=1,dsp='d')
@@ -511,17 +509,17 @@ class kBmc:
                         return 'unknown',rc,'Unknown result'
         return False,(-1,'timeout','timeout',0,0,cmd_str,path),'Time out the running command'
 
-    def reset(self,ipmi={},retry=0,post_keep_up=20,pre_keep_up=0):
-        ipmi_ip=self.root.ipmi_ip.GET()
+    def Reset(self,ipmi={},retry=0,post_keep_up=20,pre_keep_up=0):
+        ipmi_ip=self.root.ipmi_ip.Get()
         for i in range(0,1+retry):
-            for mm in self.root.ipmi_mode.GET():
-                if km.is_comeback(ipmi_ip,keep=pre_keep_up,log=self.log,stop_func=self.error(_type='break')[0]):
+            for mm in self.root.ipmi_mode.Get():
+                if km.is_comeback(ipmi_ip,keep=pre_keep_up,log=self.log,stop_func=self.Error(_type='break')[0]):
                     km.logging('R',log=self.log,log_level=1,direct=True)
-                    rc=self.run_cmd(mm.cmd_str('ipmi reset'))
+                    rc=self.Run_cmd(mm.Cmd_str('ipmi reset'))
                     if km.krc(rc[0],chk='error'):
                         return rc
                     if km.krc(rc[0],chk=True):
-                        if km.is_comeback(ipmi_ip,keep=post_keep_up,log=self.log,stop_func=self.error(_type='break')[0]):
+                        if km.is_comeback(ipmi_ip,keep=post_keep_up,log=self.log,stop_func=self.Error(_type='break')[0]):
                             return True,'Pinging to BMC after reset BMC'
                         else:
                             return False,'Can not Pinging to BMC after reset BMC'
@@ -531,32 +529,32 @@ class kBmc:
         return rc
             
 
-    def get_mac(self):
-        ipmi_mac=self.root.ipmi_mac.GET(default=None)
+    def Get_mac(self):
+        ipmi_mac=self.root.ipmi_mac.Get(default=None)
         if ipmi_mac:
             return True,ipmi_mac
-        for mm in self.root.ipmi_mode.GET():
+        for mm in self.root.ipmi_mode.Get():
             name=mm.__name__
-            rc=self.run_cmd(mm.cmd_str('ipmi lan mac'))
+            rc=self.Run_cmd(mm.Cmd_str('ipmi lan mac'))
             if km.krc(rc[0],chk='error'):
                 return rc
             elif km.krc(rc[0],chk=True):
 #            if rc[0]:
                 if name == 'smc':
-                    self.root.PUT('ipmi_mac',[rc[1][1].lower()],proper={'readonly':True})
+                    self.root.Put('ipmi_mac',[rc[1][1].lower()],proper={'readonly':True})
                     return True,[rc[1][1].lower()]
                 elif name == 'ipmitool':
                     for ii in rc[1][1].split('\n'):
                         ii_a=ii.split()
                         if km.check_value(ii_a,'MAC',0) and km.check_value(ii_a,'Address',1) and km.check_value(ii_a,':',2):
-                            self.root.PUT('ipmi_mac',[ii_a[-1].lower()],proper={'readonly':True})
+                            self.root.Put('ipmi_mac',[ii_a[-1].lower()],proper={'readonly':True})
                             return True,[ii_a[-1].lower()]
         return False,[]
 
-    def dhcp(self):
-        for mm in self.root.ipmi_mode.GET():
+    def Dhcp(self):
+        for mm in self.root.ipmi_mode.Get():
             name=mm.__name__
-            rc=self.run_cmd(mm.cmd_str('ipmi lan dhcp'))
+            rc=self.Run_cmd(mm.Cmd_str('ipmi lan dhcp'))
             if km.krc(rc[0],chk='error'):
                 return rc
             if km.krc(rc[0],chk=True):
@@ -570,10 +568,10 @@ class kBmc:
                             return True,ii_a[-2]
         return False,None
 
-    def gateway(self):
-        for mm in self.root.ipmi_mode.GET():
+    def Gateway(self):
+        for mm in self.root.ipmi_mode.Get():
             name=mm.__name__
-            rc=self.run_cmd(mm.cmd_str('ipmi lan gateway'))
+            rc=self.Run_cmd(mm.Cmd_str('ipmi lan gateway'))
             if km.krc(rc[0],chk='error'):
                 return rc
             if km.krc(rc[0],chk=True):
@@ -587,10 +585,10 @@ class kBmc:
                             return True,ii_a[-1]
         return False,None
 
-    def netmask(self):
-        for mm in self.root.ipmi_mode.GET():
+    def Netmask(self):
+        for mm in self.root.ipmi_mode.Get():
             name=mm.__name__
-            rc=self.run_cmd(mm.cmd_str('ipmi lan netmask'))
+            rc=self.Run_cmd(mm.Cmd_str('ipmi lan netmask'))
             if km.krc(rc[0],chk='error'):
                 return rc
             if km.krc(rc[0],chk=True):
@@ -603,8 +601,8 @@ class kBmc:
                             return True,ii_a[-1]
         return km.krc(rc[0]),None
 
-    def bootorder(self,mode=None,ipxe=False,persistent=False,force=False,boot_mode={'smc':['pxe','bios','hdd','cd','usb'],'ipmitool':['pxe','ipxe','bios','hdd']}):
-        available_module=self.root.ipmi_mode.GET()
+    def Bootorder(self,mode=None,ipxe=False,persistent=False,force=False,boot_mode={'smc':['pxe','bios','hdd','cd','usb'],'ipmitool':['pxe','ipxe','bios','hdd']}):
+        available_module=self.root.ipmi_mode.Get()
         if not available_module:
             return False,'Not available module'
         rc=False,"Unknown boot mode({})".format(mode)
@@ -613,59 +611,59 @@ class kBmc:
             chk_boot_mode=boot_mode[name]
             if name == 'smc' and mode in chk_boot_mode:
                 if mode == 'pxe':
-                    rc=self.run_cmd(mm.cmd_str('ipmi power bootoption 1'))
+                    rc=self.Run_cmd(mm.Cmd_str('ipmi power bootoption 1'))
                 elif mode == 'hdd':
-                    rc=self.run_cmd(mm.cmd_str('ipmi power bootoption 2'))
+                    rc=self.Run_cmd(mm.Cmd_str('ipmi power bootoption 2'))
                 elif mode == 'cd':
-                    rc=self.run_cmd(mm.cmd_str('ipmi power bootoption 3'))
+                    rc=self.Run_cmd(mm.Cmd_str('ipmi power bootoption 3'))
                 elif mode == 'bios':
-                    rc=self.run_cmd(mm.cmd_str('ipmi power bootoption 4'))
+                    rc=self.Run_cmd(mm.Cmd_str('ipmi power bootoption 4'))
                 elif mode == 'usb':
-                    rc=self.run_cmd(mm.cmd_str('ipmi power bootoption 6'))
+                    rc=self.Run_cmd(mm.Cmd_str('ipmi power bootoption 6'))
                 if km.krc(rc[0],chk=True):
                     return True,rc[1][1]
             elif name == 'ipmitool':
-                #mm=self.get_mode('ipmitool')
+                #mm=self.Get_mode('ipmitool')
                 #if not mm:
                 #    return False,'ipmitool module not found'
                 if mode in [None,'order']:
-                    rc=self.run_cmd(mm.cmd_str('chassis bootparam get 5'))
+                    rc=self.Run_cmd(mm.Cmd_str('chassis bootparam get 5'))
                     if mode == 'order':
                         if rc[0]:
                             rc=True,km.findstr(rc[1],'- Boot Device Selector : (\w.*)')[0]
                 elif mode not in chk_boot_mode:
-                    self.warn(_type='boot',msg="Unknown boot mode({}) at {}".format(mode,name))
+                    self.Warn(_type='boot',msg="Unknown boot mode({}) at {}".format(mode,name))
                     return False,'Unknown boot mode({}) at {}'.format(mode,name)
                 else:
                     if persistent:
                         if mode == 'pxe' and ipxe in ['on','ON','On',True,'True']:
-                            rc=self.run_cmd(mm.cmd_str('raw 0x00 0x08 0x05 0xe0 0x04 0x00 0x00 0x00'))
+                            rc=self.Run_cmd(mm.Cmd_str('raw 0x00 0x08 0x05 0xe0 0x04 0x00 0x00 0x00'))
                         else:
-                            rc=self.run_cmd(mm.cmd_str('chassis bootdev {0} options=persistent'.format(mode)))
+                            rc=self.Run_cmd(mm.Cmd_str('chassis bootdev {0} options=persistent'.format(mode)))
                     else:
                         if mode == 'pxe' and ipxe in ['on','ON','On',True,'True']:
-                            rc=self.run_cmd(mm.cmd_str('chassis bootdev {0} options=efiboot'.format(mode)))
+                            rc=self.Run_cmd(mm.Cmd_str('chassis bootdev {0} options=efiboot'.format(mode)))
                         else:
                             if force and chk_boot_mode == 'pxe':
-                                rc=self.run_cmd(mm.cmd_str('chassis bootparam set bootflag force_pxe'.format(mode)))
+                                rc=self.Run_cmd(mm.Cmd_str('chassis bootparam set bootflag force_pxe'.format(mode)))
                             else:
-                                rc=self.run_cmd(mm.cmd_str('chassis bootdev {0}'.format(mode)))
+                                rc=self.Run_cmd(mm.Cmd_str('chassis bootdev {0}'.format(mode)))
                 if km.krc(rc[0],chk=True):
                     return True,rc[1][1]
             if km.krc(rc[0],chk='error'):
                return rc
         return False,rc[-1]
 
-    def get_eth_mac(self):
-        eth_mac=self.root.eth_mac.GET(default=None)
+    def Get_eth_mac(self):
+        eth_mac=self.root.eth_mac.Get(default=None)
         if eth_mac:
             return True,eth_mac
         rc=False,[]
-        for mm in self.root.ipmi_mode.GET():
+        for mm in self.root.ipmi_mode.Get():
             name=mm.__name__
             if name == 'ipmitool':
-                aaa=mm.cmd_str('''raw 0x30 0x21''')
-                rc=self.run_cmd(aaa)
+                aaa=mm.Cmd_str('''raw 0x30 0x21''')
+                rc=self.Run_cmd(aaa)
                 if km.krc(rc[0],chk=True) and rc[1][1]:
                     mac_source=rc[1][1].split('\n')[0].strip()
                     if mac_source:
@@ -673,54 +671,51 @@ class kBmc:
                             mac=':'.join(mac_source.split()[-6:]).lower()
                         elif len(mac_source.split()) == 16:
                             mac=':'.join(mac_source.split()[-12:-6]).lower()
-                        self.root.PUT('eth_mac',[mac])
+                        self.root.Put('eth_mac',[mac])
                         return True,[mac]
             elif name == 'smc':
-                rc=self.run_cmd(mm.cmd_str('ipmi oem summary | grep "System LAN"'))
+                rc=self.Run_cmd(mm.Cmd_str('ipmi oem summary | grep "System LAN"'))
                 if km.krc(rc[0],chk=True):
                     rrc=[]
                     for ii in rc[1].split('\n'):
                         rrc.append(ii.split()[-1].lower())
-                    self.root.PUT('eth_mac',rrc)
+                    self.root.Put('eth_mac',rrc)
                     return True,rrc
             if km.krc(rc[0],chk='error'):
                return rc
         return False,[]
 
-    def ping(self,test_num=3,retry=1,wait=1,keep=0,timeout=30): # BMC is on (pinging)
-#        test_num=km.integer(test_num,default=3)
-#        retry=km.integer(retry,default=1)
+    def Ping(self,test_num=3,retry=1,wait=1,keep=0,timeout=30): # BMC is on (pinging)
         retry=km.integer(retry,default=3)
         wait=km.integer(wait,default=1)
         keep=km.integer(keep,default=0)
         timeout=km.integer(timeout,default=30)
-        #return km.ping(self.root.ipmi_ip.GET(),test_num=test_num,retry=retry,wait=wait,keep=keep,log=self.log)
-        return km.ping(self.root.ipmi_ip.GET(),count=retry,interval=wait,keep_good=keep,log=self.log)
+        return km.ping(self.root.ipmi_ip.Get(),count=retry,interval=wait,keep_good=keep,log=self.log)
 
-    def summary(self): # BMC is ready(hardware is ready)
-        ipmi_ip=self.root.ipmi_ip.GET()
-        ipmi_user=self.root.ipmi_user.GET()
-        ipmi_pass=self.root.ipmi_pass.GET()
+    def Summary(self): # BMC is ready(hardware is ready)
+        ipmi_ip=self.root.ipmi_ip.Get()
+        ipmi_user=self.root.ipmi_user.Get()
+        ipmi_pass=self.root.ipmi_pass.Get()
         if self.ping() is False:
             print('%10s : %s'%("Ping","Fail"))
             return False
         print('%10s : %s'%("Ping","OK"))
         print('%10s : %s'%("User",ipmi_user))
         print('%10s : %s'%("Password",ipmi_pass))
-        ok,mac=self.get_mac()
+        ok,mac=self.Get_mac()
         print('%10s : %s'%("Bmc Mac",'{}'.format(km.get_value(mac,0))))
-        ok,eth_mac=self.get_eth_mac()
+        ok,eth_mac=self.Get_eth_mac()
         if ok:
             print('%10s : %s'%("Eth Mac",'{}'.format(km.get_value(eth_mac,0))))
-        print('%10s : %s'%("Power",'{}'.format(self.power('status'))))
-        print('%10s : %s'%("DHCP",'{}'.format(self.dhcp()[1])))
-        print('%10s : %s'%("Gateway",'{}'.format(self.gateway()[1])))
-        print('%10s : %s'%("Netmask",'{}'.format(self.netmask()[1])))
-        print('%10s : %s'%("LanMode",'{}'.format(self.lanmode()[1])))
-        print('%10s : %s'%("BootOrder",'{}'.format(self.bootorder()[1])))
+        print('%10s : %s'%("Power",'{}'.format(self.Power('status'))))
+        print('%10s : %s'%("DHCP",'{}'.format(self.Dhcp()[1])))
+        print('%10s : %s'%("Gateway",'{}'.format(self.Gateway()[1])))
+        print('%10s : %s'%("Netmask",'{}'.format(self.Netmask()[1])))
+        print('%10s : %s'%("LanMode",'{}'.format(self.Lanmode()[1])))
+        print('%10s : %s'%("BootOrder",'{}'.format(self.Bootorder()[1])))
 
     #def node_state(self,state='up',timeout=600,keep_up=0,keep_down=0,interval=8, check_down=False,keep_unknown=180,**opts): # Node state
-    def node_state(self,state='up',**opts): # Node state
+    def Node_state(self,state='up',**opts): # Node state
         timeout=km.integer(opts.get('timeout'),default=600)
         keep_up=km.integer(opts.get('keep_up'),default=0)
         keep_down=km.integer(opts.get('keep_down'),default=0)
@@ -737,7 +732,7 @@ class kBmc:
         km.logging('Node state: timeout:{}, keep_up:{}, keep_down:{} power_down:{}, keep_unknown:{}, check_down:{}, stop:{}, cancel:{}'.format(timeout,keep_up,keep_down,power_down,keep_unknown,check_down,stop_func,cancel_func),log=self.log,log_level=7)
         # _: Down, -: Up, .: Unknown sensor data, !: ipmi sensor command error
         def sensor_data(cmd_str,name):
-            krc=self.run_cmd(cmd_str)
+            krc=self.Run_cmd(cmd_str)
             if km.krc(krc[0],chk='error'):
                return 'error'
             if km.krc(krc[0],chk=True):
@@ -752,7 +747,7 @@ class kBmc:
                         tmp=ii_a[4].strip()
                     if 'Temp' in find and ('CPU' in find or 'System' in find):
                         if tmp == 'No Reading':
-                            self.warn(_type='sensor',msg="Can not read sensor data")
+                            self.Warn(_type='sensor',msg="Can not read sensor data")
                             return 'unknown'
                         elif tmp in ['N/A','Disabled','0C/32F']:
                             return 'down'
@@ -761,10 +756,10 @@ class kBmc:
             return 'error'
 
         def power_data():
-            pwr_info=self.power(cmd='status')
+            pwr_info=self.Power(cmd='status')
             return pwr_info.split()[-1]
 
-        bmc_modules=opts.get('ipmi_mode',self.root.ipmi_mode.GET())
+        bmc_modules=opts.get('ipmi_mode',self.root.ipmi_mode.Get())
         bmc_modules_num=len(bmc_modules)
         bmc_modules_chk=0
         system_down=False
@@ -779,7 +774,7 @@ class kBmc:
             unknown_time=0
             bmc_modules_chk+=1
             name=mm.__name__
-            cmd_str=mm.cmd_str('ipmi sensor')
+            cmd_str=mm.Cmd_str('ipmi sensor')
             while True:
                 sensor_state=sensor_data(cmd_str,name)
                 pwr_state=power_data()
@@ -787,7 +782,7 @@ class kBmc:
                 if stop_func is True:
                     km.logging('Got STOP Signal',log=self.log,log_level=1,dsp='e')
                     return False,'Got STOP Signal'            
-                if self.cancel(cancel_func=cancel_func):
+                if self.Cancel(cancel_func=cancel_func):
                     km.logging('Got Cancel Signal',log=self.log,log_level=1,dsp='e')
                     return False,'Got Cancel Signal'            
                 if up_time > 0:
@@ -796,10 +791,10 @@ class kBmc:
                     out,init_time=km.timeout(timeout,init_time)
                 if out:
                     if bmc_modules_chk >= bmc_modules_num:
-                        self.warn(_type='timeout',msg="node_state()")
+                        self.Warn(_type='timeout',msg="node_state()")
                         km.logging('Node state Timeout',log=self.log,log_level=1,dsp='e')
                         if sensor_state == 'unknown':
-                            self.root.UPDATE({'sensor':{km.int_sec():sensor_state}},path='error')
+                            self.root.Update({'sensor':{km.int_sec():sensor_state}},path='error')
                         return False,'Node state Timeout over {} seconds'.format(timeout)
                     else:
                         # Change to Next checkup module
@@ -871,7 +866,7 @@ class kBmc:
                         km.logging('Unknown Timeout: {} < {} : {}'.format(keep_unknown,km.int_sec()-unknown_time,unknown_ok),log=self.log,log_level=7)
                         if unknown_ok:
                              km.logging('[',log=self.log,direct=True,log_level=2)
-                             rrst=self.reset()
+                             rrst=self.Reset()
                              km.logging(']',log=self.log,direct=True,log_level=2)
                              unknown_time=0
                              timeout=timeout+200
@@ -897,32 +892,32 @@ class kBmc:
                 time.sleep(interval)
             time.sleep(interval)
 
-    def is_up(self,timeout=1200,keep_up=60,keep_down=240,power_down=30,interval=8,check_down=False,keep_unknown=300,**opts): # Node state
+    def Is_up(self,timeout=1200,keep_up=60,keep_down=240,power_down=30,interval=8,check_down=False,keep_unknown=300,**opts): # Node state
         timeout=km.integer(timeout,default=1200)
         keep_down=km.integer(keep_down,default=240)
         keep_up=km.integer(keep_up,default=60)
         power_down=km.integer(power_down,default=60)
-        return self.node_state(state='up',timeout=timeout,keep_up=keep_up,keep_down=keep_down,power_down=power_down,interval=interval,check_down=check_down,keep_unknown=keep_unknown,**opts) # Node state
+        return self.Node_state(state='up',timeout=timeout,keep_up=keep_up,keep_down=keep_down,power_down=power_down,interval=interval,check_down=check_down,keep_unknown=keep_unknown,**opts) # Node state
 
-    def is_down(self,timeout=1200,keep_up=240,keep_down=30,interval=8,power_down=30,**opts): # Node state
+    def Is_down(self,timeout=1200,keep_up=240,keep_down=30,interval=8,power_down=30,**opts): # Node state
         timeout=km.integer(timeout,default=1200)
         keep_up=km.integer(keep_up,default=240)
         keep_down=km.integer(keep_down,default=60)
         power_down=km.integer(power_down,default=60)
-        return self.node_state(state='down',timeout=timeout,keep_up=keep_up,interval=interval,power_down=power_down,**opts) # Node state
+        return self.Node_state(state='down',timeout=timeout,keep_up=keep_up,interval=interval,power_down=power_down,**opts) # Node state
 
-    def get_boot_mode(self):
-        ipmi_ok,ipmi_ip,ipmi_user,ipmi_pass,ipmi_mode=self.info(rf='tuple')
+    def Get_boot_mode(self):
+        ipmi_ok,ipmi_ip,ipmi_user,ipmi_pass,ipmi_mode=self.Info(rf='tuple')
         if ipmi_ok:
             return km.get_boot_mode(ipmi_ip,ipmi_user,ipmi_pass,log=self.log)
 
-    def power(self,cmd='status',retry=0,boot_mode=None,order=False,ipxe=False,log_file=None,log=None,force=False,mode=None,verify=True,post_keep_up=20,pre_keep_up=0,timeout=1200,lanmode=None):
+    def Power(self,cmd='status',retry=0,boot_mode=None,order=False,ipxe=False,log_file=None,log=None,force=False,mode=None,verify=True,post_keep_up=20,pre_keep_up=0,timeout=1200,lanmode=None):
         retry=km.integer(retry,default=0)
         timeout=km.integer(timeout,default=1200)
         pre_keep_up=km.integer(pre_keep_up,default=0)
         post_keep_up=km.integer(post_keep_up,default=20)
         if cmd == 'status':
-            return self.do_power('status',verify=verify)[1]
+            return self.Do_power('status',verify=verify)[1]
         if boot_mode:
             km.logging('Set Boot mode to {} with iPXE({})\n'.format(boot_mode,ipxe),log=self.log,log_level=3)
             if ipxe in ['on','On',True,'True']:
@@ -934,50 +929,50 @@ class kBmc:
                 boot_mode='pxe'
             for ii in range(0,retry+1):
                 # Find ipmi information
-                ipmi_ok,ipmi_ip,ipmi_user,ipmi_pass,ipmi_mode=self.info(rf='tuple')
+                ipmi_ok,ipmi_ip,ipmi_user,ipmi_pass,ipmi_mode=self.Info(rf='tuple')
                 km.set_boot_mode(ipmi_ip,ipmi_user,ipmi_pass,boot_mode,persistent=order,ipxe=ipxe,log_file=log_file,log=self.log,force=force)
                 boot_mode_state=km.get_boot_mode(ipmi_ip,ipmi_user,ipmi_pass,log_file=log_file,log=log)
                 if (boot_mode == 'pxe' and boot_mode_state[0] is not False and 'PXE' in boot_mode_state[0]) and ipxe == boot_mode_state[1] and order == boot_mode_state[2]:
                     break
                 km.logging(' retry boot mode set {} (ipxe:{},force:{})[{}/5]'.format(boot_mode,ipxe,order,ii),log=self.log,log_level=6)
                 time.sleep(2)
-        return self.do_power(cmd,retry=retry,verify=verify,timeout=timeout,post_keep_up=post_keep_up,lanmode=lanmode)
+        return self.Do_power(cmd,retry=retry,verify=verify,timeout=timeout,post_keep_up=post_keep_up,lanmode=lanmode)
 
-    def do_power(self,cmd,retry=0,verify=False,timeout=1200,post_keep_up=40,pre_keep_up=0,lanmode=None,cancel_func=None):
+    def Do_power(self,cmd,retry=0,verify=False,timeout=1200,post_keep_up=40,pre_keep_up=0,lanmode=None,cancel_func=None):
         timeout=km.integer(timeout,default=1200)
         def lanmode_check(mode):
             # BMC Lan mode Checkup
-            cur_lan_mode=self.lanmode()
+            cur_lan_mode=self.Lanmode()
             if cur_lan_mode[0]:
                 if mode.lower() in cur_lan_mode[1].lower():
                     return mode
                 else:
                     if mode == 'onboard':
-                        rc=self.lanmode(mode=1)
+                        rc=self.Lanmode(mode=1)
                     elif mode == 'failover':
-                        rc=self.lanmode(mode=2)
+                        rc=self.Lanmode(mode=2)
                     else:
-                        rc=self.lanmode(mode=0)
+                        rc=self.Lanmode(mode=0)
                     if rc[0]:
                         return mode
 
-        ipmi_ip=self.root.ipmi_ip.GET()
+        ipmi_ip=self.root.ipmi_ip.Get()
         chkd=False
-        for mm in self.root.ipmi_mode.GET():
+        for mm in self.root.ipmi_mode.Get():
             name=mm.__name__
             if cmd not in ['status','off_on'] + list(mm.power_mode):
-                self.warn(_type='power',msg="Unknown command({})".format(cmd))
+                self.Warn(_type='power',msg="Unknown command({})".format(cmd))
                 return False,'Unknown command({})'.format(cmd)
 
             power_step=len(mm.power_mode[cmd])-1
             for ii in range(1,int(retry)+2):
                 checked_lanmode=None
                 if verify or cmd == 'status':
-                    init_rc=self.run_cmd(mm.cmd_str('ipmi power status'))
+                    init_rc=self.Run_cmd(mm.Cmd_str('ipmi power status'))
                     if km.krc(init_rc[0],chk='error'):
                         return init_rc[0],init_rc[1],ii
                     if init_rc[0] is False:
-                        self.warn(_type='power',msg="Power status got some error ({}))".format(init_rc[-1]))
+                        self.Warn(_type='power',msg="Power status got some error ({}))".format(init_rc[-1]))
                         km.logging('Power status got some error ({})'.format(init_rc[-1]),log=self.log,log_level=3)
                         time.sleep(3)
                         continue
@@ -991,7 +986,7 @@ class kBmc:
                     if init_status == 'off' and cmd in ['reset','cycle']:
                         cmd='on'
                     # keep command
-                    if pre_keep_up > 0 and self.is_up(timeout=timeout,keep_up=pre_keep_up,cancel_func=cancel_func)[0] is False:
+                    if pre_keep_up > 0 and self.Is_up(timeout=timeout,keep_up=pre_keep_up,cancel_func=cancel_func)[0] is False:
                         time.sleep(3)
                         continue
                 km.logging('Power {} at {} (try:{}/{}) (limit:{} sec)'.format(cmd,ipmi_ip,ii,retry+1,timeout),log=self.log,log_level=3)
@@ -1011,11 +1006,11 @@ class kBmc:
 
                         if verify_status in ['reset','cycle']:
                              if init_status == 'off':
-                                 self.warn(_type='power',msg="Can not set {} on the off mode".format(verify_status))
+                                 self.Warn(_type='power',msg="Can not set {} on the off mode".format(verify_status))
                                  km.logging(' ! can not {} the power'.format(verify_status),log=self.log,log_level=6)
                                  return False,'can not {} the power'.format(verify_status)
-                    rc=self.run_cmd(mm.cmd_str(rr),retry=retry)
-                    km.logging('rr:{} cmd:{} rc:{}'.format(rr,mm.cmd_str(rr),rc),log=self.log,log_level=8)
+                    rc=self.Run_cmd(mm.Cmd_str(rr),retry=retry)
+                    km.logging('rr:{} cmd:{} rc:{}'.format(rr,mm.Cmd_str(rr),rc),log=self.log,log_level=8)
                     if km.krc(rc,chk='error'):
                         return rc
                     if km.krc(rc,chk=True):
@@ -1025,33 +1020,33 @@ class kBmc:
                             if verify:
                                 time.sleep(10)
                     else:
-                        self.warn(_type='power',msg="power {} fail".format(verify_status))
+                        self.Warn(_type='power',msg="power {} fail".format(verify_status))
                         km.logging(' ! power {} fail'.format(verify_status),log=self.log,log_level=3)
                         time.sleep(5)
                         break
                     if verify:
                         if verify_status in ['on','up']:
-                            is_up=self.is_up(timeout=timeout,keep_up=post_keep_up,cancel_func=cancel_func)
+                            is_up=self.Is_up(timeout=timeout,keep_up=post_keep_up,cancel_func=cancel_func)
                             km.logging('is_up:{}'.format(is_up),log=self.log,log_level=7)
                             if is_up[0]:
                                 if chk == len(mm.power_mode[cmd]):
                                     return True,'on',ii
                             elif is_up[1] == 'down' and not chkd:
                                 chkd=True
-                                self.warn(_type='power',msg="Something weird. Looks BMC issue")
+                                self.Warn(_type='power',msg="Something weird. Looks BMC issue")
                                 km.logging(' Something weird. Try again',log=self.log,log_level=1)
                                 retry=retry+1 
                                 time.sleep(20)
                             time.sleep(3)
                         elif verify_status in ['off','down']:
-                            is_down=self.is_down(cancel_func=cancel_func)
+                            is_down=self.Is_down(cancel_func=cancel_func)
                             km.logging('is_down:{}'.format(is_down),log=self.log,log_level=7)
                             if is_down[0]:
                                 if chk == len(mm.power_mode[cmd]):
                                     return True,'off',ii
                             elif is_down[1] == 'up' and not chkd:
                                 chkd=True
-                                self.warn(_type='power',msg="Something weird. Looks BMC issue")
+                                self.Warn(_type='power',msg="Something weird. Looks BMC issue")
                                 km.logging(' Something weird. Try again',log=self.log,log_level=1)
                                 retry=retry+1 
                                 time.sleep(20)
@@ -1062,19 +1057,19 @@ class kBmc:
                 time.sleep(3)
         if chkd:
             km.logging(' It looks BMC issue. (Need reset the physical power)',log=self.log,log_level=1)
-            self.error(_type='power',msg="It looks BMC issue. (Need reset the physical power)")
+            self.Error(_type='power',msg="It looks BMC issue. (Need reset the physical power)")
             return False,'It looks BMC issue. (Need reset the physical power)',ii
         return False,'time out',ii
 
-    def lanmode(self,mode=None):
-        mm=self.get_mode('smc')
+    def Lanmode(self,mode=None):
+        mm=self.Get_mode('smc')
         if not mm:
             km.logging(' - SMCIPMITool not found',log=self.log,log_level=1,dsp='e')
             return False,'SMCIPMITool not found'
         if mode in [0,1,2,'0','1','2']:
-            rc=self.run_cmd(mm.cmd_str("""ipmi oem lani {}""".format(mode)))
+            rc=self.Run_cmd(mm.Cmd_str("""ipmi oem lani {}""".format(mode)))
         else:
-            rc=self.run_cmd(mm.cmd_str("""ipmi oem lani"""))
+            rc=self.Run_cmd(mm.Cmd_str("""ipmi oem lani"""))
         if km.krc(rc[0],chk='error'):
             return rc
         if km.krc(rc[0],chk=True):
@@ -1083,11 +1078,11 @@ class kBmc:
                 return True,a[0]
         return False,None
 
-    def error(self,_type=None,msg=None):
+    def Error(self,_type=None,msg=None):
         if _type and msg:
-            self.root.UPDATE({_type:{km.int_sec():msg}},path='error')
+            self.root.Update({_type:{km.int_sec():msg}},path='error')
         else:
-            err=self.root.GET('error',default={})
+            err=self.root.Get('error',default={})
             if err:
                 if _type:
                     if err.get(_type,None) is not None:
@@ -1095,11 +1090,11 @@ class kBmc:
                 return True,err
         return False,'OK'
 
-    def warn(self,_type=None,msg=None):
+    def Warn(self,_type=None,msg=None):
         if _type and msg:
-            self.root.UPDATE({_type:{km.int_sec():msg}},path='warn')
+            self.root.Update({_type:{km.int_sec():msg}},path='warn')
         else:
-            wrn=self.root.GET('warn',default={})
+            wrn=self.root.Get('warn',default={})
             if not wrn:
                 if _type:
                     if wrn.get(_type,None) is not None:
@@ -1107,46 +1102,24 @@ class kBmc:
                 return True,wrn
         return False,None
 
-    def cancel(self,cancel_func=None):
-        if km.is_cancel(cancel_func):
-            self.root.UPDATE({km.int_sec():km.get_pfunction_name()},path='cancel')
+    def Cancel(self,cancel_func=None):
+        if km.is_nancel(cancel_func):
+            self.root.Update({km.int_sec():km.get_pfunction_name()},path='cancel')
             return 'canceled'
         else:
-            revoke=self.root.GET('cancel',default={})
+            revoke=self.root.Get('cancel',default={})
             if revoke:
                 return revoke
         return False
 
-    def rc_info(self,inp=None,default={},**opts):
-        chk=True
-        if inp:
-            type_inp=type(inp)
-            if type_inp is tuple and inp[0] is True and type(inp[1]) is dict:
-                chk=False
-                opts.update(inp[1])
-            elif type_inp is dict:
-                opts.update(inp)
-        rf=opts.get('rf','dict')
-        ok=opts.get('ok',default.get('ok',[0,True]))
-        fail=opts.get('fail',default.get('fail',[]))
-        error=opts.get('error',default.get('error',[127]))
-        err_connection=opts.get('err_connection',default.get('err_connection',[]))
-        err_key=opts.get('err_key',default.get('err_key',[]))
-        err_bmc_user=opts.get('err_bmc_user',default.get('err_bmc_user',[]))
-        if rf == 'tuple':
-            return ok,fail,error,err_connection,err_bmc_user,err_key
-        else:
-            return {'ok':ok,'fail':fail,'error':error,'err_connection':err_connection,'err_bmc_user':err_bmc_user,'err_key':err_key}
-
-
-    def is_admin_user(self,**opts):
+    def Is_admin_user(self,**opts):
         admin_id=opts.get('admin_id',2)
-        get_info=self.info()
+        get_info=self.Info()
         if km.krc(get_info,chk=True):
             ipmi_info = km.get_value(get_info,1)
-            for mm in self.root.ipmi_mode.GET():
+            for mm in self.root.ipmi_mode.Get():
                 name=mm.__name__
-                rc=self.run_cmd(mm.cmd_str("""user list"""))
+                rc=self.Run_cmd(mm.Cmd_str("""user list"""))
                 if km.krc(rc,chk=True):
                     for i in km.get_value(km.get_value(rc,1),1).split('\n'):
                         i_a=i.strip().split()
@@ -1229,19 +1202,19 @@ if __name__ == "__main__":
     elif km.is_port_ip(ipmi_ip,(623,664,443)):
         print('Test at {}'.format(ipmi_ip))
         if smc_file and os.path.isfile('{}/{}'.format(tool_path,smc_file)):
-            bmc=kBmc(ipmi_ip=ipmi_ip,ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,test_pass=['ADMIN','Admin'],test_user=['ADMIN','Admin'],timeout=1800,log=KLog,tool_path=tool_path,ipmi_mode=[Ipmitool(),Smcipmitool(tool_path=tool_path,smc_file=smc_file)])
+            bmc=Bmc(ipmi_ip=ipmi_ip,ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,test_pass=['ADMIN','Admin'],test_user=['ADMIN','Admin'],timeout=1800,log=KLog,tool_path=tool_path,ipmi_mode=[Ipmitool(),Smcipmitool(tool_path=tool_path,smc_file=smc_file)])
         elif smc_file and os.path.isfile(smc_file):
-            bmc=kBmc(ipmi_ip=ipmi_ip,ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,test_pass=['ADMIN','Admin'],test_user=['ADMIN','Admin'],timeout=1800,log=KLog,tool_path=tool_path,ipmi_mode=[Ipmitool(),Smcipmitool(tool_path=smc_path,smc_file=smc_file)])
+            bmc=Bmc(ipmi_ip=ipmi_ip,ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,test_pass=['ADMIN','Admin'],test_user=['ADMIN','Admin'],timeout=1800,log=KLog,tool_path=tool_path,ipmi_mode=[Ipmitool(),Smcipmitool(tool_path=smc_path,smc_file=smc_file)])
         else:
-            bmc=kBmc(ipmi_ip=ipmi_ip,ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,test_pass=['ADMIN','Admin'],test_user=['ADMIN','Admin'],timeout=1800,log=KLog,tool_path=tool_path,ipmi_mode=[Ipmitool()])
+            bmc=Bmc(ipmi_ip=ipmi_ip,ipmi_user=ipmi_user,ipmi_pass=ipmi_pass,test_pass=['ADMIN','Admin'],test_user=['ADMIN','Admin'],timeout=1800,log=KLog,tool_path=tool_path,ipmi_mode=[Ipmitool()])
 
         cmd_2=km.get_value(sys.argv,-2)
         if cmd_2 == 'power':
             sub_cmd = km.get_value(sys.argv,-1)
             if sub_cmd == 'status':
-                print(km.get_value(bmc.do_power(cmd=sub_cmd),1))
+                print(km.get_value(bmc.Do_power(cmd=sub_cmd),1))
             elif sub_cmd in ['on','off','reset','cycle','shutdown']:
-                print(km.get_value(bmc.do_power(cmd=sub_cmd),1))
+                print(km.get_value(bmc.Do_power(cmd=sub_cmd),1))
             else:
                 print('Unknown command "{}"'.format(sub_cmd))
         elif cmd_2 == 'vpower':
@@ -1269,13 +1242,13 @@ if __name__ == "__main__":
             elif cmd == 'summary':
                 print(bmc.summary())
             elif cmd == 'is_admin_user':
-                print(bmc.is_admin_user())
+                print(bmc.Is_admin_user())
             elif cmd == 'lanmode':
-                print(bmc.lanmode())
+                print(bmc.Lanmode())
             elif cmd == 'info':
                 pprint.pprint(km.get_value(bmc.info(),1,default={}))
             elif cmd == 'mac':
-                print(km.get_value(bmc.get_mac(),1,default=['Can not get'])[0])
+                print(km.get_value(bmc.Get_mac(),1,default=['Can not get'])[0])
             elif cmd == 'eth_mac':
                 print(km.get_value(bmc.get_eth_mac(),1,default=['Can not get'])[0])
             elif cmd == 'reset':

@@ -34,7 +34,7 @@ def peeling(v,ignore=[],collect=[],jump=None):
   else:
       return v
 
-class kDict(dict):
+class DICT(dict):
     MARKER = {}
     _p_='._p'
     _d_='._d'
@@ -54,34 +54,34 @@ class kDict(dict):
     def __getitem__(self, key):
 #        try:
 #            found = dict.__getitem__(self,key)
-#            # not dict value change to kDict value for ignore error
+#            # not dict value change to Dict value for ignore error
 #            if not isinstance(found,dict): 
-#                found=kDict({self._d_:found}) # Fake for ignore error only 
-#                # Updated Dictionary with kDict
-#    #            new_found=kDict({self._d_:found})
-#    #            super(kDict, self).__setitem__(key, new_found)
+#                found=Dict({self._d_:found}) # Fake for ignore error only 
+#                # Updated Dictionary with Dict
+#    #            new_found=Dict({self._d_:found})
+#    #            super(Dict, self).__setitem__(key, new_found)
 #    #            found = dict.__getitem__(self,key)
 #            print('__getitem__ found:',found)
 #        except:
-#            found=kDict.MARKER
+#            found=Dict.MARKER
 #            print('__getitem__ except found:',found)
-        found=self.get(key,kDict.MARKER) # same as above code
+        found=self.get(key,Dict.MARKER) # same as above code
         if not isinstance(found,dict):
-            found=kDict({self._d_:found})
-        if found is kDict.MARKER:
-            found = kDict() # make a fake data for ignore error at GET(),PUT(),.... 
+            found=Dict({self._d_:found})
+        if found is Dict.MARKER:
+            found = Dict() # make a fake data for ignore error at Get(),Put(),.... 
             # Really Generate A.B.C. .... new items
 #            print('__getitem__ generate new:',found)
-#            super(kDict, self).__setitem__(key, found)
+#            super(Dict, self).__setitem__(key, found)
 
 # Property setting issue
-        # If the data is not kDict type data then convert the data to kDict type
-        # for example: root.abc.test=[1,2,3] => root.abc.PUT('test',[1,2,3])
+        # If the data is not Dict type data then convert the data to Dict type
+        # for example: root.abc.test=[1,2,3] => root.abc.Put('test',[1,2,3])
 
-        #    new_found=kDict({self._d_:found}) # Remove property. because, can known that is fake data or not in the call function.
-#            new_found=kDict({self._d_:found, self._p_:{}})
-#            super(kDict, self).__setitem__(key,new_found) # If you want change original data then enable
-        #    return new_found # it just reutn fake data for ignore error for GET() when the data is not kDict type data.
+        #    new_found=Dict({self._d_:found}) # Remove property. because, can known that is fake data or not in the call function.
+#            new_found=Dict({self._d_:found, self._p_:{}})
+#            super(Dict, self).__setitem__(key,new_found) # If you want change original data then enable
+        #    return new_found # it just reutn fake data for ignore error for Get() when the data is not Dict type data.
         return found
 
     # Generate new dict key with data(value)
@@ -94,18 +94,18 @@ class kDict(dict):
                 found[self._d_]=value[self._d_]
             else:
                 found[self._d_]=value
-            super(kDict, self).__setitem__(key, found)
+            super(Dict, self).__setitem__(key, found)
         else:
-            if isinstance(value, dict) and not isinstance(value, kDict):
-                value = kDict(value)
-            super(kDict, self).__setitem__(key, value)
+            if isinstance(value, dict) and not isinstance(value, Dict):
+                value = Dict(value)
+            super(Dict, self).__setitem__(key, value)
 
     # del dictionary[key]
     def __delitem__(self, key, default=False):
         if self._is_ro(self.get(key,None),key=key):
             return default
         if key in self:
-            super(kDict, self).__delitem__(key) # delete data
+            super(Dict, self).__delitem__(key) # delete data
             return True
         else:
             return default
@@ -129,19 +129,19 @@ class kDict(dict):
         return False
 
         
-    def PROPER(self, key=None, value=None):
+    def Proper(self, key=None, value=None):
         if value is not None and key is not None:
             if self._p_ in self:
                 self[self._p_][key]=value
                 nvalue=self[self._p_]
-                super(kDict, self).__setitem__(self._p_,nvalue)
+                super(Dict, self).__setitem__(self._p_,nvalue)
             else:
                 #nvalue={key:value}
                 if self._n_:
-                    sys.stderr.write('the item have no property. if you need property then change the data to kDict type\n')
+                    sys.stderr.write('the item have no property. if you need property then change the data to Dict type\n')
                     sys.stderr.flush()
                 return False
-            super(kDict, self).__setitem__(self._p_,nvalue)
+            super(Dict, self).__setitem__(self._p_,nvalue)
             return True
         elif key is not None:
             if self._p_ in self:
@@ -155,10 +155,10 @@ class kDict(dict):
                 return None
 
 
-    def GET(self,key=None,default=None,raw=False,path=None,symbol='.'):
+    def Get(self,key=None,default=None,raw=False,path=None,symbol='.'):
         try:
             if path:
-                self=self.CD(path,symbol=symbol,default=default)
+                self=self.Cd(path,symbol=symbol,default=default)
             if not self or self == default:
                 return default
             if key is None:
@@ -184,7 +184,7 @@ class kDict(dict):
         except:
             return default
 
-    def CHECK(self,value,idx=0):
+    def Check(self,value,idx=0):
         try:
             found=peeling(self,ignore=[self._p_],jump=self._d_)
             type_found=type(found)
@@ -206,18 +206,18 @@ class kDict(dict):
         return False
 
     # Good
-    def PUT(self,key,value,proper={},force=False,new=False,path=None,symbol='.',default=False):
+    def Put(self,key,value,proper={},force=False,new=False,path=None,symbol='.',default=False):
 #        if value is None:
 #            return
         if path:
-            self=self.CD(path,force=True,symbol=symbol,default=default)
+            self=self.Cd(path,force=True,symbol=symbol,default=default)
         if key is None or self == default:
             return default
         if new:
             if self.__getitem__(key):
                 return default
         if force:
-            self.__getitem__(key).PROPER('force',True)
+            self.__getitem__(key).Proper('force',True)
         if proper == {}:
             self.__setitem__(key, value)
         else:
@@ -225,9 +225,9 @@ class kDict(dict):
         return True
 
     # Good proper issue
-    def UPDATE(self,data,force=False,path=None,symbol='.',default=False):
+    def Update(self,data,force=False,path=None,symbol='.',default=False):
         if path:
-            self=self.CD(path,force=True,symbol=symbol)
+            self=self.Cd(path,force=True,symbol=symbol)
         if not isinstance(data,dict) or self == default:
             return default
         if force is False and isinstance(data,dict):
@@ -237,30 +237,30 @@ class kDict(dict):
         if isinstance(self,dict) and self._d_ in self:
             self[self._d_].update(data)
         else:
-            super(kDict, self).update(data)
+            super(Dict, self).update(data)
         return True
 
     # Good dictionary.pop(key)
-    def POP(self,key,force=False,default=False):
+    def Pop(self,key,force=False,default=False):
         if force:
-            self.__getitem__(key).PROPER('force',True)
-        found = self.GET(key, default=None)
+            self.__getitem__(key).Proper('force',True)
+        found = self.Get(key, default=None)
         rc=self.__delitem__(key,default=default) # delete data with __delitem() in this class
         if rc:
             return found
         return rc
 
     # Good
-    def DEL(self,key,force=False,default=False):
+    def Del(self,key,force=False,default=False):
         #if self._is_ro(self.__getitem__(key),key=key):
         #    return False
-        #super(kDict, self).__delitem__(key) # delete data without __delitem() in this class
+        #super(Dict, self).__delitem__(key) # delete data without __delitem() in this class
         if force:
-            self.__getitem__(key).PROPER('force',True)
+            self.__getitem__(key).Proper('force',True)
         return self.__delitem__(key,default=default) # delete data with __delitem() in this class
 
     # moving key step by step with path by seperated symbol 
-    def CD(self,path,force=False,symbol='/',default_path='_',default=False): #force=True, generate new key
+    def Cd(self,path,force=False,symbol='/',default_path='_',default=False): #force=True, generate new key
         if isinstance(path,str):
             path=path.split(symbol)
         if isinstance(path,list):
@@ -270,20 +270,20 @@ class kDict(dict):
                 if p in self:
                     self=self[p]
                 elif force:
-                    super(kDict, self).__setitem__(p, kDict())
+                    super(Dict, self).__setitem__(p, Dict())
                     self=self[p]
                 else:
                     if default_path=='_':
-                        return kDict()
+                        return Dict()
                     return default_path
             return self
         return default
 
     # generate new key
-    def MK(self,path,symbol='.'):
-        return self.CD(path,force=True,symbol=symbol)
+    def Mk(self,path,symbol='.'):
+        return self.Cd(path,force=True,symbol=symbol)
 
-    def FIND(self,value,proper=None,mode='value'):
+    def Find(self,value,proper=None,mode='value'):
         path=[]
         if proper:
             dep=self._p_
@@ -297,7 +297,7 @@ class kDict(dict):
                 found=self.get(key,None)
                 if isinstance(found,dict):
                     if dep in found:
-                         if mode in ['value','*','all'] and (value == found[dep] or (type(found[dep]) in [kDict,dict,list,tuple] and value in found[dep]) or (type(value) is str and type(found[dep]) is str and value in found[dep])): # find in value only
+                         if mode in ['value','*','all'] and (value == found[dep] or (type(found[dep]) in [Dict,dict,list,tuple] and value in found[dep]) or (type(value) is str and type(found[dep]) is str and value in found[dep])): # find in value only
                          #if mode == 'value' and value in found[dep]: # find in value only
                               # Proper find
                               if proper:
@@ -307,19 +307,19 @@ class kDict(dict):
                               # Value find
                                   path.append(key)
                          elif isinstance(found[dep], dict): # recursing
-                              found[dep].FIND(value,proper=proper,mode=mode)
+                              found[dep].Find(value,proper=proper,mode=mode)
                     else:
                          if mode in ['value','*','all'] and value == found or (type(found) in [list,tuple] and value in found) or (type(value) is str and type(found) is str and value in found):
                              path.append(key)
                          else:
-                             for kk in self[key].FIND(value,proper=proper,mode=mode): # recursing
+                             for kk in self[key].Find(value,proper=proper,mode=mode): # recursing
                                  path.append(key+'/'+kk)
                 else:
                     if mode in ['value','*','all'] and value == found or (type(found) in [list,tuple] and value in found) or (type(value) is str and type(found) is str and value in found):
                         path.append(key)
         return path
 
-    def DIFF(self,oo,proper=False):
+    def Diff(self,oo,proper=False):
         if proper:
             diff1=self.copy()
             diff2=oo.copy()
@@ -331,41 +331,41 @@ class kDict(dict):
         else:
             return False
 
-    def KEYS(self):
+    def Keys(self):
         if isinstance(self,dict) and self._p_ in self:
             mm=self.keys()
             mm.remove(self._p_)
             return mm
         return self.keys()
 
-    def LIST(self,keys=[]):
+    def List(self,keys=[]):
         rc=[]
         for ii in keys:
             if ii in self:
                 rc.append(peeling(self[ii],ignore=[self._p_],jump=self._d_))
         return rc
 
-    def LEN(self,default=False):
+    def Len(self,default=False):
         if isinstance(self,dict):
             if self._p_ in self:
                 return len(self)-1
             return len(self)
         return default
 
-    def PRINT(self,whole=False):
+    def Print(self,whole=False):
         if whole:
             pprint.pprint(self)
         else:
-            pprint.pprint(self.GET())
+            pprint.pprint(self.Get())
 
-    def SAVE(self,default=False):
+    def Save(self,default=False):
         if self._dfile_ :
             with open(self._dfile_,'wb') as dd:
                 pickle.dump(peeling(self),dd,protocol=2)
                 return True
         return default
 
-    def LOAD(self,default=False):
+    def Load(self,default=False):
         if self._dfile_ and os.path.isfile(self._dfile_):
             with open(self._dfile_,'rb') as dd:
                 try:

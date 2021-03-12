@@ -1,7 +1,9 @@
 Open Kage's useful tools and class to public.
-(Long time use and upgrading)
+(Long time used and upgraded)
 But, this is develope version.
 So, suddenly it will be big change when I got some more good idea.
+I re-groupped to library.
+and change name to klib
 
 # Custom Dictionary Class
 
