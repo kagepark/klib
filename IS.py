@@ -4,6 +4,7 @@ import json as _json
 import pickle
 from klib.kmisc import * # import kmisc(file)'s each function to local module's function
 from klib.MODULE import MODULE
+#from klib.CONVERT import CONVERT
 MODULE().Import('filetype')
 
 class IS:
@@ -82,13 +83,13 @@ class IS:
                 pass
         return False
 
-    def Ip_in_range(self,start,end,**opts):
-        default=opts.get('default',False)
-        if self.ipv4(self.src) and self.ipv4(start) and self.ipv4(end):
-            if ip2num(start) <= ip2num(self.src) <= ip2num(end):
-                return True
-            return False
-        return default
+#    def Ip_in_range(self,start,end,**opts):
+#        default=opts.get('default',False)
+#        if self.ipv4(self.src) and self.ipv4(start) and self.ipv4(end):
+#            if CONVERT(start).Ip2Num() <= CONVERT(self.src).Ip2Num() <= CONVERT(end).Ip2Num():
+#                return True
+#            return False
+#        return default
 
     def File(self):
         if isinstance(self.src,str): return os.path.isfile(self.src)

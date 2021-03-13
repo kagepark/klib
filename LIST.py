@@ -228,3 +228,15 @@ class LIST(list):
                 return self.root.sort(reverse=reverse,key=_cint_)
             else:
                 return self.root.sort(reverse=reverse,key=func)
+
+    def Str(self,sym=' ',default=None):
+        if isinstance(self.src,(tuple,list)):
+            rt_str=''
+            for ii in self.src:
+                if rt_str:
+                    rt_str='''{}{}{}'''.format(rt_str,sym,ii)
+                else:
+                    rt_str='''{}'''.format(ii)
+            self.src=rt_str
+            return rt_str
+        return default

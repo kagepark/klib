@@ -283,7 +283,7 @@ class DICT(dict):
     def Mk(self,path,symbol='.'):
         return self.Cd(path,force=True,symbol=symbol)
 
-    def Find(self,value,proper=None,mode='value'):
+    def Find(self,find,proper=None,mode='value'):
         path=[]
         if proper:
             dep=self._p_
@@ -292,30 +292,29 @@ class DICT(dict):
         if isinstance(self,dict):
             for key in self:
                 if mode in ['key','*','all']: # find in key only
-                    if value == key:
+                    if find == key:
                         path.append(key)
                 found=self.get(key,None)
                 if isinstance(found,dict):
                     if dep in found:
-                         if mode in ['value','*','all'] and (value == found[dep] or (type(found[dep]) in [Dict,dict,list,tuple] and value in found[dep]) or (type(value) is str and type(found[dep]) is str and value in found[dep])): # find in value only
-                         #if mode == 'value' and value in found[dep]: # find in value only
+                         if mode in ['value','*','all'] and (find == found[dep] or (type(found[dep]) in [Dict,dict,list,tuple] and find in found[dep]) or (type(find) is str and type(found[dep]) is str and find in found[dep])): # find in 'find' only
                               # Proper find
                               if proper:
-                                  if found[dep][value] == proper:
+                                  if found[dep][find] == proper:
                                       path.append(key)
                               else:
                               # Value find
                                   path.append(key)
                          elif isinstance(found[dep], dict): # recursing
-                              found[dep].Find(value,proper=proper,mode=mode)
+                              found[dep].Find(find,proper=proper,mode=mode)
                     else:
-                         if mode in ['value','*','all'] and value == found or (type(found) in [list,tuple] and value in found) or (type(value) is str and type(found) is str and value in found):
+                         if mode in ['value','*','all'] and find == found or (type(found) in [list,tuple] and find in found) or (type(find) is str and type(found) is str and find in found):
                              path.append(key)
                          else:
-                             for kk in self[key].Find(value,proper=proper,mode=mode): # recursing
+                             for kk in self[key].Find(find,proper=proper,mode=mode): # recursing
                                  path.append(key+'/'+kk)
                 else:
-                    if mode in ['value','*','all'] and value == found or (type(found) in [list,tuple] and value in found) or (type(value) is str and type(found) is str and value in found):
+                    if mode in ['value','*','all'] and find == found or (type(found) in [list,tuple] and find in found) or (type(find) is str and type(found) is str and find in found):
                         path.append(key)
         return path
 

@@ -28,6 +28,10 @@ import base64
 import ssl
 from distutils.version import LooseVersion
 
+from klib.CONVERT import CONVERT
+from klib.GET import GET
+from klib.STR import STR
+
 ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
 url_group = re.compile('^(https|http|ftp)://([^/\r\n]+)(/[^\r\n]*)?')
 #log_file=None
@@ -122,19 +126,6 @@ def format_time(time=0,tformat='%s',time_format='%S'):
         else:
             return datetime.strptime(str(time),time_format).strftime(tformat)
 
-def get_caller_fcuntion_name(detail=False):
-    try:
-        dep=len(inspect.stack())-2
-        if detail:
-            return sys._getframe(dep).f_code.co_name,sys._getframe(dep).f_lineno,sys._getframe(dep).f_code.co_filename
-        else:
-            name=sys._getframe(dep).f_code.co_name
-            if name == '_bootstrap_inner' or name == '_run_code':
-                return sys._getframe(3).f_code.co_name
-            return name
-    except:
-        return False
-
 def log_format(*msg,**opts):
     log_date_format=opts.get('date_format','[%m/%d/%Y %H:%M:%S]')
     func_name=opts.get('func_name',False)
@@ -151,7 +142,7 @@ def log_format(*msg,**opts):
             if type(func_name) is str:
                 intro=intro+'{0} '.format(func_name)
             else:
-                intro=intro+'{0}() '.format(get_caller_fcuntion_name())
+                intro=intro+'{0}() '.format(GET().ParentName())
         if intro:
            for i in range(0,len(intro)+1):
                intro_space=intro_space+' '
@@ -225,7 +216,7 @@ def printf(*msg,**opts):
     if date and syslogd is False:
         intro_msg='[{0}] '.format(datetime.now().strftime(date_format))
     if caller:
-        call_name=get_caller_fcuntion_name(detail=caller_detail)
+        call_name=GET().ParentName(detail=caller_detail)
         if call_name:
             if len(call_name) == 3:
                 intro_msg=intro_msg+'{}({}:{}): '.format(call_name[0],call_name[1],call_name[2])
@@ -495,49 +486,6 @@ Content-Type: text/html
     cmd='''echo "{0}" | sendmail -t'''.format(email_msg)
     return rshell(cmd)
 
-def mac2str(mac,case='lower'):
-    if is_mac4(mac):
-        if case == 'lower':
-            mac=mac.strip().replace(':','').replace('-','').lower()
-        else:
-            mac=mac.strip().replace(':','').replace('-','').upper()
-        return mac
-    return False
-
-def str2mac(mac,sym=':',case='lower',chk=False):
-    if type(mac) is str:
-        cmac=mac.strip()
-        if len(cmac) in [12,17]:
-            cmac=cmac.replace(':','').replace('-','')
-            if len(cmac) == 12:
-                cmac=sym.join(cmac[i:i+2] for i in range(0,12,2))
-            if case == 'lower':
-                mac=cmac.lower()
-            else:
-                mac=cmac.upper()
-    if chk:
-        if is_mac4(mac,convert=False):
-            return mac
-        else:
-            return False
-    return mac
-
-def is_mac4(mac=None,symbol=':',convert=True):
-    if convert:
-        mac=str2mac(mac,sym=symbol)
-    if mac is None or type(mac) is not str:
-        return False
-    octets = mac.split(symbol)
-    if len(octets) != 6:
-        return False
-    for i in octets:
-        try:
-           if len(i) != 2 or int(i, 16) > 255:
-               return False
-        except:
-           return False
-    return True
-
 def sreplace(pattern,sub,string):
     return re.sub('^%s' % pattern, sub, string)
 
@@ -545,29 +493,7 @@ def ereplace(pattern,sub,string):
     return re.sub('%s$' % pattern, sub, string)
 
 def md5(string):
-    return hashlib.md5(_u_bytes(string)).hexdigest()
-
-def ipv4(ipaddr=None,chk=False):
-    if type(ipaddr) is str:
-        ipaddr_a=ipaddr.strip().split('.')
-        new_ip=''
-        for i in ipaddr_a:
-            for j in range(0,10):
-                if len(i) <= 1:
-                    break
-                i=sreplace('^0','',i)
-            if new_ip:
-                new_ip+='.{}'.format(i)
-            else:
-                new_ip=i
-        if len(new_ip.split('.')) == 4:
-            if chk:
-                if is_ipv4(new_ip):
-                    return new_ip
-                else:
-                    return False
-            return new_ip
-    return False
+    return hashlib.md5(CONVERT(string).Bytes()).hexdigest()
 
 def is_port_ip(ipadd,port):
     tcp_sk = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -584,39 +510,6 @@ def is_port_ip(ipadd,port):
                 pass
     return False
 
-def is_ipv4(ipadd=None):
-    if ipadd is None or type(ipadd) is not str or len(ipadd) == 0:
-        return False
-    ipa = ipadd.split(".")
-    if len(ipa) != 4:
-        return False
-    for ip in ipa:
-        if not ip.isdigit():
-            return False
-        if not 0 <= int(ip) <= 255:
-            return False
-    return True
-
-def ip2num(ip):
-    if is_ipv4(ip):
-        return struct.unpack("!L", socket.inet_aton(ip))[0]
-    return False
-
-def ip_in_range(ip,start,end):
-    if type(ip) is str and type(start) is str and type(end) is str:
-        ip=ip2num(ip)
-        start=ip2num(start)
-        end=ip2num(end)
-        if start <= ip and ip <= end:
-            return True
-    return False
-
-def get_function_name():
-    return traceback.extract_stack(None, 2)[0][2]
-
-def get_pfunction_name():
-    return traceback.extract_stack(None, 3)[0][2]
-
 def ipmi_cmd(cmd,ipmi_ip=None,ipmi_user='ADMIN',ipmi_pass='ADMIN',log=None):
     if ipmi_ip is None:
         ipmi_str=""" ipmitool {0} """.format(cmd)
@@ -630,7 +523,7 @@ def get_ipmi_mac(ipmi_ip=None,ipmi_user='ADMIN',ipmi_pass='ADMIN'):
     ipmi_mac_str=None
     if ipmi_ip is None:
         ipmi_mac_str=""" ipmitool lan print 2>/dev/null | grep "MAC Address" | awk """
-    elif is_ipv4(ipmi_ip):
+    elif IS(ipmi_ip).Ipv4():
         ipmi_mac_str=""" ipmitool -I lanplus -H {0} -U {1} -P {2} lan print 2>/dev/null | grep "MAC Address" | awk """.format(ipmi_ip,ipmi_user,ipmi_pass)
     if ipmi_mac_str is not None:
         ipmi_mac_str=ipmi_mac_str + """ '{print $4}' """
@@ -675,7 +568,7 @@ def get_dev_mac(ifname):
         return
 
 def get_host_mac(ip=None,dev=None):
-    if is_ipv4(ip):
+    if IS(ip).Ipv4():
         dev_info=get_net_device()
         for dev in dev_info.keys():
             if get_net_dev_ip(dev) == ip:
@@ -684,7 +577,7 @@ def get_host_mac(ip=None,dev=None):
         return get_dev_mac(dev)
     else:
         #return ':'.join(['{:02x}'.format((uuid.getnode() >> ele) & 0xff) for ele in range(0,8*6,8)][::-1])
-        return str2mac('%012x' % uuid.getnode())
+        return CONVERT('%012x' % uuid.getnode()).Str2Mac()
 
 def get_net_dev_ip(ifname):
     if os.path.isdir('/sys/class/net/{}'.format(ifname)) is False:
@@ -819,28 +712,6 @@ def make_tar(filename,filelist,ctype='gz',ignore_file=[]):
     tar.close()
 
 
-def cut_string(string,len1=None,len2=None):
-    if type(string) != str:
-       string='{0}'.format(string)
-    str_len=len(string)
-    
-    if len1 is None or len1 >= str_len:
-       return [string]
-       
-    if len2 is None:
-        rc=[string[i:i + len1] for i in range(0, str_len, len1)]
-        return rc
-    rc=[]
-    rc.append(string[0:len1])
-    string_tmp=string[len1:]
-    string_tmp_len=len(string_tmp)
-    for i in range(0, int(string_tmp_len/len2)+1):
-        if (i+1)*len2 > string_tmp_len:
-           rc.append(string_tmp[len2*i:])
-        else:
-           rc.append(string_tmp[len2*i:(i+1)*len2])
-    return rc
-
 def is_tempfile(filepath,tmp_dir='/tmp'):
    filepath_arr=filepath.split('/')
    if len(filepath_arr) == 1:
@@ -953,16 +824,6 @@ def append2list(*inp,**cond):
    return org
 
 
-def isfile(filename=None):
-   if filename is None:
-      return False
-   if len(filename) == 0:
-      return False
-   if os.path.isfile(filename):
-      return True
-   return False
-
-
 def ping_old(host,test_num=3,retry=1,wait=1,keep=0, timeout=60,lost_mon=False,log=None,stop_func=None,stop_arg={}):
     init_sec=int_sec()
     chk_sec=int_sec()
@@ -1021,10 +882,10 @@ def ping(host,count=3,interval=1,keep_good=0, timeout=60,lost_mon=False,log=None
         header = struct.pack('bbHHh', ICMP_ECHO_REQUEST, 0, 0, size, 1)
         #data = struct.calcsize('bbHHh') * 'Q'
         data = size * 'Q'
-        my_checksum = checksum(_u_bytes2str(header) + data)
+        my_checksum = checksum(CONVERT(header).Str() + data)
         header = struct.pack('bbHHh', ICMP_ECHO_REQUEST, 0,
                              socket.htons(my_checksum), size, 1)
-        return header + _u_bytes(data)
+        return header + CONVERT(data).Bytes()
 
     def receive(my_socket, ssize, stime, timeout):
         while True:
@@ -1145,111 +1006,11 @@ def ping(host,count=3,interval=1,keep_good=0, timeout=60,lost_mon=False,log=None
            count-=1
         return good
 
-def is_lost(ip,**opts):
-    timeout_sec=opts.get('timeout',1800)
-    interval=opts.get('interval',5)
-    stop_func=opts.get('stop_func',None)
-    cancel_func=opts.get('cancel_func',None)
-    log=opts.get('log',None)
-    init_time=None
-    if not ping(ip,count=3):
-        if not ping(ip,count=0,timeout=timeout_sec,keep_good=30,interval=2,stop_func=stop_func,log=log,cancel_func=cancel_func):
-            return True,'Lost network'
-    return False,'OK'
-
-def is_comeback(ip,**opts):
-    timeout_sec=opts.get('timeout',1800)
-    interval=opts.get('interval',3)
-    keep=opts.get('keep',20)
-    stop_func=opts.get('stop_func',None)
-    cancel_func=opts.get('cancel_func',None)
-    log=opts.get('log',None)
-    init_time=None
-    run_time=int_sec()
-    if keep == 0 or keep is None:
-        return True,'N/A(Missing keep parameter data)'
-    if log:
-        log('[',direct=True,log_level=1)
-    while True:
-        ttt,init_time=timeout(timeout_sec,init_time)
-        if ttt:
-            if log:
-                log(']\n',direct=True,log_level=1)
-            return False,'Timeout monitor'
-        if is_cancel(cancel_func) or stop_func is True:
-            if log:
-                log(']\n',direct=True,log_level=1)
-            return True,'Stopped monitor by Custom'
-        if ping(ip,cancel_func=cancel_func):
-            if (int_sec() - run_time) > keep:
-                if log:
-                    log(']\n',direct=True,log_level=1)
-                return True,'OK'
-            if log:
-                log('-',direct=True,log_level=1)
-        else:
-            run_time=int_sec()
-            if log:
-                log('.',direct=True,log_level=1)
-        time.sleep(interval)
-    if log:
-        log(']\n',direct=True,log_level=1)
-    return False,'Timeout/Unknown issue'
-
-def get_function_args(func,mode='defaults'):
-    rc={}
-    args, varargs, keywords, defaults = inspect.getargspec(func)
-    if defaults is not None:
-        defaults=dict(zip(args[-len(defaults):], defaults))
-        del args[-len(defaults):]
-        rc['defaults']=defaults
-    if args:
-        rc['args']=args
-    if varargs:
-        rc['varargs']=varargs
-    if keywords:
-        rc['keywards']=keywords
-    if mode in ['*','all']:
-        return rc
-    if mode in rc:
-        return rc[mode]
-
-def get_function_list(objName=None,obj=None):
-    aa={}
-    if obj is None and objName is not None:
-       obj=sys.modules[objName]
-    if obj is not None:
-        for name,fobj in inspect.getmembers(obj):
-            if inspect.isfunction(fobj): # inspect.ismodule(obj) check the obj is module or not
-                aa.update({name:fobj})
-    return aa
-
 def space(space_num=0,_space_='   '):
     space_str=''
     for ii in range(space_num):
         space_str='{0}{1}'.format(space_str,_space_)
     return space_str
-
-def tap_print(string,bspace='',rc=False,NFLT=False):
-    rc_str=None
-    if type(string) is str:
-        for ii in string.split('\n'):
-            if NFLT:
-               line='%s'%(ii)
-               NFLT=False
-            else:
-               line='%s%s'%(bspace,ii)
-            if rc_str is None:
-               rc_str='%s'%(line)
-            else:
-               rc_str='%s\n%s'%(rc_str,line)
-    else:
-        rc_str='%s%s'%(bspace,string)
-
-    if rc:
-        return rc_str
-    else:
-        print(rc_str)
 
 def str_format_print(string,rc=False):
     if type(string) is str:
@@ -1304,10 +1065,10 @@ def format_print(string,rc=False,num=0,bstr=None,NFLT=False):
                rc_str=format_print(ii,num=num,bstr=rc_str,rc=True)
            else:
                if chk == None:
-                  rc_str='%s%s'%(rc_str,tap_print(str_format_print(ii,rc=True),rc=True))
+                  rc_str='%s%s'%(rc_str,STR(str_format_print(ii,rc=True)).Tap())
                   chk='a'
                else:
-                  rc_str='%s,\n%s'%(rc_str,tap_print(str_format_print(ii,rc=True),bspace=bspace+' ',rc=True))
+                  rc_str='%s,\n%s'%(rc_str,STR(str_format_print(ii,rc=True)).Tap(space=bspace+' '))
     elif string_type is dict:
        for ii in string.keys():
            ii_type=type(string[ii])
@@ -1320,10 +1081,10 @@ def format_print(string,rc=False,num=0,bstr=None,NFLT=False):
                rc_str="%s,\n%s %s:%s"%(rc_str,bspace,str_format_print(ii,rc=True),tmp)
            else:
                if chk == None:
-                  rc_str='%s%s'%(rc_str,tap_print("{0}:{1}".format(str_format_print(ii,rc=True),str_format_print(string[ii],rc=True)),rc=True))
+                  rc_str='%s%s'%(rc_str,STR("{0}:{1}".format(str_format_print(ii,rc=True),str_format_print(string[ii],rc=True))).Tap())
                   chk='a'
                else:
-                  rc_str='%s,\n%s'%(rc_str,tap_print("{0}:{1}".format(str_format_print(ii,rc=True),str_format_print(string[ii],rc=True)),bspace=bspace+' ',rc=True))
+                  rc_str='%s,\n%s'%(rc_str,STR("{0}:{1}".format(str_format_print(ii,rc=True),str_format_print(string[ii],rc=True))).Tap(space=bspace+' '))
 
     # End symbol
     if string_type is tuple:
@@ -1634,29 +1395,6 @@ def wait_ready_system(ipmi_ip,ipmi_user='ADMIN',ipmi_pass='ADMIN',timeout=1800,k
 #                return a[0]
 #    return
 
-def sizeConvert(sz=None,unit='b:g'):
-    if sz is None:
-        return False
-    unit_a=unit.lower().split(':')
-    if len(unit_a) != 2:
-        return False
-    def inc(sz):
-        return '%.1f'%(float(sz) / 1024)
-    def dec(sz):
-        return int(sz) * 1024
-    sunit=unit_a[0]
-    eunit=unit_a[1]
-    unit_m=['b','k','m','g','t','p']
-    si=unit_m.index(sunit)
-    ei=unit_m.index(eunit)
-    h=ei-si
-    for i in range(0,abs(h)):
-        if h > 0:
-            sz=inc(sz)
-        else:
-            sz=dec(sz)
-    return sz
-
 def git_ver(git_dir=None):
     if git_dir is not None and os.path.isdir('{0}/.git'.format(git_dir)):
         gver=rshell('''cd {0} && git describe --tags'''.format(git_dir))
@@ -1684,16 +1422,6 @@ def reduce_string(string,symbol=' ',snum=0,enum=None):
         else:
             strs='{0} {1}'.format(strs,arr[ii])
     return strs
-
-def list2str(arr):
-    rc=None
-    for i in arr:
-        if rc:
-            rc='{0} {1}'.format(rc,i)
-        else:
-            rc='{0}'.format(i)
-    return rc
-
 
 def findstr(string,find,prs=None,split_symbol='\n',patern=True):
     # Patern return selection (^: First(0), $: End(-1), <int>: found item index)
@@ -1787,31 +1515,8 @@ def _u_str2int(val,encode='utf-8'):
         if type(val) is bytes:
             return int(val.hex(),16)
         else:
-            return int(_u_bytes(val,encode=encode).hex(),16)
+            return int(CONVERT(val).Bytes(encode=encode).hex(),16)
     return int(val.encode('hex'),16)
-
-def _u_bytes(val,encode='utf-8'):
-    if is_py3():
-        if type(val) is bytes:
-            return val
-        else:
-            return bytes(val,encode)
-    return bytes(val) # if change to decode then network packet broken
-    #return val.decode(encode)
-
-def _u_bytes2str(val,encode='latin1'):
-    return _u_byte2str(val,encode=encode)
-
-#def _u_byte2str(val,encode='windows-1252'):
-def _u_byte2str(val,encode='latin1'):
-    #return val.decode(encode) # this is original
-    type_val=type(val)
-    if is_py3() and type_val is bytes:
-        return val.decode(encode)
-    elif type_val.__name__ == 'unicode':
-        return val.encode(encode)
-    return val
-
 
 def net_send_data(sock,data,key='kg',enc=False,timeout=0):
     if type(sock).__name__ in ['socket','_socketobject','SSLSocket'] and data and type(key) is str and len(key) > 0 and len(key) < 7:
@@ -1820,14 +1525,14 @@ def net_send_data(sock,data,key='kg',enc=False,timeout=0):
             sock.settimeout(timeout)
         nkey=_u_str2int(key)
         pdata=pickle.dumps(data,protocol=2) # common 2.x & 3.x version : protocol=2
-        data_type=_u_bytes(type(data).__name__[0])
+        data_type=CONVERT(type(data).__name__[0]).Bytes()
         if enc and key:
             # encode code here
             #enc_tf=_u_bytes('t') # Now not code here. So, everything to 'f'
             #pdata=encode(key,pdata)
-            enc_tf=_u_bytes('f')
+            enc_tf=CONVERT('f').Bytes()
         else:
-            enc_tf=_u_bytes('f')
+            enc_tf=CONVERT('f').Bytes()
         ndata=struct.pack('>IssI',len(pdata),data_type,enc_tf,nkey)+pdata
         try:
             sock.sendall(ndata)
@@ -1861,7 +1566,7 @@ def net_receive_data(sock,key='kg',progress=None):
     head=recvall(sock,10)
     if head:
         try:
-            st_head=struct.unpack('>IssI',_u_bytes(head))
+            st_head=struct.unpack('>IssI',CONVERT(head).Bytes())
         except:
             return [False,'Fail for read header({})'.format(head)]
         if st_head[3] == _u_str2int(key):
@@ -2123,8 +1828,8 @@ def now():
     return int_sec()
 
 def timeout(timeout_sec,init_time=None,default=(24*3600)):
-    init_time=integer(init_time,default=0)
-    timeout_sec=integer(timeout_sec,default=default)
+    init_time=CONVERT(init_time).Int(default=0)
+    timeout_sec=CONVERT(timeout_sec).Int(default=default)
     if init_time == 0:
         init_time=int_sec()
     if timeout_sec == 0:
@@ -2485,7 +2190,7 @@ def screen_monitor(title,ip,ipmi_user,ipmi_pass,find=[],timeout=600):
                 break
             with open(log_file,'rb') as f:
                 tmp=f.read()
-            tmp=_u_byte2str(tmp)
+            tmp=CONVERT(tmp).Str()
             if '\x1b' in tmp:
                 tmp_a=tmp.split('\x1b')
             elif '\r\n' in tmp:
@@ -2715,7 +2420,7 @@ def is_xml(filename):
     if krc(firstLine_i,chk=True):
         firstLine=get_value(firstLine_i,1)
     else:
-        filename_str=_u_byte2str(filename)
+        filename_str=CONVERT(filename).Str()
         if isinstance(filename_str,str):
             firstLine=filename_str.split('\n')[0]
     if isinstance(firstLine,str) and firstLine.split(' ')[0] == '<?xml':
@@ -2789,14 +2494,6 @@ def compare(a,sym,b,ignore=None):
             return False
     return eval('{} {} {}'.format(a,sym,b))
 
-def integer(a,default=0):
-    if isinstance(a,int):
-        return a
-    try:
-        a=int(a)
-    except:
-        return default
-
 def file_rw(name,data=None,out='string',append=False,read=None,overwrite=True):
     if isinstance(name,str):
         if data is None:
@@ -2812,7 +2509,7 @@ def file_rw(name,data=None,out='string',append=False,read=None,overwrite=True):
                     pass
                 if data is not None:
                     if out in ['string','str']:
-                        return True,_u_bytes2str(data)
+                        return True,CONVERT(data).Str()
                     else:
                         return True,data
             return False,'File({}) not found'.format(name)
@@ -2822,10 +2519,10 @@ def file_rw(name,data=None,out='string',append=False,read=None,overwrite=True):
                 try:
                     if append:
                         with open(name,'ab') as f:
-                            f.write(_u_bytes(data))
+                            f.write(CONVERT(data).Bytes())
                     else:
                         with open(name,'wb') as f:
-                            f.write(_u_bytes(data))
+                            f.write(CONVERT(data).Bytes())
                     return True,None
                 except:
                     pass
@@ -2853,11 +2550,11 @@ def argtype(arg,want='_',get_data=['_']):
 
 def replacestr(data,org,new):
     if type(data) is not str:
-        data=_u_bytes2str(data)
+        data=CONVERT(data).Str()
     if type(org) is not str:
-        org=_u_bytes2str(org)
+        org=CONVERT(org).Str()
     if type(new) is not str:
-        new=_u_bytes2str(new)
+        new=CONVERT(new).Str()
     return data.replace(org,new)
 
 def check_version(a,sym,b):

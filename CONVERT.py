@@ -2,6 +2,7 @@
 from klib.kmisc import *
 from klib.IS import IS
 import ast
+import struct
 
 class CONVERT:
     def __init__(self,src):
@@ -51,3 +52,57 @@ class CONVERT:
 
     def Form(self,default=False):
         return self.Ast(default=default)
+
+    def Mac2Str(self,case='lower',default=False):
+        if IS(self.src).Mac4():
+            if case == 'lower':
+                self.src=self.src.strip().replace(':','').replace('-','').lower()
+            else:
+                self.src=self.src.strip().replace(':','').replace('-','').upper()
+            return self.src
+        return default
+
+    def Str2Mac(self,case='lower',default=False,sym=':',chk=False):
+        if isinstance(self.src, str):
+            self.src=self.src.strip()
+            if len(self.src) in [12,17]:
+                self.src=self.src.replace(':','').replace('-','')
+                if len(self.src) == 12:
+                    self.src=sym.join(self.src[i:i+2] for i in range(0,12,2))
+                if case == 'lower':
+                    self.src=self.src.lower()
+                else:
+                    self.src=self.src.upper()
+        if chk:
+            if not IS(self.src).Mac4():
+                return  default
+        return self.src
+
+    def Ip2Num(self,default=False):
+        if IS(self.src).Ipv4():
+            return struct.unpack("!L", socket.inet_aton(self.src))[0]
+        return default
+
+    def Size(self,unit='b:g',default=False):
+        if not isinstance(self.src,int):
+            return default
+        unit_a=unit.lower().split(':')
+        if len(unit_a) != 2:
+            return False
+        def inc(sz):
+            return '%.1f'%(float(sz) / 1024)
+        def dec(sz):
+            return int(sz) * 1024
+        sunit=unit_a[0]
+        eunit=unit_a[1]
+        unit_m=['b','k','m','g','t','p']
+        si=unit_m.index(sunit)
+        ei=unit_m.index(eunit)
+        h=ei-si
+        for i in range(0,abs(h)):
+            if h > 0:
+                self.src=inc(self.src)
+            else:
+                self.src=dec(self.src)
+        return self.src
+
