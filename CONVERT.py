@@ -78,11 +78,6 @@ class CONVERT:
                 return  default
         return self.src
 
-    def Ip2Num(self,default=False):
-        if IS(self.src).Ipv4():
-            return struct.unpack("!L", socket.inet_aton(self.src))[0]
-        return default
-
     def Size(self,unit='b:g',default=False):
         if not isinstance(self.src,int):
             return default

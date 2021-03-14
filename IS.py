@@ -4,7 +4,10 @@ import json as _json
 import pickle
 from klib.kmisc import * # import kmisc(file)'s each function to local module's function
 from klib.MODULE import MODULE
-#from klib.CONVERT import CONVERT
+from klib import TYPES as types
+from klib.IP import IP
+from klib.MAC import MAC
+from klib.GET import GET
 MODULE().Import('filetype')
 
 class IS:
@@ -30,66 +33,13 @@ class IS:
             return False
 
     def Ipv4(self):
-        if isinstance(self.src,str):
-            ipa = self.src.strip().split(".")
-            if len(ipa) != 4: return False
-            for ip in ipa:
-                if not ip.isdigit() or not 0 <= int(ip) <= 255: return False
-            return True
-        elif isinstance(self.src,int):
-            pass
-        return False
+        return IP(self.src).IsV4()
 
     def Mac4(self,**opts):
-        symbol=opts.get('symbol',':')
-        default=opts.get('default',False)
-        if isinstance(self.src,str):
-            self.src=self.src.strip()
-            # make sure the format
-            if 12 <= len(self.src) <= 17:
-                for i in [':','-']:
-                    self.src=self.src.replace(i,'')
-                self.src=symbol.join(self.src[i:i+2] for i in range(0,12,2))
-            # Check the normal mac format
-            octets = self.src.split(symbol)
-            if len(octets) != 6: return False
-            for i in octets:
-                try:
-                   if len(i) != 2 or int(i, 16) > 255:
-                       return False
-                except:
-                   return False
-            return True
-        return default
+        return MAC(self.src).IsV4()
 
-        
     def Ip_with_port(self,port,**opts):
-        default=opts.get('default',False)
-        tcp_sk = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        tcp_sk.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        tcp_sk.settimeout(1)
-        if self.ipv4(self.src) is False or not isinstance(port,(str,int,list,tuple)):
-            return default
-        if isinstance(port,(str,int)):
-            try:
-                port=[int(port)]
-            except:
-                return default
-        for pt in port:
-            try:
-                tcp_sk.connect((self.src,pt))
-                return True
-            except:
-                pass
-        return False
-
-#    def Ip_in_range(self,start,end,**opts):
-#        default=opts.get('default',False)
-#        if self.ipv4(self.src) and self.ipv4(start) and self.ipv4(end):
-#            if CONVERT(start).Ip2Num() <= CONVERT(self.src).Ip2Num() <= CONVERT(end).Ip2Num():
-#                return True
-#            return False
-#        return default
+        return IP(self.src).WithPort(port,**opts)
 
     def File(self):
         if isinstance(self.src,str): return os.path.isfile(self.src)
@@ -132,58 +82,10 @@ class IS:
         return default
 
     def Lost_network(self,**opts):
-        default=opts.get('default',False)
-        timeout_sec=opts.get('timeout',1800)
-        interval=opts.get('interval',2)
-        keep_good=opts.get('keep_good',30)
-        cancel_func=opts.get('cancel_func',None)
-        log=opts.get('log',None)
-        init_time=None
-        if self.ipv4():
-            if not ping(self.src,count=3):
-                if not ping(self.src,count=0,timeout=timeout_sec,keep_good=keep_good,interval=interval,cancel_func=cancel_func,log=log):
-                    return True
-            return False
-        return default
+        return IP(self.src).LostNetwork(**opts)
 
     def Comback_network(self,**opts):
-        default=opts.get('default',False)
-        timeout_sec=opts.get('timeout',1800)
-        interval=opts.get('interval',3)
-        keep=opts.get('keep',20)
-        cancel_func=opts.get('cancel_func',None)
-        log=opts.get('log',None)
-        init_time=None
-        run_time=int_sec()
-        if self.ipv4(self.src):
-            if log:
-                log('[',direct=True,log_level=1)
-            while True:
-                ttt,init_time=timeout(timeout_sec,init_time)
-                if ttt:
-                    if log:
-                        log(']\n',direct=True,log_level=1)
-                    return False,'Timeout monitor'
-                if self.cancel(cancel_func):
-                    if log:
-                        log(']\n',direct=True,log_level=1)
-                    return True,'Stopped monitor by Custom'
-                if ping(self.src,cancel_func=cancel_func):
-                    if (int_sec() - run_time) > keep:
-                        if log:
-                            log(']\n',direct=True,log_level=1)
-                        return True,'OK'
-                    if log:
-                        log('-',direct=True,log_level=1)
-                else:
-                    run_time=int_sec()
-                    if log:
-                        log('.',direct=True,log_level=1)
-                time.sleep(interval)
-            if log:
-                log(']\n',direct=True,log_level=1)
-            return False,'Timeout/Unknown issue'
-        return default,'IP format error'
+        return IP(self.src).Online(**opts)
 
     def Rc(self,chk='_'):
         def trans(irt):
@@ -234,19 +136,79 @@ class IS:
         if self.centos() or self.ubuntu() or self.suse(): return True
         return False
 
-    def Type(self,default=None):
-        if isinstance(self.src,str) and os.path.isfile(self.src):
-            aa=filetype.guess(self.src) 
-            if aa: return aa.__dict__.get('_Type__extension')
-            try:
-                with open(self.src,'rb') as f:
-                    pickle.load(f)
-                    return 'pickle'
-            except:
-                pass
+    def Type(self,name='_#_',default=None,obj='_#_'):
+        if obj == '_#_':
+            obj=self.src
+        if name =='_#_':
+            if isinstance(obj,str) and os.path.isfile(obj):
+                aa=filetype.guess(obj) 
+                if aa: return aa.__dict__.get('_Type__extension')
+                try:
+                    with open(obj,'rb') as f:
+                        pickle.load(f)
+                        return 'pickle'
+                except:
+                    pass
+            else:
+                try:
+                    return type(obj).__name__
+                except:
+                    pass
             return default
         else:
-            try:
-                return type(self.src).__name__
-            except:
-                return default
+            if isinstance(name,(list,tuple)):
+                chk_type=[]
+                for  ii in name:
+                    iii='__'
+                    if ii is None:
+                        iii='NoneType'
+                    elif isinstance(ii,types.TypeType):
+                        iii='{}Type'.format(ii.__name__.capitalize())
+                    elif isinstance(ii,str):
+                        iii='{}Type'.format(ii.capitalize())
+                    type_type=vars(types).get(iii,'__')
+                    if type_type != '__':
+                        chk_type.append(type_type)
+                if isinstance(obj,tuple(chk_type)): return True
+            else:
+                if name is None:
+                    name='NoneType'
+                elif isinstance(name,types.TypeType):
+                    name='{}Type'.format(name.__name__.capitalize())
+                elif isinstance(name,str):
+                    name='{}Type'.format(name.capitalize())
+                type_type=vars(types).get(name,'__')
+                if type_type == '__': return default
+                if isinstance(obj,type_type): return True
+            return False
+
+    def Function(self,obj=None,default=False):
+        if self.Type('function',obj=self.src): return True
+        if obj is None:
+            obj=sys.modules.get('__name__',default)
+        elif isinstance(obj,str):
+            obj=sys.modules.get(obj,default)
+        if obj == default: return default
+        if self.Type('Class',obj=obj) or self.Type('module',obj=obj):
+            if GET(obj).FuncList().get(self.src,default) == default: return default
+            return True
+            #return vars(obj).get(self.src,default)
+        return default
+
+    def Var(self,obj=None,default=False):
+        if obj is None:
+            obj=sys.modules.get('__main__',default)
+        elif isinstance(obj,str):
+            obj=sys.modules.get(obj,default)
+        if obj == default: return default
+        if self.Type(('class','function','instance'),obj=obj):
+            ARGS=GET(obj).Args()
+            for tt in ARGS:
+                if self.src in ARGS[tt]: return True 
+        else:
+            get_var=dict(inspect.getmembers(inspect.stack()[1][0]))["f_globals"].get(self.src,'_#_')
+            if get_var != '_#_':
+                if not self.Type(('module','class','function'),obj=get_var): return True
+#        if hasattr(obj,self.src):
+#            return True
+        return False

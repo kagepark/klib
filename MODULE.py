@@ -5,6 +5,8 @@ from sys import modules
 from sys import version_info
 import importlib
 import pip
+import os
+import subprocess
 
 if version_info[0] < 3:
     pass # Python 2 has built in reload
@@ -56,41 +58,48 @@ class MODULE:
     # isinstance(module,types.ModuleType)
     def Import(self,*inps,**opts):
         force=opts.get('force',None)
+        err=opts.get('err',False)
+        default=opts.get('default',False)
+        ninps=[]
         for inp in inps:
+            ninps=ninps+inp.split(',')
+        for inp in ninps:
             classm=False
+            class_name=None
             inp_a=inp.split()
             if inp_a[0] in ['from','import']:
                 del inp_a[0]
-            if 'as' in inp_a:
-                name=inp_a[-1]
-                module=inp_a[0]
-            elif 'import' in inp_a:
-                name=inp_a[-1]
-                module=inp_a[0]
-                classm=True
-            elif len(inp_a) == 1:
-                name=inp
-                module=inp
-            else:
-                return
+            name=inp_a[-1]
+            module=inp_a[0]
+            if 'import' in inp_a:
+                import_idx=inp_a.index('import')
+                if len(inp_a) > import_idx+1:
+                    class_name=inp_a[import_idx+1]
+                    classm=True
+                else:
+                    print('*** Wrong information')
+                    continue
             if force:
                 if self.Reload(name):
                     continue
             try:
                 if classm:
-                    self.src[name]=getattr(importlib.import_module(module),name)
+                    self.src[name]=getattr(importlib.import_module(module),class_name)
                 else:
                     self.src[name]=importlib.import_module(module)
             except ImportError:
                 if hasattr(pip,'main'):
-                    pip.main(['install',module])
+                    pip_main=pip.main
                 else:
-                    pip._internal.main(['install',module])
-            finally:
-                if classm:
-                    self.src[name]=getattr(importlib.import_module(module),name)
+                    pip_main=pip._internal.main
+                if pip_main(['install',module]) == 0:
+                    if classm:
+                        self.src[name]=getattr(importlib.import_module(module),name)
+                    else:
+                        self.src[name]=importlib.import_module(module)
                 else:
-                    self.src[name]=importlib.import_module(module)
+                    print('*** Need SUDO or ROOT permission for install or --user option')
+                    continue
 
     def Load(self,*inps,**opts):
         self.Import(*inps,**opts)
