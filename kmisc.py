@@ -2625,13 +2625,6 @@ def find_usb_dev(size=None,max_size=None):
 def get_my_directory():
     return os.path.dirname(os.path.realpath(__file__))
 
-def is_json_format(data):
-    try:
-        json.loads(data)
-        return True
-    except:
-        return False
-
 def Abs(*inps,**opts):
     default=opts.get('default',None)
     out=opts.get('out','auto')

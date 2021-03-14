@@ -108,3 +108,32 @@ class IP:
                 log(']\n',direct=True,log_level=1)
             return False,'Timeout/Unknown issue'
         return default,'IP format error'
+
+    def Host(self,ifname=None,mac=None):
+        if ifname or mac:
+            if mac:
+                ifname=get_dev_name_from_mac(mac)
+            return get_net_dev_ip(ifname)
+        else:
+            ifname=get_dev_name_from_mac()
+            if ifname:
+                ip=get_net_dev_ip(ifname)
+                if ip:
+                    return ip
+            return socket.gethostbyname(socket.gethostname())
+
+    def Dev(ifname):
+        if os.path.isdir('/sys/class/net/{}'.format(ifname)) is False:
+            return False
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            return socket.inet_ntoa(fcntl.ioctl(
+                s.fileno(),
+                0x8915,  # SIOCGIFADDR
+                struct.pack('256s', ifname[:15])
+            )[20:24])
+        except:
+            try:
+                return os.popen('ip addr show {}'.format(ifname)).read().split("inet ")[1].split("/")[0]
+            except:
+                return
