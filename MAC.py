@@ -1,6 +1,7 @@
 #Kage Park
+import uuid
 class MAC:
-    def __init__(self,src):
+    def __init__(self,src=None):
         self.src=src
 
     def IsV4(self):
@@ -25,4 +26,40 @@ class MAC:
             return True
         return default
 
+    def FromStr(self,case='lower',default=False,sym=':',chk=False):
+        if isinstance(self.src, str):
+            self.src=self.src.strip()
+            if len(self.src) in [12,17]:
+                self.src=self.src.replace(':','').replace('-','')
+                if len(self.src) == 12:
+                    self.src=sym.join(self.src[i:i+2] for i in range(0,12,2))
+                if case == 'lower':
+                    self.src=self.src.lower()
+                else:
+                    self.src=self.src.upper()
+        if chk:
+            if not IS(self.src).Mac4():
+                return  default
+        return self.src
 
+    def ToStr(self,case='lower',default=False):
+        if IS(self.src).Mac4():
+            if case == 'lower':
+                self.src=self.src.strip().replace(':','').replace('-','').lower()
+            else:
+                self.src=self.src.strip().replace(':','').replace('-','').upper()
+            return self.src
+        return default
+
+    def Host(self,ip=None,dev=None):
+        if isinstance(ip,str):
+            dev_info=get_net_device()
+            for dev in dev_info.keys():
+                if get_net_dev_ip(dev) == ip:
+                    return dev_info[dev]['mac']
+        elif isinstance(dev,str):
+            return get_dev_mac(dev)
+        else:
+            #return ':'.join(['{:02x}'.format((uuid.getnode() >> ele) & 0xff) for ele in range(0,8*6,8)][::-1])
+            self.src='%012x' % uuid.getnode()
+            return self.FromStr()
