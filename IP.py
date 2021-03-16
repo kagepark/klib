@@ -1,5 +1,7 @@
 #Kage Park
 from klib.kmisc import *
+from klib.PING import *
+from klib.TIME import TIME
 
 class IP:
     def __init__(self,src):
@@ -103,7 +105,7 @@ class IP:
                     run_time=int_sec()
                     if log:
                         log('.',direct=True,log_level=1)
-                time.sleep(interval)
+                TIME().Sleep(interval)
             if log:
                 log(']\n',direct=True,log_level=1)
             return False,'Timeout/Unknown issue'

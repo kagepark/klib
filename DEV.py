@@ -1,4 +1,49 @@
 #Kage Park
+from klib.kmisc import *
+
+def get_net_device(name=None):
+    net_dev={}
+    net_dir='/sys/class/net'
+    if os.path.isdir(net_dir):
+        dirpath,dirnames,filenames = list(os.walk(net_dir))[0]
+        if name:
+            if name in dirnames:
+                drv=ls('{}/{}/device/driver/module/drivers'.format(dirpath,name))
+                if drv is False:
+                    drv='unknown'
+                else:
+                    drv=drv[0].split(':')[1]
+                net_dev[name]={
+                    'mac':cat('{}/{}/address'.format(dirpath,name),no_end_newline=True),
+                    'duplex':cat('{}/{}/duplex'.format(dirpath,name),no_end_newline=True),
+                    'mtu':cat('{}/{}/mtu'.format(dirpath,name),no_end_newline=True),
+                    'state':cat('{}/{}/operstate'.format(dirpath,name),no_end_newline=True),
+                    'speed':cat('{}/{}/speed'.format(dirpath,name),no_end_newline=True),
+                    'id':cat('{}/{}/ifindex'.format(dirpath,name),no_end_newline=True),
+                    'driver':drv,
+                    'drv_ver':cat('{}/{}/device/driver/module/version'.format(dirpath,name),no_end_newline=True),
+                    }
+        else:
+            for dev in dirnames:
+                drv=ls('{}/{}/device/driver/module/drivers'.format(dirpath,dev))
+                if drv is False:
+                    drv='unknown'
+                else:
+                    drv=drv[0].split(':')[1]
+                net_dev[dev]={
+                    'mac':cat('{}/{}/address'.format(dirpath,dev),no_end_newline=True),
+                    'duplex':cat('{}/{}/duplex'.format(dirpath,dev),no_end_newline=True),
+                    'mtu':cat('{}/{}/mtu'.format(dirpath,dev),no_end_newline=True),
+                    'state':cat('{}/{}/operstate'.format(dirpath,dev),no_end_newline=True),
+                    'speed':cat('{}/{}/speed'.format(dirpath,dev),no_end_newline=True),
+                    'id':cat('{}/{}/ifindex'.format(dirpath,dev),no_end_newline=True),
+                    'driver':drv,
+                    'drv_ver':cat('{}/{}/device/driver/module/version'.format(dirpath,dev),no_end_newline=True),
+                    }
+        return net_dev
+    else:
+        return False
+
 def find_cdrom_dev(size=None):
     load_kmod(['sr_mod','cdrom','libata','ata_piix','ata_generic','usb-storage'])
     if os.path.isdir('/sys/block') is False:

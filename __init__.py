@@ -7,6 +7,6 @@ from klib.LIST import LIST
 from klib.GET import GET
 from klib.CONVERT import CONVERT
 from klib.BMC import *
-from klib.PRINT import PRINT
+from klib.PRINT import *
 from klib.PING import *
 from klib.IP import IP

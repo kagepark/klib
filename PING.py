@@ -1,4 +1,8 @@
 #Kage Park
+import socket
+from klib.TIME import TIME
+from klib.IS import IS
+from klib.SHELL import SHELL
 
 def ping(host,count=3,interval=1,keep_good=0, timeout=60,lost_mon=False,log=None,stop_func=None,log_format='.',cancel_func=None):
     ICMP_ECHO_REQUEST = 8 # Seems to be the same on Solaris. From /usr/include/linux/icmp.h;
@@ -60,7 +64,7 @@ def ping(host,count=3,interval=1,keep_good=0, timeout=60,lost_mon=False,log=None
         while packet:
             sent = my_socket.sendto(packet, (ip, 1)) # ICMP have no port, So just put dummy port 1
             packet = packet[sent:]
-        delay = receive(my_socket, size, time.time(), timeout)
+        delay = receive(my_socket, size, TIME().Time(), timeout)
         my_socket.close()
         if delay:
             return delay,size
@@ -69,7 +73,7 @@ def ping(host,count=3,interval=1,keep_good=0, timeout=60,lost_mon=False,log=None
         ok=1
         i=1
         while True:
-            if is_cancel(cancel_func):
+            if IS(cancel_func).Cancel():
                 return -1,'canceled'
             delay=pinging(ip,timeout,size)
             if delay:
@@ -93,17 +97,18 @@ def ping(host,count=3,interval=1,keep_good=0, timeout=60,lost_mon=False,log=None
                 if count < 1:
                     return ok,'{} is alive'.format(ip)
             i+=1
-            time.sleep(interval)
+            TIME().Sleep(interval)
 
 
     if log_format=='ping':
-        if find_executable('ping'):
+        if IS('ping').Bin():
             os.system("ping -c {0} {1}".format(count,host))
         else:
             do_ping(host,timeout=timeout,size=64,count=count,log_format='ping',cancel_func=cancel_func)
     else:
-        init_sec=int_sec()
-        chk_sec=int_sec()
+        Time=TIME()
+        init_sec=Time.Init()
+        chk_sec=Time.Init()
         log_type=type(log).__name__
         found_lost=False
         if keep_good > 0 or not count:
@@ -120,21 +125,21 @@ def ping(host,count=3,interval=1,keep_good=0, timeout=60,lost_mon=False,log=None
                timeout=count*interval+timeout
         good=False
         while count > 0:
-           if is_cancel(cancel_func):
+           if IS(cancel_func).Cancel():
                log(' - Canceled ping')
                return False
            if stop_func:
                if log_type == 'function':
                    log(' - Stopped ping')
                return False
-           if find_executable('ping'):
-               rc=rshell("ping -c 1 {}".format(host))
+           if IS('ping').Bin():
+               rc=SHELL().Run("ping -c 1 {}".format(host))
            else:
                rc=do_ping(host,timeout=1,size=64,count=1,log_format=None)
            if rc[0] == 0:
               good=True
               if keep_good:
-                  if good and keep_good and int_sec() - chk_sec >= keep_good:
+                  if good and keep_good and TIME().Now(int) - chk_sec >= keep_good:
                       return True
               else:
                   return True
@@ -142,11 +147,11 @@ def ping(host,count=3,interval=1,keep_good=0, timeout=60,lost_mon=False,log=None
                   log('.',direct=True,log_level=1)
            else:
               good=False
-              chk_sec=int_sec()
+              chk_sec=TIME().Now(int)
               if log_type == 'function':
                   log('x',direct=True,log_level=1)
-           if int_sec() - init_sec > timeout:
+           if TIME().Now(int) - init_sec > timeout:
                return False
-           time.sleep(interval)
+           TIME().Sleep(interval)
            count-=1
         return good

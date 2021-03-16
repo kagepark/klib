@@ -2,6 +2,7 @@
 import sys
 import json as _json
 import pickle
+from distutils.spawn import find_executable
 from klib.kmisc import * # import kmisc(file)'s each function to local module's function
 from klib.MODULE import MODULE
 from klib import TYPES as types
@@ -212,3 +213,12 @@ class IS:
 #        if hasattr(obj,self.src):
 #            return True
         return False
+
+    def Exec(self):
+        if isinstance(self.src,str):
+            if find_executable(self.src):
+                return True
+        return False
+
+    def Bin(self):
+        return self.Exec()

@@ -77,6 +77,25 @@ class GET:
                 return rt[field]
         return default
 
+    def ArgType(self,arg,want='_',get_data=['_']):
+        type_arg=type(arg)
+        if want in get_data:
+            if type_arg.__name__ == 'Request':
+                return arg.method.lower()
+            return type_arg.__name__.lower()
+        if isinstance(want,str):
+            if type_arg.__name__ == 'Request':
+                if want.upper() == 'REQUEST' or want.upper() == arg.method:
+                    return True
+                return False
+            else:
+                if type_arg.__name__.lower() == want.lower():
+                    return True
+        else:
+            if type_arg == want:
+                return True
+        return False
+
     def FuncList(self):
         rt={}
         if isinstance(self.src,(types.ClassType,types.ModuleType)):
@@ -102,3 +121,17 @@ class GET:
     def ParentName(self):
         return traceback.extract_stack(None, 3)[0][2]
 
+    def Dirname(self,default=None):
+        if isinstance(self.src,str):
+            dirname=os.path.dirname(self.src)
+            if dirname == '': return '.'
+            return dirname
+        return default
+
+    def Pwd(self):
+        #return os.path.abspath(__file__)
+        return os.path.dirname(os.path.realpath(__file__))
+
+    def Basename(self):
+        if isinstance(self.src,str): return os.path.basename(self.src)
+        return __file__
