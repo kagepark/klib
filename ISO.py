@@ -1,4 +1,6 @@
 # Kage Park
+from klib.MODULE import MODULE
+
 def get_iso_uid(filename):
     if type(filename) is not str:
         return False,None,None

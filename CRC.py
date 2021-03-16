@@ -1,4 +1,5 @@
 # Kage Park
+from klib.MODULE import MODULE
 
 class CRC:
     def __init__(self,**opts):

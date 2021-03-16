@@ -4,6 +4,7 @@ import pprint
 import pickle
 import sys
 import os
+from klib.MODULE import MODULE
 
 def peeling(v,ignore=[],collect=[],jump=None):
   if isinstance(v,dict):

@@ -1,5 +1,6 @@
 #Kage park
 import os
+from klib.MODULE import MODULE
 
 class COLOR:
     def __init__(self,**opts):

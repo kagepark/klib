@@ -2,7 +2,7 @@
 import time
 from datetime import datetime
 import random
-from klib.CONVERT import CONVERT
+from klib.MODULE import MODULE
 
 class TIME:
     def __init__(self):
@@ -47,7 +47,10 @@ class TIME:
         return time.now()
 
     def Out(self,timeout_sec,default=(24*3600)):
-        timeout_sec=CONVERT(timeout_sec).Int(default=default)
+        try:
+            timeout_sec=int(timeout_sec)
+        except:
+            timeout_sec=default
         if timeout_sec == 0:
             return False
         if self.Int() - self.init_sec >  timeout_sec:

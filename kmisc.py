@@ -9,14 +9,14 @@ import tempfile
 from os import close, remove
 import random
 import hashlib
+from klib.MODULE import MODULE
 
-from klib.CONVERT import CONVERT
-from klib.GET import GET
-from klib.STR import STR
+MODULE().Import('from klib.CONVERT import CONVERT')
+MODULE().Import('from klib.GET import GET')
+MODULE().Import('from klib.STR import STR')
 
 ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
 url_group = re.compile('^(https|http|ftp)://([^/\r\n]+)(/[^\r\n]*)?')
-#log_file=None
 log_intro=3
 log_new_line='\n'
 

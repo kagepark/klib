@@ -1,8 +1,9 @@
 #Kage Park
 import socket
-from klib.SHELL import SHELL
-from klib.DEV import *
-from klib.IS import IS
+from klib.MODULE import MODULE
+MODULE().Import('from klib.DEV import *')
+MODULE().Import('from klib.SHELL import SHELL')
+MODULE().Import('from klib.IS import IS')
 
 class HOST:
     def __init__(self):

@@ -1,4 +1,5 @@
 # Kage Park
+from klib.MODULE import MODULE
 def git_ver(git_dir=None):
     if git_dir is not None and os.path.isdir('{0}/.git'.format(git_dir)):
         gver=rshell('''cd {0} && git describe --tags'''.format(git_dir))

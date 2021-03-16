@@ -1,8 +1,9 @@
 #Kage Park
 import random
 import re
-from klib.IS import IS
-from klib.CONVERT import CONVERT
+from klib.MODULE import MODULE
+MODULE().Import('from klib.IS import IS')
+MODULE().Import('from klib.CONVERT import CONVERT')
 
 class STR(str):
     def __init__(self,src):
@@ -144,5 +145,13 @@ class STR(str):
             return self.src.replace('+','%2B').replace('?','%3F').replace('/','%2F').replace(':','%3A').replace('=','%3D').replace(' ','+')
         return self.src
 
-    def Split(self):
-        pass
+    def Split(self,sym=None):
+        if isinstance(self.src,str):
+            try:
+                return re.split(sym,self.src)
+            except:
+                return self.src.split(sym)
+#            if isinstance(sym,str) and '|' in sym: # splited by '|' for each characters
+#                return re.split(sym,self.src)
+#            else: # Single character
+#                return self.src.split(sym)

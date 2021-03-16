@@ -2,7 +2,8 @@
 import pickle
 import multiprocessing
 import fcntl,socket, struct
-import ssl
+from klib.MODULE import MODULE
+MODULE().Import('ssl')
 
 
 def _dict(pk={},add=False,**var):

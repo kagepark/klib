@@ -60,18 +60,23 @@ class MODULE:
         force=opts.get('force',None)
         err=opts.get('err',False)
         default=opts.get('default',False)
+        dbg=opts.get('dbg',False)
         ninps=[]
         for inp in inps:
             ninps=ninps+inp.split(',')
         for inp in ninps:
+            inp_a=inp.split()
             classm=False
             class_name=None
-            inp_a=inp.split()
+            wildcard=None
             if inp_a[0] in ['from','import']:
                 del inp_a[0]
             name=inp_a[-1]
             module=inp_a[0]
-            if 'import' in inp_a:
+            if '*' not in inp and name in self.src: # already loaded
+                if force: self.Reload(name) # if force then reload
+                continue
+            if '*' not in inp and 'import' in inp_a:
                 import_idx=inp_a.index('import')
                 if len(inp_a) > import_idx+1:
                     class_name=inp_a[import_idx+1]
@@ -79,27 +84,39 @@ class MODULE:
                 else:
                     print('*** Wrong information')
                     continue
-            if force:
-                if self.Reload(name):
-                    continue
             try:
                 if classm:
                     self.src[name]=getattr(importlib.import_module(module),class_name)
                 else:
-                    self.src[name]=importlib.import_module(module)
-            except ImportError:
+                    if '*' in inp:
+                        wildcard=importlib.import_module(module)
+                    else:
+                        self.src[name]=importlib.import_module(module)
+            except AttributeError: # Try Loading looped Module/Class then ignore  or Wrong define
+                continue
+            except ImportError: # Import error then try install
+                pip_main=None
                 if hasattr(pip,'main'):
                     pip_main=pip.main
-                else:
+                elif hasattr(pip,'_internal'):
                     pip_main=pip._internal.main
-                if pip_main(['install',module]) == 0:
+                if pip_main and pip_main(['install',module]) == 0:
                     if classm:
                         self.src[name]=getattr(importlib.import_module(module),name)
                     else:
-                        self.src[name]=importlib.import_module(module)
+                        if '*' in inp:
+                            wildcard=importlib.import_module(module)
+                        else:
+                            self.src[name]=importlib.import_module(module)
                 else:
-                    print('*** Need SUDO or ROOT permission for install or --user option')
+                    if dbg:
+                        print('*** Import Error or Need install with SUDO or ROOT or --user permission')
                     continue
+            if wildcard: # import wildcard
+                for ii in wildcard.__dict__.keys():
+                    if ii not in ['__name__','__doc__','__package__','__loader__','__spec__','__file__','__cached__','__builtins__']:
+                        if not force and ii in self.src: continue
+                        self.src[ii]=wildcard.__dict__[ii]
 
     def Load(self,*inps,**opts):
         self.Import(*inps,**opts)

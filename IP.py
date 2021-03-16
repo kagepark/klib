@@ -1,22 +1,35 @@
 #Kage Park
-from klib.kmisc import *
-from klib.PING import *
-from klib.TIME import TIME
+import socket
+import struct
+from klib.MODULE import MODULE
+MODULE().Import('from klib.kmisc import *')
+MODULE().Import('from klib.PING import ping')
+MODULE().Import('from klib.TIME import TIME')
 
 class IP:
     def __init__(self,src):
         self.src=src
+#        if isinstance(src,str):
+#            self.src=src.strip()
+#        elif isinstance(src,int):
+#            self.src=src
+#        elif isinstance(src,hex):
+#            self.src=src
 
     def IsV4(self,ip=None):
-        if ip is None:
-            ip=self.src
-        if isinstance(ip,str):
-            ipa = ip.strip().split(".")
-            if len(ipa) != 4: return False
-            for ipn in ipa:
-                if not ipn.isdigit() or not 0 <= int(ipn) <= 255: return False
-            return True
-        return False
+        if ip is not None:
+            self.src=ip
+        if self.V4(default=False) is False: return False
+        return True
+#        if ip is None:
+#            ip=self.src
+#        if isinstance(ip,str):
+#            ipa = ip.strip().split(".")
+#            if len(ipa) != 4: return False
+#            for ipn in ipa:
+#                if not ipn.isdigit() or not 0 <= int(ipn) <= 255: return False
+#            return True
+#        return False
 
     def WithPort(self,port,**opts):
         default=opts.get('default',False)
@@ -39,13 +52,26 @@ class IP:
         return False
 
     def Ip2Num(self,ip=None,default=False):
-        if ip is None:
-            ip=self.src
-        if isinstance(ip,int):
-            return ip
-        if self.IsV4(ip):
-            return struct.unpack("!L", socket.inet_aton(ip))[0]
-        return default
+        if ip is not None:
+            self.src=ip
+        return self.V4(out=int,default=default)
+#        if ip is None:
+#            ip=self.src
+#        if isinstance(ip,int):
+#            return ip
+#        if self.IsV4(ip):
+#            return struct.unpack("!L", socket.inet_aton(ip))[0]
+#        return default
+
+    def Ip2Str(self,ip=None,default=False):
+        if ip is not None:
+            self.src=ip
+        return self.V4(out=str,default=default)
+
+    def Ip2hex(self,ip=None,default=False):
+        if ip is not None:
+            self.src=ip
+        return self.V4(out=hex,default=default)
 
     def InRange(self,start_ip,end_ip,**opts):
         default=opts.get('default',False)
@@ -70,6 +96,37 @@ class IP:
                 if not ping(self.src,count=0,timeout=timeout_sec,keep_good=keep_good,interval=interval,cancel_func=cancel_func,log=log):
                     return True
             return False
+        return default
+
+    def V4(self,out='str',default=False):
+        ip_int=None
+        if isinstance(self.src,str):
+            ipstr=self.src.strip()
+            if '0x' in ipstr:
+                ip_int=int(ipstr,16)
+            elif ipstr.isdigit():
+                ip_int=int(ipstr)
+            elif '.' in ipstr:
+                try:
+                    ip_int=struct.unpack("!I", socket.inet_aton(ipstr))[0] # convert Int IP
+                except:
+                    return default
+        elif isinstance(self.src,int):
+            try:
+                socket.inet_ntoa(struct.pack("!I", ipaddr)) # check int is IP or not
+                ip_int=self.src
+            except:
+                return default
+        elif isinstance(self.src,hex):
+            ip_int=int(ipaddr,16)
+
+        if ip_int is not None:
+            if out in ['str',str]:
+                return socket.inet_ntoa(struct.pack("!I", ip_int))
+            elif out in ['int',int]:
+                return ip_int
+            elif out in ['hex',hex]:
+                return hex(ip_int)
         return default
 
     def Online(self,**opts):
@@ -120,7 +177,7 @@ class IP:
             ifname=get_dev_name_from_mac()
             if ifname:
                 ip=get_net_dev_ip(ifname)
-                if ip:
+                if self.IsV4(ip):
                     return ip
             return socket.gethostbyname(socket.gethostname())
 

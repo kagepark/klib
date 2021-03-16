@@ -1,4 +1,7 @@
 #Kage park
+from klib.MODULE import MODULE
+MODULE().Import('requests')
+
 class WEB(request):
     def __init__(self):
         pass

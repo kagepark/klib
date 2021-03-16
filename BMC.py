@@ -6,13 +6,14 @@ import os
 import time
 import sys
 import json
-import klib.kmisc as km
-import klib.DICT as DICT
-import klib.LIST as LIST
-from klib.TIME import TIME
-from klib.SHELL import SHELL
-from klib.PING import *
-from klib.IS import IS
+from klib.MODULE import MODULE
+MODULE().Import('import klib.kmisc as km')
+MODULE().Import('import klib.DICT as DICT')
+MODULE().Import('import klib.LIST as LIST')
+MODULE().Import('from klib.TIME import TIME')
+MODULE().Import('from klib.SHELL import SHELL')
+MODULE().Import('from klib.PING import ping')
+MODULE().Import('from klib.IS import IS')
 
 class Ipmitool:
     def __init__(self,**opts):

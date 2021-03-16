@@ -1,4 +1,5 @@
 #Kage park
+from klib.MODULE import MODULE
 class DIFF:
     def __init__(self):
         pass

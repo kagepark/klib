@@ -1,6 +1,7 @@
 #Kage Park
-from klib.CONVERT import CONVERT
 from distutils.spawn import find_executable
+from klib.MODULE import MODULE
+MODULE().Import('from klib.CONVERT import CONVERT')
 
 class FILE:
     def __init__(self,src):

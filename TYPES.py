@@ -15,22 +15,12 @@ if sys.version_info[0] < 3:
 else:
     LongType = int
 FloatType = float
-BooleanType = bool
-try:
-    ComplexType = complex
-except NameError:
-    pass
-
+BoolType = BooleanType = bool
 StringType = str
-
-# StringTypes is already outdated.  Instead of writing "type(x) in
-# types.StringTypes", you should use "isinstance(x, basestring)".  But
-# we keep around for compatibility with Python 2.2.
-try:
-    UnicodeType = unicode
-    StringTypes = (StringType, UnicodeType)
-except NameError:
-    StringTypes = (StringType,)
+if sys.version_info[0] < 3:
+    ByteType=unicode
+else:
+    ByteType=bytes
 
 TupleType = tuple
 ListType = list
@@ -61,21 +51,12 @@ BuiltinMethodType = type([].append)     # Same as BuiltinFunctionType
 
 ModuleType = type(sys)
 
-try:
-    raise TypeError
-except TypeError:
-    tb = sys.exc_info()[2]
-    TracebackType = type(tb)
-    FrameType = type(tb.tb_frame)
-    del tb
-
 SliceType = slice
 EllipsisType = type(Ellipsis)
 
 DictProxyType = type(TypeType.__dict__)
 NotImplementedType = type(NotImplemented)
 
-# For Jython, the following two types are identical
 if sys.version_info[0] < 3:
     GetSetDescriptorType = type(FunctionType.func_code)
     MemberDescriptorType = type(FunctionType.func_globals)

@@ -1,8 +1,9 @@
 #Kage Park
 import socket
-from klib.TIME import TIME
-from klib.IS import IS
-from klib.SHELL import SHELL
+from klib.MODULE import MODULE
+MODULE().Import('from klib.IS import IS')
+MODULE().Import('from klib.SHELL import SHELL')
+MODULE().Import('from klib.TIME import TIME')
 
 def ping(host,count=3,interval=1,keep_good=0, timeout=60,lost_mon=False,log=None,stop_func=None,log_format='.',cancel_func=None):
     ICMP_ECHO_REQUEST = 8 # Seems to be the same on Solaris. From /usr/include/linux/icmp.h;

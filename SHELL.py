@@ -1,9 +1,10 @@
 #Kage park
+import sys
 import subprocess
 from threading import Thread
-from klib.IS import IS
-from klib.TIME import TIME
-import sys
+from klib.MODULE import MODULE
+MODULE().Import('from klib.IS import IS')
+MODULE().Import('from klib.TIME import TIME')
 
 class SHELL:
     def __init__(self):

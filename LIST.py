@@ -1,6 +1,7 @@
 #Kage Park
 import re
-from klib.kmisc import *
+from klib.MODULE import MODULE
+MODULE().Import('from klib.kmisc import *')
 
 class LIST(list):
     def __init__(self,*inps):

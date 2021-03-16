@@ -3,13 +3,17 @@ import sys
 import json as _json
 import pickle
 from distutils.spawn import find_executable
-from klib.kmisc import * # import kmisc(file)'s each function to local module's function
 from klib.MODULE import MODULE
-from klib import TYPES as types
-from klib.IP import IP
-from klib.MAC import MAC
-from klib.GET import GET
+MODULE().Import('from klib.kmisc import *') # import kmisc(file)'s each function to local module's function
+MODULE().Import('from klib import TYPES as types')
+MODULE().Import('from klib.IP import IP')
+MODULE().Import('from klib.MAC import MAC')
+MODULE().Import('from klib.GET import GET')
 MODULE().Import('filetype')
+#from klib import TYPES as types
+#from klib.IP import IP
+#from klib.MAC import MAC
+#from klib.GET import GET
 
 class IS:
     def __init__(self,src=None,**opts):
@@ -143,16 +147,16 @@ class IS:
         if name =='_#_':
             if isinstance(obj,str) and os.path.isfile(obj):
                 aa=filetype.guess(obj) 
-                if aa: return aa.__dict__.get('_Type__extension')
+                if aa: return aa.__dict__.get('_Type__extension') # File Type
                 try:
-                    with open(obj,'rb') as f:
+                    with open(obj,'rb') as f: # Pickle Type
                         pickle.load(f)
                         return 'pickle'
                 except:
                     pass
             else:
                 try:
-                    return type(obj).__name__
+                    return type(obj).__name__ # Object Name
                 except:
                     pass
             return default
@@ -170,7 +174,8 @@ class IS:
                     type_type=vars(types).get(iii,'__')
                     if type_type != '__':
                         chk_type.append(type_type)
-                if isinstance(obj,tuple(chk_type)): return True
+                if chk_type:
+                    return isinstance(obj,tuple(chk_type))
             else:
                 if name is None:
                     name='NoneType'
@@ -180,7 +185,7 @@ class IS:
                     name='{}Type'.format(name.capitalize())
                 type_type=vars(types).get(name,'__')
                 if type_type == '__': return default
-                if isinstance(obj,type_type): return True
+                return isinstance(obj,type_type)
             return False
 
     def Function(self,obj=None,default=False):

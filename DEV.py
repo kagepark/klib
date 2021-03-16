@@ -1,5 +1,6 @@
 #Kage Park
-from klib.kmisc import *
+from klib.MODULE import MODULE
+MODULE().Import('from klib.kmisc import *')
 
 def get_net_device(name=None):
     net_dev={}

@@ -6,10 +6,10 @@ from __future__ import print_function
 import sys
 import re
 import ast
-
-from klib.COLOR import COLOR
-from klib.STR import STR
 from pprint import pprint
+from klib.MODULE import MODULE
+MODULE().Import('from klib.COLOR import COLOR')
+MODULE().Import('from klib.STR import STR')
 
 def space(space_num=0,_space_='   '):
     space_str=''

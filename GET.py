@@ -1,9 +1,10 @@
-from klib.kmisc import * # import kmisc(file)'s each function to local module's function
 import os
 import pickle
-import types
-import klib.TYPES as types
 import sys
+from klib.MODULE import MODULE
+MODULE().Import('from klib.kmisc import *') # import kmisc(file)'s each function to local module's function
+MODULE().Import('import klib.TYPES as types')
+#import klib.TYPES as types
 
 class GET:
     def __init__(self,src=None,**opts):

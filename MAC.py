@@ -1,5 +1,7 @@
 #Kage Park
 import uuid
+from klib.MODULE import MODULE
+
 class MAC:
     def __init__(self,src=None):
         self.src=src

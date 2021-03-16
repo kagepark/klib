@@ -1,12 +1,22 @@
 #Kage Park
-from klib.kmisc import *
-from klib.IS import IS
 import ast
 import struct
+from klib.MODULE import MODULE
+MODULE().Import('from klib.kmisc import *')
+MODULE().Import('from klib.IS import IS')
+#from klib.IS import IS
 
 class CONVERT:
     def __init__(self,src):
         self.src=src
+
+#    def Int(self,encode='utf-8'):
+#        if IS().Py3():
+#            if isinstance(self.src,bytes):
+#                return int(self.src.hex(),16)
+#            else:
+#                return int(CONVERT(self.src).Bytes(encode=encode).hex(),16)
+#        return int(self.src.encode('hex'),16)
 
     def Int(self,default=False):
         if isinstance(self.src,int): return self.src

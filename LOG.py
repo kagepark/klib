@@ -1,6 +1,8 @@
 #Kage Park
 import syslog
-from klib.GET import GET
+from klib.MODULE import MODULE
+MODULE().Import('from klib.GET import GET')
+
 
 class LOG:
     def __init__(self,src,log_limit=3,log_file=None,log_file_mode='a+'):
