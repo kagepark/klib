@@ -143,3 +143,6 @@ class STR(str):
         if isinstance(self.src,str):
             return self.src.replace('+','%2B').replace('?','%3F').replace('/','%2F').replace(':','%3A').replace('=','%3D').replace(' ','+')
         return self.src
+
+    def Split(self):
+        pass
