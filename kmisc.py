@@ -10,7 +10,7 @@ from os import close, remove
 import random
 import hashlib
 from klib.MODULE import MODULE
-
+MODULE().Import('from klib.Type import Type')
 MODULE().Import('from klib.CONVERT import CONVERT')
 MODULE().Import('from klib.GET import GET')
 MODULE().Import('from klib.STR import STR')

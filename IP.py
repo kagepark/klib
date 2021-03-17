@@ -2,6 +2,7 @@
 import socket
 import struct
 from klib.MODULE import MODULE
+MODULE().Import('from klib.Type import Type')
 MODULE().Import('from klib.kmisc import *')
 MODULE().Import('from klib.PING import ping')
 MODULE().Import('from klib.TIME import TIME')

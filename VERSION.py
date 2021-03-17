@@ -1,6 +1,7 @@
 #Kage Park
 from distutils.version import LooseVersion
 from klib.MODULE import MODULE
+MODULE().Import('from klib.Type import Type')
 
 class VERSION:
     def __init__(self):

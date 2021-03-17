@@ -1,6 +1,7 @@
 #Kage Park
 import syslog
 from klib.MODULE import MODULE
+MODULE().Import('from klib.Type import Type')
 MODULE().Import('from klib.GET import GET')
 
 

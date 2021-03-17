@@ -2,6 +2,7 @@
 import random
 import re
 from klib.MODULE import MODULE
+MODULE().Import('from klib.Type import Type')
 MODULE().Import('from klib.IS import IS')
 MODULE().Import('from klib.CONVERT import CONVERT')
 

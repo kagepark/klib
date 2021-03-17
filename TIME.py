@@ -3,6 +3,7 @@ import time
 from datetime import datetime
 import random
 from klib.MODULE import MODULE
+MODULE().Import('from klib.Type import Type')
 
 class TIME:
     def __init__(self):

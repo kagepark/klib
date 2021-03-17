@@ -2,9 +2,9 @@
 import ast
 import struct
 from klib.MODULE import MODULE
+MODULE().Import('from klib.Type import Type')
 MODULE().Import('from klib.kmisc import *')
 MODULE().Import('from klib.IS import IS')
-#from klib.IS import IS
 
 class CONVERT:
     def __init__(self,src):

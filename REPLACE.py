@@ -1,5 +1,7 @@
 #Kage
 import re
+from klib.MODULE import MODULE
+MODULE().Import('from klib.Type import Type')
 
 def sreplace(pattern,sub,string):
     return re.sub('^%s' % pattern, sub, string)

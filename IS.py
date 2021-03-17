@@ -1,19 +1,15 @@
 # Kage Park
-import sys
 import json as _json
 import pickle
+#import inspect
+from sys import modules
 from distutils.spawn import find_executable
 from klib.MODULE import MODULE
+MODULE().Import('from klib.Type import Type')
 MODULE().Import('from klib.kmisc import *') # import kmisc(file)'s each function to local module's function
-MODULE().Import('from klib import TYPES as types')
 MODULE().Import('from klib.IP import IP')
 MODULE().Import('from klib.MAC import MAC')
 MODULE().Import('from klib.GET import GET')
-MODULE().Import('filetype')
-#from klib import TYPES as types
-#from klib.IP import IP
-#from klib.MAC import MAC
-#from klib.GET import GET
 
 class IS:
     def __init__(self,src=None,**opts):
@@ -21,12 +17,12 @@ class IS:
         self.rtd=opts.get('rtd',{'GOOD':[True,'True','Good','Ok','Pass',{'OK'},0],'FAIL':[False,'False','Fail',{'FAL'}],'NONE':[None,'None','N/A',{'NA'}],'IGNO':['IGNO','Ignore',{'IGN'}],'ERRO':['ERR','Error',{'ERR'}],'WARN':['Warn',{'WAR'}],'UNKN':['Unknown','UNKN',{'UNK'}],'JUMP':['Jump',{'JUMP'}]})
 
     def Py2(self):
-        if sys.version_info[0] < 3:
+        if py_version[0] < 3:
             return True
         return False
 
     def Py3(self):
-        if sys.version_info[0] >= 3:
+        if py_version[0] >= 3:
             return True
         return False
 
@@ -140,53 +136,6 @@ class IS:
     def Linux(self):
         if self.centos() or self.ubuntu() or self.suse(): return True
         return False
-
-    def Type(self,name='_#_',default=None,obj='_#_'):
-        if obj == '_#_':
-            obj=self.src
-        if name =='_#_':
-            if isinstance(obj,str) and os.path.isfile(obj):
-                aa=filetype.guess(obj) 
-                if aa: return aa.__dict__.get('_Type__extension') # File Type
-                try:
-                    with open(obj,'rb') as f: # Pickle Type
-                        pickle.load(f)
-                        return 'pickle'
-                except:
-                    pass
-            else:
-                try:
-                    return type(obj).__name__ # Object Name
-                except:
-                    pass
-            return default
-        else:
-            if isinstance(name,(list,tuple)):
-                chk_type=[]
-                for  ii in name:
-                    iii='__'
-                    if ii is None:
-                        iii='NoneType'
-                    elif isinstance(ii,types.TypeType):
-                        iii='{}Type'.format(ii.__name__.capitalize())
-                    elif isinstance(ii,str):
-                        iii='{}Type'.format(ii.capitalize())
-                    type_type=vars(types).get(iii,'__')
-                    if type_type != '__':
-                        chk_type.append(type_type)
-                if chk_type:
-                    return isinstance(obj,tuple(chk_type))
-            else:
-                if name is None:
-                    name='NoneType'
-                elif isinstance(name,types.TypeType):
-                    name='{}Type'.format(name.__name__.capitalize())
-                elif isinstance(name,str):
-                    name='{}Type'.format(name.capitalize())
-                type_type=vars(types).get(name,'__')
-                if type_type == '__': return default
-                return isinstance(obj,type_type)
-            return False
 
     def Function(self,obj=None,default=False):
         if self.Type('function',obj=self.src): return True

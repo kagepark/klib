@@ -1,5 +1,6 @@
 # Kage Park
 from klib.MODULE import MODULE
+MODULE().Import('from klib.Type import Type')
 
 class CRC:
     def __init__(self,**opts):

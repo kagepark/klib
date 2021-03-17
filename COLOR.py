@@ -1,6 +1,8 @@
 #Kage park
 import os
 from klib.MODULE import MODULE
+MODULE().Import('from klib.Type import Type')
+
 
 class COLOR:
     def __init__(self,**opts):

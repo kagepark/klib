@@ -1,5 +1,6 @@
 #Kage park
 from klib.MODULE import MODULE
+MODULE().Import('from klib.Type import Type')
 MODULE().Import('requests')
 
 class WEB(request):

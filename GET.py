@@ -1,10 +1,10 @@
 import os
 import pickle
 import sys
+import inspect
 from klib.MODULE import MODULE
-MODULE().Import('from klib.kmisc import *') # import kmisc(file)'s each function to local module's function
-MODULE().Import('import klib.TYPES as types')
-#import klib.TYPES as types
+MODULE().Import('from klib.Type import Type')
+MODULE().Import('from klib.FILE import FILE')
 
 class GET:
     def __init__(self,src=None,**opts):
@@ -14,9 +14,9 @@ class GET:
         return repr(type(self.src).__name__)
 
     def Index(self,find,default=None,err=False):
-        if isinstance(self.src,(list,tuple,str)):
+        if Type(self.src,(list,tuple,str)):
             if find in self.src: return self.src.index(find)
-        elif isinstance(self.src,dict):
+        elif Type(self.src,dict):
             for i in self.src:
                 if find == self.src[i]: return i
         if default == {'org'}:
@@ -24,11 +24,11 @@ class GET:
         return default
 
     def Value(self,find,default=None,err=False):
-        if isinstance(self.src,(list,tuple,str)):
-            if isinstance(find,int):
+        if Type(self.src,(list,tuple,str)):
+            if Type(find,int):
                 if len(self.src) > find:
                     return self.src[find]
-        elif isinstance(self.src,dict):
+        elif Type(self.src,dict):
             if find in self.src:
                 return self.src[find]
         if default == {'org'}:
@@ -43,17 +43,17 @@ class GET:
             except:
                 pass
         elif os.path.isfile(self.src):
-            return file_rw(self.src)
+            return FILE().Get(self.src)
         return default
 
     def Args(self,field='all',default={}):
         rt={}
-        if isinstance(self.src,(types.ClassType,types.InstanceType)):
+        if Type(self.src,('classobj,instance')):
             try:
                 self.src=getattr(self.src,'__init__')
             except:
                 return self.src.__dict__
-        elif not isinstance(self.src,types.FunctionType):
+        elif not Type(self.src,'function'):
             return default
         args, varargs, keywords, defaults = inspect.getargspec(self.src)
         if defaults is not None:
@@ -66,7 +66,7 @@ class GET:
             rt['varargs']=varargs
         if keywords:
             rt['keywards']=keywords
-        if isinstance(field,(list,tuple)):
+        if Type(field,(list,tuple)):
             rts=[]
             for ii in field:
                 rts.append(rt.get(ii,default))
@@ -84,7 +84,7 @@ class GET:
             if type_arg.__name__ == 'Request':
                 return arg.method.lower()
             return type_arg.__name__.lower()
-        if isinstance(want,str):
+        if Type(want,str):
             if type_arg.__name__ == 'Request':
                 if want.upper() == 'REQUEST' or want.upper() == arg.method:
                     return True
@@ -99,11 +99,27 @@ class GET:
 
     def FuncList(self):
         rt={}
-        if isinstance(self.src,(types.ClassType,types.ModuleType)):
+        if Type(self.src,'instance'):
+            self.src=self.src.__class__
+        if Type(self.src,('classobj','module')):
             for name,fobj in inspect.getmembers(self.src):
-                if inspect.isfunction(fobj):
+                if Type(fobj,('function','instancemethod')):
                     rt.update({name:fobj})
         return rt
+
+    def FunctionList(self):
+        return self.FuncList()
+
+    def Func(self,name,default=None):
+        funcList=self.FuncList():
+        if isinstance(name,str):
+            if name in funcList: return funcList[name]
+        elif Type(name,('function','instancemeethod')):
+            return name
+        return default
+
+    def Function(self,name,default=None):
+        return self.Func(name,default=default)
 
     def FuncName(self,default=False,detail=False):
         #return traceback.extract_stack(None, 2)[0][2]
@@ -119,20 +135,42 @@ class GET:
         except:
             return default
 
+    def FunctionName(self,default=False,detail=False):
+        return self.FuncName(default=default,detail=detail)
+
     def ParentName(self):
         return traceback.extract_stack(None, 3)[0][2]
 
-    def Dirname(self,default=None):
-        if isinstance(self.src,str):
+    def Class(self,default=None):
+        if Type(self.src,'instance'):
+            return self.src.__class__
+        elif Type(self.src,'classobj'):
+            return self.src
+        else:
+            return default
+
+    def ClassName(self,default=None):
+        if Type(self.src,'instance'):
+            return self.src.__class__.__name__
+        elif Type(self.src,'classobj'):
+            return self.src.__name__
+        else:
+            return default
+
+    def DirName(self,default=None):
+        if Type(self.src,str):
             dirname=os.path.dirname(self.src)
             if dirname == '': return '.'
             return dirname
         return default
+
+    def DirectoryName(self,default=None):
+        return self.DirName(default=default)
 
     def Pwd(self):
         #return os.path.abspath(__file__)
         return os.path.dirname(os.path.realpath(__file__))
 
     def Basename(self):
-        if isinstance(self.src,str): return os.path.basename(self.src)
+        if Type(self.src,str): return os.path.basename(self.src)
         return __file__

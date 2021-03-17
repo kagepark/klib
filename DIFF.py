@@ -1,5 +1,7 @@
 #Kage park
 from klib.MODULE import MODULE
+MODULE().Import('from klib.Type import Type')
+
 class DIFF:
     def __init__(self):
         pass

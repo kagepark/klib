@@ -1,6 +1,7 @@
 #Kage Park
 import re
 from klib.MODULE import MODULE
+MODULE().Import('from klib.Type import Type')
 MODULE().Import('from klib.kmisc import *')
 
 class LIST(list):

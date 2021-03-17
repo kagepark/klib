@@ -8,6 +8,7 @@ import re
 import ast
 from pprint import pprint
 from klib.MODULE import MODULE
+MODULE().Import('from klib.Type import Type')
 MODULE().Import('from klib.COLOR import COLOR')
 MODULE().Import('from klib.STR import STR')
 

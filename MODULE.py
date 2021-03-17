@@ -1,18 +1,20 @@
 #Kage Park
-import types
 import inspect
 from sys import modules
 from sys import version_info
 import importlib
 import pip
-import os
-import subprocess
 
-if version_info[0] < 3:
-    pass # Python 2 has built in reload
+if version_info[0] < 3: # Python 2 has built in reload
+    py2=True
+    py3=False
 elif version_info[0] == 3 and version_info[1] <= 4:
+    py2=False
+    py3=True
     from imp import reload # Python 3.0 - 3.4 
 else:
+    py2=False
+    py3=True
     from importlib import reload # Python 3.5+
 
 class MODULE:
@@ -42,7 +44,7 @@ class MODULE:
                 del self.src[name]
                 if name in modules:
                     del modules[name]
-            elif isinstance(name,types.ModuleType):
+            elif isinstance(name,type(inspect)):
                 try:
                     nname = name.__spec__.name
                 except AttributeError:
@@ -55,7 +57,6 @@ class MODULE:
     #    name = module.__spec__.name
     #except AttributeError:
     #    name = module.__name__
-    # isinstance(module,types.ModuleType)
     def Import(self,*inps,**opts):
         force=opts.get('force',None)
         err=opts.get('err',False)

@@ -1,6 +1,7 @@
 #Kage Park
 import socket
 from klib.MODULE import MODULE
+MODULE().Import('from klib.Type import Type')
 MODULE().Import('from klib.IS import IS')
 MODULE().Import('from klib.SHELL import SHELL')
 MODULE().Import('from klib.TIME import TIME')

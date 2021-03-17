@@ -1,6 +1,7 @@
 #Kage Park
 import uuid
 from klib.MODULE import MODULE
+MODULE().Import('from klib.Type import Type')
 
 class MAC:
     def __init__(self,src=None):

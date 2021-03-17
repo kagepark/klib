@@ -1,4 +1,8 @@
 #Kage Park
+from klib.MODULE import MODULE
+MODULE().Import('from klib.Type import Type')
+
+
 def screen_kill(title):
     ids=screen_id(title)
     if len(ids) == 1:

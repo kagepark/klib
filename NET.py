@@ -3,6 +3,7 @@ import pickle
 import multiprocessing
 import fcntl,socket, struct
 from klib.MODULE import MODULE
+MODULE().Import('from klib.Type import Type')
 MODULE().Import('ssl')
 
 

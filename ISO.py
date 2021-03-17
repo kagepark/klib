@@ -1,5 +1,7 @@
 # Kage Park
 from klib.MODULE import MODULE
+MODULE().Import('from klib.Type import Type')
+
 
 def get_iso_uid(filename):
     if type(filename) is not str:
