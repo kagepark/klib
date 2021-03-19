@@ -66,6 +66,16 @@ class IS:
         except:
             return False
 
+    def Pickle(self):
+        if isinstance(self.src,str) and os.path.isfile(self.src):
+            try:
+                with open(self.src,'rb') as f: # Pickle Type
+                    pickle.load(f)
+                    return True
+            except:
+                pass
+        return False
+
     def Matrix(self,**opts):
         default=opts.get('default',False)
         if isinstance(self.src,(tuple,list)) and len(self.src) >= 1:
