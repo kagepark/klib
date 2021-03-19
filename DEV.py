@@ -1,5 +1,5 @@
 #Kage Park
-from klib.MODULE import MODULE
+from klib.MODULE import *
 MODULE().Import('from klib.Type import Type')
 
 def get_net_device(name=None):

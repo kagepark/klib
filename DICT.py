@@ -4,8 +4,7 @@ import pprint
 import pickle
 import sys
 import os
-from klib.MODULE import MODULE
-MODULE().Import('from klib.Type import Type')
+from klib.MODULE import *
 
 def peeling(v,ignore=[],collect=[],jump=None):
   if isinstance(v,dict):

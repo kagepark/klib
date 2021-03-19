@@ -1,25 +1,35 @@
 #Kage Park
 import inspect
 from sys import modules
+from sys import path as mod_path
 from sys import version_info
 import importlib
 import pip
 
 if version_info[0] < 3: # Python 2 has built in reload
-    py2=True
-    py3=False
+    Py2=True
+    Py3=False
 elif version_info[0] == 3 and version_info[1] <= 4:
-    py2=False
-    py3=True
+    Py2=False
+    Py3=True
     from imp import reload # Python 3.0 - 3.4 
 else:
-    py2=False
-    py3=True
+    Py2=False
+    Py3=True
     from importlib import reload # Python 3.5+
 
 class MODULE:
-    def __init__(self):
+    def __init__(self,path=None):
         self.src=dict(inspect.getmembers(inspect.stack()[1][0]))["f_globals"] # Get my parent's globals()
+        if isinstance(path,str):
+            for ii in path.split(','):
+                mod_path.append(ii)
+
+    def AppendPath(self,*inp):
+        for pp in inp:
+            if isinstance(pp,str):
+                for ii in pp.split(','):
+                    mod_path.append(ii)
 
     def Loaded(self,name):
         if type(name).__name__ == 'module':
@@ -77,7 +87,7 @@ class MODULE:
             if '*' not in inp and name in self.src: # already loaded
                 if force: self.Reload(name) # if force then reload
                 continue
-            if '*' not in inp and 'import' in inp_a:
+            if 'import' in inp_a:
                 import_idx=inp_a.index('import')
                 if len(inp_a) > import_idx+1:
                     class_name=inp_a[import_idx+1]
@@ -86,11 +96,11 @@ class MODULE:
                     print('*** Wrong information')
                     continue
             try:
-                if classm:
-                    self.src[name]=getattr(importlib.import_module(module),class_name)
+                if class_name == '*':
+                    wildcard=importlib.import_module(module)
                 else:
-                    if '*' in inp:
-                        wildcard=importlib.import_module(module)
+                    if classm:
+                        self.src[name]=getattr(importlib.import_module(module),class_name)
                     else:
                         self.src[name]=importlib.import_module(module)
             except AttributeError: # Try Loading looped Module/Class then ignore  or Wrong define
@@ -102,11 +112,11 @@ class MODULE:
                 elif hasattr(pip,'_internal'):
                     pip_main=pip._internal.main
                 if pip_main and pip_main(['install',module]) == 0:
-                    if classm:
-                        self.src[name]=getattr(importlib.import_module(module),name)
+                    if class_name == '*':
+                        wildcard=importlib.import_module(module)
                     else:
-                        if '*' in inp:
-                            wildcard=importlib.import_module(module)
+                        if classm:
+                            self.src[name]=getattr(importlib.import_module(module),name)
                         else:
                             self.src[name]=importlib.import_module(module)
                 else:
@@ -116,7 +126,14 @@ class MODULE:
             if wildcard: # import wildcard
                 for ii in wildcard.__dict__.keys():
                     if ii not in ['__name__','__doc__','__package__','__loader__','__spec__','__file__','__cached__','__builtins__']:
-                        if not force and ii in self.src: continue
+                        if ii in self.src:
+                            # swap Same Name between module(my module of the wild card) and class(wild card import class name)
+                            if ii in wildcard.__dict__.keys():
+                                if type(self.src[ii]).__name__ == 'module' and type(wildcard.__dict__[ii]).__name__ == 'classobj':
+#                                    TMP=self.src[ii] # move to local temporay 
+                                    self.src[ii]=wildcard.__dict__[ii]
+                                    continue
+                            if not force: continue # Not force then ignore same name
                         self.src[ii]=wildcard.__dict__[ii]
 
     def Load(self,*inps,**opts):

@@ -1,7 +1,6 @@
 #Kage park
 import os
-from klib.MODULE import MODULE
-MODULE().Import('from klib.Type import Type')
+from klib.MODULE import *
 
 
 class COLOR:

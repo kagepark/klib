@@ -4,7 +4,7 @@ import pickle
 #import inspect
 from sys import modules
 from distutils.spawn import find_executable
-from klib.MODULE import MODULE
+from klib.MODULE import *
 MODULE().Import('from klib.Type import Type')
 MODULE().Import('from klib.kmisc import *') # import kmisc(file)'s each function to local module's function
 MODULE().Import('from klib.IP import IP')
@@ -138,13 +138,13 @@ class IS:
         return False
 
     def Function(self,obj=None,default=False):
-        if self.Type('function',obj=self.src): return True
+        if Type(self.src,'function'): return True
         if obj is None:
             obj=sys.modules.get('__name__',default)
         elif isinstance(obj,str):
             obj=sys.modules.get(obj,default)
         if obj == default: return default
-        if self.Type('Class',obj=obj) or self.Type('module',obj=obj):
+        if Type(obj,'Class','module'):
             if GET(obj).FuncList().get(self.src,default) == default: return default
             return True
             #return vars(obj).get(self.src,default)
@@ -156,14 +156,14 @@ class IS:
         elif isinstance(obj,str):
             obj=sys.modules.get(obj,default)
         if obj == default: return default
-        if self.Type(('class','function','instance'),obj=obj):
+        if Type(obj,'class','function','instance'):
             ARGS=GET(obj).Args()
             for tt in ARGS:
                 if self.src in ARGS[tt]: return True 
         else:
             get_var=dict(inspect.getmembers(inspect.stack()[1][0]))["f_globals"].get(self.src,'_#_')
             if get_var != '_#_':
-                if not self.Type(('module','class','function'),obj=get_var): return True
+                if not Type(get_var,'module','class','function'): return True
 #        if hasattr(obj,self.src):
 #            return True
         return False

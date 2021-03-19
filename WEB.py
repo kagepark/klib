@@ -1,29 +1,28 @@
 #Kage park
 from klib.MODULE import MODULE
 MODULE().Import('from klib.Type import Type')
-MODULE().Import('requests')
 
-class WEB(request):
-    def __init__(self):
-        pass
+class WEB:
+    def __init__(self,requests):
+        self.requests=requests
 
     def Session(self):
-        return request.session._get_or_create_session_key()
+        return self.requests.session._get_or_create_session_key()
 
     def ClietIp(self):
-        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        x_forwarded_for = self.requests.META.get('HTTP_X_FORWARDED_FOR')
         if x_forwarded_for:
             ip = x_forwarded_for.split(',')[0]
         else:
-            ip = request.META.get('REMOTE_ADDR')
+            ip = self.requests.META.get('REMOTE_ADDR')
         return ip
 
     def ServerIp(self):
-        return request.get_host().split(':')
+        return self.requests.get_host().split(':')
 
     def Request(self,host_url,**opts):
         # remove SSL waring error message (test)
-        requests.packages.urllib3.disable_warnings()
+        self.requests.packages.urllib3.disable_warnings()
 
         mode=opts.get('mode','get')
         max_try=opts.get('max_try',3)
@@ -76,7 +75,7 @@ class WEB(request):
                 host_url='{}/{}'.format(host_url,request_url)
         else:
             return False,'host_url or ip not found'
-        ss = requests.Session()
+        ss = self.requests.Session()
         for j in range(0,max_try):
             try:
                 if mode == 'post':
@@ -84,7 +83,7 @@ class WEB(request):
                 else:
                     r =ss.get(host_url,verify=verify,auth=auth,data=data,files=files,timeout=timeout,json=json_data)
                 return True,r
-            except requests.exceptions.RequestException as e:
+            except self.requests.exceptions.RequestException as e:
                 host_url_a=host_url.split('/')[2]
                 server_a=host_url_a.split(':')
                 if len(server_a) == 1:

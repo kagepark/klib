@@ -1,13 +1,27 @@
 #Kage park
-from klib.MODULE import MODULE
-MODULE().Import('from klib.Type import Type')
-MODULE().Import('klib.kmisc import *')
-MODULE().Import('from klib.IS import IS')   # import Is files's Class Is to local class
-MODULE().Import('from klib.DICT import DICT')
-MODULE().Import('from klib.LIST import LIST')
-MODULE().Import('from klib.GET import GET')
-MODULE().Import('from klib.CONVERT import CONVERT')
-MODULE().Import('from klib.BMC import *')
-MODULE().Import('from klib.PRINT import *')
-MODULE().Import('from klib.PING import *')
-MODULE().Import('from klib.IP import IP')
+
+#######################################
+# Load All files
+#######################################
+import os
+from klib.MODULE import *
+for ii in os.listdir(os.path.dirname(__file__)):
+    if ii in ['__init__.py','MODULE.py','test.py']: continue
+    ii_a=ii.split('.')
+    if len(ii_a) == 2 and ii_a[-1] == 'py':
+        MODULE().Import('klib.{} import *'.format(ii_a[0]))
+#######################################
+# Load defined Files
+#######################################
+# from klib.MODULE import *
+# from klib.Type import Type
+# from klib.kmisc import *
+# from klib.IS import IS
+# from klib.DICT import DICT
+# from klib.LIST import LIST
+# from klib.GET import GET
+# from klib.CONVERT import CONVERT
+# from klib.BMC import *
+# from klib.PRINT import *
+# from klib.PING import *
+# from klib.IP import IP

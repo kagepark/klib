@@ -1,8 +1,7 @@
 #Kage Park
 import ast
 import struct
-from klib.MODULE import MODULE
-MODULE().Import('from klib.Type import Type')
+from klib.MODULE import *
 MODULE().Import('from klib.kmisc import *')
 MODULE().Import('from klib.IS import IS')
 
@@ -26,7 +25,7 @@ class CONVERT:
             return default
 
     def Str2int(self,encode='utf-8'):
-        if IS().py3():
+        if Py3:
             if isinstance(self.src,bytes):
                 return int(self.src.hex(),16)
             else:
@@ -34,7 +33,7 @@ class CONVERT:
         return int(self.src.encode('hex'),16)
 
     def Bytes(self,encode='utf-8'):
-        if IS().py3():
+        if Py3:
             if isinstance(self.src,bytes):
                 return self.src
             else:
@@ -43,8 +42,8 @@ class CONVERT:
 
     def Str(self,encode='latin1'): # or windows-1252
         #type_val=type(val)
-        #if IS().py3() and type_val is bytes:
-        if IS().py3() and isinstance(self.src,bytes):
+        #if Py3 and type_val is bytes:
+        if Py3 and isinstance(self.src,bytes):
             return self.src.decode(encode)
         #elif type_val.__name__ == 'unicode':
         elif isinstance(self.src,unicode):

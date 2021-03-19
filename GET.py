@@ -2,7 +2,7 @@ import os
 import pickle
 import sys
 import inspect
-from klib.MODULE import MODULE
+from klib.MODULE import *
 MODULE().Import('from klib.Type import Type')
 MODULE().Import('from klib.FILE import FILE')
 
@@ -111,7 +111,7 @@ class GET:
         return self.FuncList()
 
     def Func(self,name,default=None):
-        funcList=self.FuncList():
+        funcList=self.FuncList()
         if isinstance(name,str):
             if name in funcList: return funcList[name]
         elif Type(name,('function','instancemeethod')):

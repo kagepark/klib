@@ -2,9 +2,7 @@
 import sys
 import subprocess
 from threading import Thread
-from klib.MODULE import MODULE
-MODULE().Import('from klib.Type import Type')
-MODULE().Import('from klib.IS import IS')
+from klib.MODULE import *
 MODULE().Import('from klib.TIME import TIME')
 
 class SHELL:
@@ -68,7 +66,7 @@ class SHELL:
                 timeout=600
             if timeout < 3:
                 timeout=3
-        if IS().Py3():
+        if Py3:
             try:
                 out, err = p.communicate(timeout=timeout)
             except subprocess.TimeoutExpired:
@@ -94,7 +92,7 @@ class SHELL:
         if progress:
             stop_threads=True
             ppth.join()
-        if IS().Py3():
+        if Py3:
             out=out.decode("ISO-8859-1")
             err=err.decode("ISO-8859-1")
         if ansi:

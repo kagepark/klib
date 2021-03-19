@@ -1,9 +1,7 @@
 #Kage Park
 import random
 import re
-from klib.MODULE import MODULE
-MODULE().Import('from klib.Type import Type')
-MODULE().Import('from klib.IS import IS')
+from klib.MODULE import *
 MODULE().Import('from klib.CONVERT import CONVERT')
 
 class STR(str):
@@ -46,7 +44,8 @@ class STR(str):
                rt.append(string_tmp[body_len*i:(i+1)*body_len])
         return rt
 
-    def Tap(self,space='',sym='\n',default=None):
+    def Tap(self,space='',sym='\n',default=None,NFLT=False):
+        # No First Line Tap (NFLT)
         if isinstance(space,int):
             sspace=''
             for i in range(0,space):
@@ -56,15 +55,13 @@ class STR(str):
             self.src=self.src.split(sym)
         if isinstance(self.src,(list,tuple)):
             rt_str=''
+            if NFLT:
+                rt_str='%s'%(self.src.pop(0))
             for ii in self.src:
-                if NFLT:
-                    rt_str='%s'%(ii)
-                    NFLT=False
+                if rt_str:
+                    rt_str='%s%s%s%s'%(rt_str,sym,space,ii)
                 else:
-                    if rt_str:
-                        rt_str='%s%s%s%s'%(rt_str,sym,space,ii)
-                    else:
-                        rt_str='%s%s'%(space,ii)
+                    rt_str='%s%s'%(space,ii)
             return rt_str
         return default
 
@@ -125,7 +122,7 @@ class STR(str):
         return found
 
     def Int(self,encode='utf-8'):
-        if IS().Py3():
+        if Py3:
             if isinstance(self.src,bytes):
                 return int(self.src.hex(),16)
             else:

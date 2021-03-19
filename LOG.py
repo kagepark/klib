@@ -52,7 +52,7 @@ class LOG:
                         self.log_file=self.log_file.split(',') 
                     for logfile in self.log_file:
                         if GET(logfile).Dirname():
-                            open with(logfile,self.log_file_mode) as f:
+                            with open(logfile,self.log_file_mode) as f:
                                 f.write(msg)
             elif syslogd in ['KERN','kern']:
                 if stdout:
@@ -66,7 +66,7 @@ class LOG:
                     for logfile in self.log_file:
                         logfile='{}.ker'.format(logfile)
                         if GET(logfile).Dirname():
-                            open with(logfile,self.log_file_mode) as f:
+                            with open(logfile,self.log_file_mode) as f:
                                 f.write(msg)
             elif syslogd in ['ERR','err'] or stderr:
                 if stdout:
@@ -80,7 +80,7 @@ class LOG:
                     for logfile in self.log_file:
                         logfile='{}.err'.format(logfile)
                         if GET(logfile).Dirname():
-                            open with(logfile,self.log_file_mode) as f:
+                            with open(logfile,self.log_file_mode) as f:
                                 f.write(msg)
             elif syslogd in ['CRIT','crit']:
                 if stdout:
@@ -94,7 +94,7 @@ class LOG:
                     for logfile in self.log_file:
                         logfile='{}.cri'.format(logfile)
                         if GET(logfile).Dirname():
-                            open with(logfile,self.log_file_mode) as f:
+                            with open(logfile,self.log_file_mode) as f:
                                 f.write(msg)
             elif syslogd in ['WARN','warn']:
                 if stdout:
@@ -107,13 +107,13 @@ class LOG:
                         self.log_file=self.log_file.split(',') 
                     for logfile in self.log_file:
                         if GET(logfile).Dirname():
-                            open with(logfile,self.log_file_mode) as f:
+                            with open(logfile,self.log_file_mode) as f:
                                 f.write(msg)
             elif syslogd in ['DBG','DEBUG','dbg','debug']:
                 if syslogd:
                     syslog.syslog(syslog.LOG_DEBUG,msg)
                 else:
-                    printf(
+                    pass
                 if stdout:
                     sys.stdout.write(msg)
                     sys.stdout.flush()
@@ -123,7 +123,7 @@ class LOG:
                     for logfile in self.log_file:
                         logfile='{}.dbg'.format(logfile)
                         if GET(logfile).Dirname():
-                            open with(logfile,self.log_file_mode) as f:
+                            with open(logfile,self.log_file_mode) as f:
                                 f.write(msg)
             else:
                 if stdout:
@@ -136,5 +136,5 @@ class LOG:
                         self.log_file=self.log_file.split(',') 
                     for logfile in self.log_file:
                         if GET(logfile).Dirname():
-                            open with(logfile,self.log_file_mode) as f:
+                            with open(logfile,self.log_file_mode) as f:
                                 f.write(msg)

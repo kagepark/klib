@@ -6,8 +6,7 @@ import os
 import time
 import sys
 import json
-from klib.MODULE import MODULE
-MODULE().Import('from klib.Type import Type')
+from klib.MODULE import *
 MODULE().Import('import klib.kmisc as km')
 MODULE().Import('import klib.DICT as DICT')
 MODULE().Import('import klib.LIST as LIST')
