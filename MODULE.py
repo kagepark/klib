@@ -72,6 +72,9 @@ class MODULE:
         err=opts.get('err',False)
         default=opts.get('default',False)
         dbg=opts.get('dbg',False)
+        install_account=opts.get('install_account','--user')
+        if install_account in ['root','all','*','global','system','os']:
+            install_account=''
         ninps=[]
         for inp in inps:
             ninps=ninps+inp.split(',')
@@ -111,7 +114,7 @@ class MODULE:
                     pip_main=pip.main
                 elif hasattr(pip,'_internal'):
                     pip_main=pip._internal.main
-                if pip_main and pip_main(['install',module]) == 0:
+                if pip_main and pip_main(['install',module,install_acount]) == 0:
                     if class_name == '*':
                         wildcard=importlib.import_module(module)
                     else:
