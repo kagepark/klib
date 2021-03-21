@@ -8,6 +8,15 @@ MODULE().Import('from klib.kmisc import *')
 MODULE().Import('from klib.TIME import TIME')
 MODULE().Import('from klib.SHELL import SHELL')
 
+def is_cancel(func):
+    ttt=type(func).__name__
+    if ttt in ['function','instancemethod','method']:
+        if func():
+            return True
+    elif ttt in ['bool','str'] and func in [True,'cancel']:
+        return True
+    return False
+
 class IP:
     def __init__(self,src):
         self.src=src
@@ -94,8 +103,8 @@ class IP:
         log=opts.get('log',None)
         init_time=None
         if self.IsV4():
-            if not ping(self.src,count=3):
-                if not ping(self.src,count=0,timeout=timeout_sec,keep_good=keep_good,interval=interval,cancel_func=cancel_func,log=log):
+            if not self.Ping(self.src,count=3):
+                if not self.Ping(self.src,count=0,timeout=timeout_sec,keep_good=keep_good,interval=interval,cancel_func=cancel_func,log=log):
                     return True
             return False
         return default
@@ -138,66 +147,37 @@ class IP:
         keep=opts.get('keep',20)
         cancel_func=opts.get('cancel_func',None)
         log=opts.get('log',None)
-        init_time=None
-        run_time=int_sec()
+        time=TIME()
+        run_time=time.Int()
         if self.IsV4(self.src):
             if log:
                 log('[',direct=True,log_level=1)
             while True:
-                ttt,init_time=timeout(timeout_sec,init_time)
-                if ttt:
+                if time.Out(timeout_sec):
                     if log:
                         log(']\n',direct=True,log_level=1)
                     return False,'Timeout monitor'
-                if self.cancel(cancel_func):
+                if is_cancel(cancel_func):
                     if log:
                         log(']\n',direct=True,log_level=1)
                     return True,'Stopped monitor by Custom'
-                if ping(self.src,cancel_func=cancel_func):
-                    if (int_sec() - run_time) > keep:
+                if self.Ping(self.src,cancel_func=cancel_func):
+                    if (time.Int() - run_time) > keep:
                         if log:
                             log(']\n',direct=True,log_level=1)
                         return True,'OK'
                     if log:
                         log('-',direct=True,log_level=1)
                 else:
-                    run_time=int_sec()
+                    run_time=time.Int()
                     if log:
                         log('.',direct=True,log_level=1)
-                TIME().Sleep(interval)
+                time.Sleep(interval)
             if log:
                 log(']\n',direct=True,log_level=1)
             return False,'Timeout/Unknown issue'
         return default,'IP format error'
 
-#    def Host(self,ifname=None,mac=None):
-#        if ifname or mac:
-#            if mac:
-#                ifname=get_dev_name_from_mac(mac)
-#            return get_net_dev_ip(ifname)
-#        else:
-#            ifname=get_dev_name_from_mac()
-#            if ifname:
-#                ip=get_net_dev_ip(ifname)
-#                if self.IsV4(ip):
-#                    return ip
-#            return socket.gethostbyname(socket.gethostname())
-# 
-#    def Dev(ifname):
-#        if os.path.isdir('/sys/class/net/{}'.format(ifname)) is False:
-#            return False
-#        try:
-#            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-#            return socket.inet_ntoa(fcntl.ioctl(
-#                s.fileno(),
-#                0x8915,  # SIOCGIFADDR
-#                struct.pack('256s', ifname[:15])
-#            )[20:24])
-#        except:
-#            try:
-#                return os.popen('ip addr show {}'.format(ifname)).read().split("inet ")[1].split("/")[0]
-#            except:
-#                return
     def Ping(self,host=None,count=3,interval=1,keep_good=0, timeout=60,lost_mon=False,log=None,stop_func=None,log_format='.',cancel_func=None):
         if host is None: host=self.src
         ICMP_ECHO_REQUEST = 8 # Seems to be the same on Solaris. From /usr/include/linux/icmp.h;
@@ -267,17 +247,6 @@ class IP:
         def do_ping(ip,timeout=1,size=64,count=None,interval=0.7,log_format='ping',cancel_func=None):
             ok=1
             i=1
-            def is_cancel(func=None):
-                if func is None:
-                    func=self.src
-                ttt=type(func).__name__
-                if ttt in ['function','instancemethod','method']:
-                    if func():
-                        return True
-                elif ttt in ['bool','str'] and func in [True,'cancel']:
-                    return True
-                return False
-
             while True:
                 if is_cancel(cancel_func):
                     return -1,'canceled'

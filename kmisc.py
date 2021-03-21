@@ -18,6 +18,7 @@ MODULE().Import('from klib.OutFormat import OutFormat')
 MODULE().Import('from klib.Abs import Abs')
 MODULE().Import('from klib.Crc import Crc')
 MODULE().Import('from klib.FILE import FILE')
+#MODULE().Import('from klib.Get import Get')
 
 ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
 url_group = re.compile('^(https|http|ftp)://([^/\r\n]+)(/[^\r\n]*)?')
@@ -140,17 +141,19 @@ def md5(string):
 
 def cat(filename,no_end_newline=False):
     tmp=FILE(filename).Rw()
-    if isinstance(Get(tmp,1),str) and no_end_newline:
-        tmp_a=tmp.split('\n')
-        ntmp=''
-        for ii in tmp_a[:-1]:
-            if ntmp:
-                ntmp='{}\n{}'.format(ntmp,ii)
-            else:
-                ntmp='{}'.format(ii)
-        if len(tmp_a[-1]) > 0:
-            ntmp='{}\n{}'.format(ntmp,tmp_a[-1])
-        tmp=ntmp
+    if tmp[0]:
+        tmp_data=GET(tmp).Value(1)
+        if isinstance(tmp_data,str) and no_end_newline:
+            tmp_a=tmp_data.split('\n')
+            ntmp=''
+            for ii in tmp_a[:-1]:
+                if ntmp:
+                    ntmp='{}\n{}'.format(ntmp,ii)
+                else:
+                    ntmp='{}'.format(ii)
+            if len(tmp_a[-1]) > 0:
+                ntmp='{}\n{}'.format(ntmp,tmp_a[-1])
+            tmp=ntmp
     return tmp
 
 def ls(dirname,opt=''):

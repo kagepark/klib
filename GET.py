@@ -5,35 +5,79 @@ import inspect
 from klib.MODULE import *
 MODULE().Import('from klib.Type import Type')
 MODULE().Import('from klib.FILE import FILE')
+MODULE().Import('from klib.OutFormat import OutFormat')
+MODULE().Import('from klib.Abs import Abs')
 
 class GET:
     def __init__(self,src=None,**opts):
         self.src=src
 
     def __repr__(self):
-        return repr(type(self.src).__name__)
+        if self.src is None: return repr(self.MyAddr())
+        if Type(self.src,('instance','classobj')):
+            def method_in_class(class_name):
+                ret=dir(class_name)
+                if hasattr(class_name,'__bases__'):
+                    for base in class_name.__bases__:
+                        ret=ret+method_in_class(base)
+                return ret
+            return repr(method_in_class(self.src))
+        elif Type(self.src,'dict'):
+            return repr(list(self.src.keys()))
+        elif Type(self.src,('str','list','tuple')):
+            return repr(len(self.src))
+        else:
+            #return repr(type(self.src).__name__)
+            return repr(self.src)
 
-    def Index(self,find,default=None,err=False):
+    def MyAddr(self):
+        return hex(id(self))
+
+    def Index(self,*find,default=None,err=False,out=None):
+        rt=[]
         if Type(self.src,(list,tuple,str)):
-            if find in self.src: return self.src.index(find)
+            for ff in find:
+                if ff in self.src: rt.append(self.src.index(ff))
         elif Type(self.src,dict):
             for i in self.src:
-                if find == self.src[i]: return i
-        if default == {'org'}:
-            return self.src
-        return default
+                for ff in find:
+                    if find == self.src[i]: rt.append(i)
+        if rt: return OutFormat(rt,out=out)
+        if err == {'org'}: return self.src
+        return OutFormat(default,out=out)
 
-    def Value(self,find,default=None,err=False):
+    def Value(self,*find,default=None,err=False,out=None):
+        rt=[]
         if Type(self.src,(list,tuple,str)):
-            if Type(find,int):
-                if len(self.src) > find:
-                    return self.src[find]
+            for ff in Abs(*find,obj=self.src,out=list,default=None,err=err):
+                if ff is None:
+                    if err in [True,'True','err']: rt.append(default)
+                else:
+                    rt.append(self.src[ff])
+#            if Type(find,int):
+#                if find < 0:
+#                    if len(self.src) >= abs(find): return self.src[find]
+#                else:
+#                    if len(self.src) > find: return self.src[find]
         elif Type(self.src,dict):
-            if find in self.src:
-                return self.src[find]
-        if default == {'org'}:
-            return self.src
-        return default
+            for ff in find:
+                gval=self.src.get(ff,default)
+                if gval == default:
+                    if err in [True,'True','err']: rt.append(gval)
+                else:
+                    rt.append(gval)
+#            if find in self.src:return self.src[find]
+        elif Type(self.src,('instance','classobj')):
+            # get function object of finding string name in the class/instance
+            for ff in find:
+                if isinstance(ff,(list,tuple,dict)):
+                    for kk in ff:
+                        rt.append(getattr(self.src,kk,default))
+                elif isinstance(ff,str): 
+                    rt.append(getattr(self.src,ff,default))
+        if rt: return OutFormat(rt,out=out)
+        if err == {'org'}: return self.src
+        return OutFormat(default,out=out)
 
     def Read(self,default=False):
         if Is(self.src).Pickle():

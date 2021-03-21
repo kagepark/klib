@@ -54,15 +54,3 @@ class MAC:
             return self.src
         return default
 
-    def Host(self,ip=None,dev=None):
-        if isinstance(ip,str):
-            dev_info=get_net_device()
-            for dev in dev_info.keys():
-                if get_net_dev_ip(dev) == ip:
-                    return dev_info[dev]['mac']
-        elif isinstance(dev,str):
-            return get_dev_mac(dev)
-        else:
-            #return ':'.join(['{:02x}'.format((uuid.getnode() >> ele) & 0xff) for ele in range(0,8*6,8)][::-1])
-            self.src='%012x' % uuid.getnode()
-            return self.FromStr()
