@@ -9,37 +9,41 @@ MODULE().Import('from klib.IS import IS')
 class HOST:
     def __init__(self):
         pass
+
     def Name(self):
         return socket.gethostname()
 
-    def Ip(self,ifname=None,mac=None):
+    def Ip(self,ifname=None,mac=None,default=None):
         if ifname or mac:
-            if mac:
-                ifname=get_dev_name_from_mac(mac)
+            if mac:ifname=get_dev_name_from_mac(mac)
             return self.NetIp(ifname)
         else:
             ifname=get_dev_name_from_mac()
             if ifname:
                 ip=self.NetIp(ifname)
-                if ip:
-                    return ip
+                if ip: return ip
             return socket.gethostbyname(socket.gethostname())
+        return default
 
-    def IpmiIp(self):
-        return SHELL().Run('''ipmitool lan print 2>/dev/null| grep "IP Address" | grep -v Source | awk '{print $4}' ''')
+    def IpmiIp(self,default=None):
+        rt=SHELL().Run('''ipmitool lan print 2>/dev/null| grep "IP Address" | grep -v Source | awk '{print $4}' ''')
+        if rt[0]:return rt[1]
+        return default
 
-    def IpmiMac(self):
-        return SHELL().Run(""" ipmitool lan print 2>/dev/null | grep "MAC Address" | awk """ + """ '{print $4}' """)
+    def IpmiMac(self,default=None):
+        rt=SHELL().Run(""" ipmitool lan print 2>/dev/null | grep "MAC Address" | awk """ + """ '{print $4}' """)
+        if rt[0]:return rt[1]
+        return default
 
-    def DevMac(self,ifname):
+    def DevMac(self,ifname,default=None):
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             info = fcntl.ioctl(s.fileno(), 0x8927,  struct.pack('256s', ifname[:15]))
             return ':'.join(['%02x' % ord(char) for char in info[18:24]])
         except:
-            return
+            return default
 
-    def Mac(self,ip=None,dev=None):
+    def Mac(self,ip=None,dev=None,default=None):
         if IS(ip).Ipv4():
             dev_info=get_net_device()
             for dev in dev_info.keys():
@@ -50,8 +54,9 @@ class HOST:
         else:
             #return ':'.join(['{:02x}'.format((uuid.getnode() >> ele) & 0xff) for ele in range(0,8*6,8)][::-1])
             return CONVERT('%012x' % uuid.getnode()).Str2Mac()
+        return default
 
-    def DevName(self,mac=None):
+    def DevName(self,mac=None,default=None):
         if mac is None:
             mac=self.Mac()
         net_dir='/sys/class/net'
@@ -61,10 +66,11 @@ class HOST:
                 fmac=cat('{}/{}/address'.format(dirpath,dev),no_end_newline=True)
                 if isinstance(fmac,str) and fmac.strip().lower() == mac.lower():
                     return dev
+        return default
 
-    def NetIP(ifname):
-        if os.path.isdir('/sys/class/net/{}'.format(ifname)) is False:
-            return False
+    def NetIP(ifname,default=None):
+        if not os.path.isdir('/sys/class/net/{}'.format(ifname)):
+            return default
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             return socket.inet_ntoa(fcntl.ioctl(
@@ -76,14 +82,22 @@ class HOST:
             try:
                 return os.popen('ip addr show {}'.format(ifname)).read().split("inet ")[1].split("/")[0]
             except:
-                return
+                pass
+        return default
 
     def Info(self):
+        ipmi_ip=None
+        ipmi_mac=None
+        ipmi_ip_info=self.IpmiIp()
+        if ipmi_ip_info[0]: ipmi_ip=ipmi_ip_info[1]
+        ipmi_mac_info=self.IpmiMac()
+        if ipmi_mac_info[0]: ipmi_mac=ipmi_mac_info[1]
+
         return {
          'host_name':self.Name(),
          'host_ip':self.Ip(),
          'host_mac':self.Mac(),
-         'ipmi_ip':self.IpmiIp()[1],
-         'ipmi_mac':self.IpmiMac()[1],
+         'ipmi_ip':ipmi_ip,
+         'ipmi_mac':ipmi_mac,
          }
 
