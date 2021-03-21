@@ -1,8 +1,8 @@
 #Kage Park
 import os
 from klib.MODULE import *
-MODULE().Import('from klib.kmisc import *')
 MODULE().Import('from klib.Type import Type')
+MODULE().Import('from klib.Misc import *')
 
 def get_dev_name_from_mac(mac):
     net_dir='/sys/class/net'

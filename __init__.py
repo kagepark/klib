@@ -15,7 +15,7 @@ for ii in os.listdir(os.path.dirname(__file__)):
 #######################################
 # from klib.MODULE import *
 # from klib.Type import Type
-# from klib.kmisc import *
+# from klib.Misc import *
 # from klib.IS import IS
 # from klib.DICT import DICT
 # from klib.LIST import LIST

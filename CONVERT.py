@@ -2,28 +2,21 @@
 import ast
 import struct
 from klib.MODULE import *
-MODULE().Import('from klib.kmisc import *')
+MODULE().Import('from klib.Type import Type')
+MODULE().Import('from klib.Misc import *')
 MODULE().Import('from klib.MAC import MAC')
 
 class CONVERT:
     def __init__(self,src):
         self.src=src
 
-#    def Int(self,encode='utf-8'):
-#        if Py3:
-#            if isinstance(self.src,bytes):
-#                return int(self.src.hex(),16)
-#            else:
-#                return int(self.Bytes(encode=encode).hex(),16)
-#        if isinstance(self.src,str):
-#            return int(self.src.encode('hex'),16)
-
     def Int(self,default=False):
         if isinstance(self.src,int): return self.src
-        try:
-            return int(self.src)
-        except:
-            return default
+        print('>>',self.src,Type(self.src,'str','float','long','str'))
+        if Type(self.src,('float','long','str')):
+            try:return int(self.src)
+            except: pass
+        return default
 
     def Bytes(self,encode='utf-8'):
         if Py3:

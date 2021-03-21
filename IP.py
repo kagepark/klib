@@ -4,7 +4,7 @@ import struct
 from distutils.spawn import find_executable
 from klib.MODULE import *
 MODULE().Import('from klib.Type import Type')
-MODULE().Import('from klib.kmisc import *')
+MODULE().Import('from klib.Misc import *')
 MODULE().Import('from klib.TIME import TIME')
 MODULE().Import('from klib.SHELL import SHELL')
 

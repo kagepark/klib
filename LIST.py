@@ -1,7 +1,7 @@
 #Kage Park
 import re
 from klib.MODULE import *
-MODULE().Import('from klib.kmisc import *')
+MODULE().Import('from klib.Misc import *')
 
 class LIST(list):
     def __init__(self,*inps):

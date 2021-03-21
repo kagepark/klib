@@ -151,7 +151,7 @@ class HOST:
             return False
 
     def Alive(self,ip,keep=20,interval=3,timeout=1800,default=False,log=None,cancel_func=None):
-        return IP(ip).Online(keep=keep,interval=interval=timeout=timeout,default=default,log=log,cancel_func=cancel_func)[1]
+        return IP(ip).Online(keep=keep,interval=interval,timeout=timeout,default=default,log=log,cancel_func=cancel_func)[1]
 
     def Ping(self,ip):
         return IP(ip).Ping()
