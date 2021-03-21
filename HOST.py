@@ -1,10 +1,12 @@
 #Kage Park
-import socket
+import socket,os
 from klib.MODULE import MODULE
 MODULE().Import('from klib.Type import Type')
 MODULE().Import('from klib.DEV import *')
 MODULE().Import('from klib.SHELL import SHELL')
 MODULE().Import('from klib.IS import IS')
+MODULE().Import('from klib.CONVERT import CONVERT')
+MODULE().Import('import uuid')
 
 class HOST:
     def __init__(self):
@@ -14,16 +16,11 @@ class HOST:
         return socket.gethostname()
 
     def Ip(self,ifname=None,mac=None,default=None):
-        if ifname or mac:
-            if mac:ifname=get_dev_name_from_mac(mac)
-            return self.NetIp(ifname)
-        else:
-            ifname=get_dev_name_from_mac()
-            if ifname:
-                ip=self.NetIp(ifname)
-                if ip: return ip
-            return socket.gethostbyname(socket.gethostname())
-        return default
+        if mac is None : mac=self.Mac()
+        if ifname is None: ifname=get_dev_name_from_mac(mac)
+        ip=self.NetIp(ifname)
+        if ip: return ip
+        return socket.gethostbyname(socket.gethostname())
 
     def IpmiIp(self,default=None):
         rt=SHELL().Run('''ipmitool lan print 2>/dev/null| grep "IP Address" | grep -v Source | awk '{print $4}' ''')
@@ -86,18 +83,11 @@ class HOST:
         return default
 
     def Info(self):
-        ipmi_ip=None
-        ipmi_mac=None
-        ipmi_ip_info=self.IpmiIp()
-        if ipmi_ip_info[0]: ipmi_ip=ipmi_ip_info[1]
-        ipmi_mac_info=self.IpmiMac()
-        if ipmi_mac_info[0]: ipmi_mac=ipmi_mac_info[1]
-
         return {
          'host_name':self.Name(),
          'host_ip':self.Ip(),
          'host_mac':self.Mac(),
-         'ipmi_ip':ipmi_ip,
-         'ipmi_mac':ipmi_mac,
+         'ipmi_ip':self.IpmiIp(),
+         'ipmi_mac':self.IpmiMac(),
          }
 

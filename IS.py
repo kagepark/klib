@@ -5,9 +5,9 @@ import pickle
 from sys import modules
 from distutils.spawn import find_executable
 from klib.MODULE import *
-MODULE().Import('from klib.Type import Type')
-MODULE().Import('from klib.kmisc import *') # import kmisc(file)'s each function to local module's function
 MODULE().Import('from klib.IP import IP')
+MODULE().Import('from klib.kmisc import *') # import kmisc(file)'s each function to local module's function
+MODULE().Import('from klib.Type import Type')
 MODULE().Import('from klib.MAC import MAC')
 MODULE().Import('from klib.GET import GET')
 

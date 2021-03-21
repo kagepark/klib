@@ -3,7 +3,7 @@ import ast
 import struct
 from klib.MODULE import *
 MODULE().Import('from klib.kmisc import *')
-MODULE().Import('from klib.IS import IS')
+MODULE().Import('from klib.MAC import MAC')
 
 class CONVERT:
     def __init__(self,src):
@@ -53,7 +53,7 @@ class CONVERT:
         return self.Ast(default=default)
 
     def Mac2Str(self,case='lower',default=False):
-        if IS(self.src).Mac4():
+        if MAC(self.src).IsV4():
             if case == 'lower':
                 self.src=self.src.strip().replace(':','').replace('-','').lower()
             else:
@@ -73,7 +73,7 @@ class CONVERT:
                 else:
                     self.src=self.src.upper()
         if chk:
-            if not IS(self.src).Mac4():
+            if not MAC(self.src).IsV4():
                 return  default
         return self.src
 

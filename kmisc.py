@@ -17,6 +17,7 @@ MODULE().Import('from klib.STR import STR')
 MODULE().Import('from klib.OutFormat import OutFormat')
 MODULE().Import('from klib.Abs import Abs')
 MODULE().Import('from klib.Crc import Crc')
+MODULE().Import('from klib.FILE import FILE')
 
 ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
 url_group = re.compile('^(https|http|ftp)://([^/\r\n]+)(/[^\r\n]*)?')
@@ -138,7 +139,7 @@ def md5(string):
     return hashlib.md5(CONVERT(string).Bytes()).hexdigest()
 
 def cat(filename,no_end_newline=False):
-    tmp=file_rw(filename)
+    tmp=FILE(filename).Rw()
     if isinstance(Get(tmp,1),str) and no_end_newline:
         tmp_a=tmp.split('\n')
         ntmp=''

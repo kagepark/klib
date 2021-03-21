@@ -114,8 +114,12 @@ class MODULE:
                     pip_main=pip.main
                 elif hasattr(pip,'_internal'):
                     pip_main=pip._internal.main
-                #if pip_main and pip_main(['install',module,install_acount]) == 0:
-                if pip_main and pip_main(['install',module]) == 0:
+                if module == 'magic': 
+                    install_name='python-magic'
+                else:
+                    install_name='{}'.format(module)
+                if pip_main and pip_main(['install',install_name,install_account]) == 0:
+                #if pip_main and pip_main(['install',install_name]) == 0:
                     if class_name == '*':
                         wildcard=importlib.import_module(module)
                     else:

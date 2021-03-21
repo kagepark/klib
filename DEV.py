@@ -1,6 +1,25 @@
 #Kage Park
+import os
 from klib.MODULE import *
+MODULE().Import('from klib.kmisc import *')
 MODULE().Import('from klib.Type import Type')
+
+def get_dev_name_from_mac(mac):
+    net_dir='/sys/class/net'
+    if type(mac) is str and os.path.isdir(net_dir):
+        dirpath,dirnames,filenames = list(os.walk(net_dir))[0]
+        for dev in dirnames:
+            fmac=cat('{}/{}/address'.format(dirpath,dev),no_end_newline=True)
+            if type(fmac) is str and fmac.strip().lower() == mac.lower():
+                return dev
+
+def get_dev_mac(ifname):
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        info = fcntl.ioctl(s.fileno(), 0x8927,  struct.pack('256s', ifname[:15]))
+        return ':'.join(['%02x' % ord(char) for char in info[18:24]])
+    except:
+        return
 
 def get_net_device(name=None):
     net_dev={}

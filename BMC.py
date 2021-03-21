@@ -12,7 +12,7 @@ MODULE().Import('import klib.DICT as DICT')
 MODULE().Import('import klib.LIST as LIST')
 MODULE().Import('from klib.TIME import TIME')
 MODULE().Import('from klib.SHELL import SHELL')
-MODULE().Import('from klib.PING import ping')
+MODULE().Import('from klib.IP import IP')
 MODULE().Import('from klib.IS import IS')
 
 class Ipmitool:
@@ -118,7 +118,7 @@ class Bmc:
                 if not IS(self.root.Get('ipmi_ip')).Ipv4():
                     self.Error(_type='ip',msg="{} is wrong IP Format".format(self.root.ipmi_ip.Get()))
                     km.logging(self.root.error.Get('ip'),log=self.log,log_level=1,dsp='e')
-                elif not ping(self.root.Get('ipmi_ip'),count=0,timeout=self.root.Get('timeout'),log=self.log):
+                elif not IP(self.root.Get('ipmi_ip')).Ping(count=0,timeout=self.root.Get('timeout'),log=self.log):
                     self.Error(_type='ip',msg='Destination Host({}) Unreachable/Network problem'.format(self.root.ipmi_ip.Get()))
                     km.logging(self.root.error.Get('ip'),log=self.log,log_level=1,dsp='e')
                 elif not km.is_port_ip(self.root.Get('ipmi_ip'),self.root.Get('ipmi_port')):
@@ -695,13 +695,13 @@ class Bmc:
         wait=km.integer(wait,default=1)
         keep=km.integer(keep,default=0)
         timeout=km.integer(timeout,default=30)
-        return ping(self.root.ipmi_ip.Get(),count=retry,interval=wait,keep_good=keep,log=self.log)
+        return IP(self.root.ipmi_ip.Get()).Ping(count=retry,interval=wait,keep_good=keep,log=self.log)
 
     def Summary(self): # BMC is ready(hardware is ready)
         ipmi_ip=self.root.ipmi_ip.Get()
         ipmi_user=self.root.ipmi_user.Get()
         ipmi_pass=self.root.ipmi_pass.Get()
-        if self.ping() is False:
+        if self.Ping() is False:
             print('%10s : %s'%("Ping","Fail"))
             return False
         print('%10s : %s'%("Ping","OK"))

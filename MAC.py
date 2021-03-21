@@ -7,7 +7,7 @@ class MAC:
     def __init__(self,src=None):
         self.src=src
 
-    def IsV4(self):
+    def IsV4(self,**opts):
         symbol=opts.get('symbol',':')
         default=opts.get('default',False)
         if isinstance(self.src,str):

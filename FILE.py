@@ -117,7 +117,8 @@ class FILE:
             return True
         return False
 
-    def Rw(self,name,data=None,out='string',append=False,read=None,overwrite=True):
+    def Rw(self,name=None,data=None,out='string',append=False,read=None,overwrite=True):
+        if name is None: name=self.src
         if isinstance(name,str):
             if data is None:
                 if os.path.isfile(name):
