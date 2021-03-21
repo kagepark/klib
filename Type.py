@@ -5,13 +5,16 @@ Inhance for make sure
 """
 import sys,os
 from klib.MODULE import MODULE
-MODULE().Import('filetype')
+#MODULE().Import('filetype')
+MODULE().Import('magic')
 
 def TypeName(obj,default=None):
     if isinstance(obj,str):
         if os.path.isfile(obj):
-            aa=filetype.guess(obj)
-            if aa: return aa.__dict__.get('_Type__extension') # File Type
+            #aa=filetype.guess(obj)
+            #if aa: return aa.__dict__.get('_Type__extension') # File Type
+            aa=magic.from_buffer(open(obj,'rb').read(2048))
+            if aa: return aa.split()[0].lower()
             try:
                 with open(obj,'rb') as f: # Pickle Type
                     pickle.load(f)

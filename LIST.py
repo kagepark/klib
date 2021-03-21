@@ -122,6 +122,9 @@ class LIST(list):
                 return rt
         return default
 
+    def Index(self,*inps):
+        return self.Get(*inps,find='index')
+
     def Insert(self,*inps,**opts):
         start=opts.get('at',0)
         default=opts.get('default',False)

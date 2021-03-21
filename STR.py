@@ -2,7 +2,6 @@
 import random
 import re
 from klib.MODULE import *
-MODULE().Import('from klib.CONVERT import CONVERT')
 
 class STR(str):
     def __init__(self,src):
@@ -80,54 +79,72 @@ class STR(str):
                     return self.src[start:]
         return default
 
-    def Find(self,find,prs=None,sym='\n',patern=True):
-        # Patern return selection (^: First(0), $: End(-1), <int>: found item index)
-        found=[]
-        if not isinstance(self.src,str): return found
-        if sym:
-            string_a=self.src.split(sym)
-        else:
-            string_a=[self.src]
-        for nn in string_a:
-            if not isinstance(find,(list,tuple)):
-                find=[find]
-            for ff in find:
-                if patern:
-                    aa=re.compile(ff).findall(nn)
-                    for mm in aa:
-                        if type(mm) is tuple:
-                            if prs == '^':
-                                found.append(mm[0])
-                            elif prs == '$':
-                                found.append(mm[-1])
-                            elif type(prs) is int:
-                                found.append(mm[prs])
-                            else:
-                                found.append(mm)
-                        else:
-                            found.append(mm)
-                else:
-                    find_a=ff.split('*')
-                    if len(find_a[0]) > 0:
-                        if find_a[0] != nn[:len(find_a[0])]:
-                            chk=False
-                    if len(find_a[-1]) > 0:
-                        if find_a[-1] != nn[-len(find_a[-1]):]:
-                            chk=False
-                    for ii in find_a[1:-1]:
-                        if ii not in nn:
-                            chk=False
-                    if chk:
-                        found.append(nn)
-        return found
-
-    def Int(self,encode='utf-8'):
-        if Py3:
-            if isinstance(self.src,bytes):
-                return int(self.src.hex(),16)
+    def Find(self,find,prs=None,sym='\n',patern=True,default=[],findall=False,word=False):
+        if isinstance(self.src,str):
+            if word:
+                find_re=re.compile(r'\b({0})\b'.format(find),flags=re.IGNORECASE)
             else:
-                return int(CONVERT(self.src).Bytes(encode=encode).hex(),16)
-        return int(self.src.encode('hex'),16)
+                find_re=re.compile(find,flags=re.IGNORECASE)
+            if findall:
+                match=find_re.findall(self.src)
+                if match: return match
+            else:
+                match=find_re.search(self.src)
+                if match: return match.group()
+        return default
+
+#        # Patern return selection (^: First(0), $: End(-1), ???<int>: found item index)
+#        found=[]
+#        if not isinstance(find,str): return default
+#        if not isinstance(self.src,str): return default
+#        if sym:
+#            string_a=self.src.split(sym)
+#        else:
+#            string_a=[self.src]
+#        for nn in string_a:
+#            if not isinstance(find,(list,tuple)):
+#                find=[find]
+#            for ff in find:
+#                if patern:
+#                    aa=re.compile(ff).findall(nn)
+#                    for mm in aa:
+#                        if type(mm) is tuple:
+#                            if prs == '^':
+#                                found.append(mm[0])
+#                            elif prs == '$':
+#                                found.append(mm[-1])
+#                            elif type(prs) is int:
+#                                found.append(mm[prs])
+#                            else:
+#                                found.append(mm)
+#                        else:
+#                            found.append(mm)
+#                else:
+#                    find_a=ff.split('*')
+#                    if len(find_a[0]) > 0:
+#                        if find_a[0] != nn[:len(find_a[0])]:
+#                            chk=False
+#                    if len(find_a[-1]) > 0:
+#                        if find_a[-1] != nn[-len(find_a[-1]):]:
+#                            chk=False
+#                    for ii in find_a[1:-1]:
+#                        if ii not in nn:
+#                            chk=False
+#                    if chk:
+#                        found.append(nn)
+#        return found
+
+    def Index(self,find,start=None,end=None,default=[],findall=False):
+        rt=[]
+        for ff in self.Find(find,patern=True,default=[]):
+            if findall:
+                rt=rt+[m.start() for m in re.finditer(ff,self.src)]
+            else:
+                idx=self.src.index(ff,start,end)
+                if idx >= 0:
+                    rt.append(idx)
+        if rt: return rt
+        return default
 
     def Replace(self,replace_what,replace_to,default=None):
         if isinstance(self.src,str):

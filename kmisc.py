@@ -14,6 +14,9 @@ MODULE().Import('from klib.Type import Type')
 MODULE().Import('from klib.CONVERT import CONVERT')
 MODULE().Import('from klib.GET import GET')
 MODULE().Import('from klib.STR import STR')
+MODULE().Import('from klib.OutFormat import OutFormat')
+MODULE().Import('from klib.Abs import Abs')
+MODULE().Import('from klib.Crc import Crc')
 
 ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
 url_group = re.compile('^(https|http|ftp)://([^/\r\n]+)(/[^\r\n]*)?')
@@ -329,101 +332,12 @@ def check_value(src,find,idx=None):
                     return True
     return False
 
-def OutFormat(data,out=None):
-    if out in [tuple,'tuple']:
-        if not isinstance(data,tuple):
-            return (data,)
-        elif not isinstance(data,list):
-            return tuple(data)
-    elif out in [list,'list']:
-        if not isinstance(data,list):
-            return [data]
-        elif not isinstance(data,tuple):
-            return list(data)
-    elif out in ['raw',None]:
-        if isinstance(data,(list,tuple)) and len(data) == 1:
-            return data[0]
-        elif isinstance(data,dict) and len(data) == 1:
-            return data.values()[0]
-    return data
-
-def Get(*inps,**opts):
-    default=opts.get('default',None)
-    out=opts.get('out',None)
-    err=opts.get('err',True)
-    check=opts.get('check',(str,list,tuple,dict))
-    key=None
-    if len(inps) >= 2:
-        src=inps[0]
-        key=inps[1:]
-    elif len(inps) == 1:
-        src=inps[0]
-        key=opts.get('key',None)
-        if isinstance(key,list):
-            key=tuple(key)
-        elif key is not None:
-            key=(key,)
-    rc=[]
-    if key is None:
-        if err in [True,'err','True']:
-            return OutFormat(default,out=out)
-        return OutFormat(src,out=out)
-    if isinstance(src,tuple(check)):
-        if isinstance(src,(str,list,tuple)) and len(src)>0:
-            for kk in Abs(*key,obj=src,out=list,default=[None],err=False):
-                if kk is None:
-                    if err != 'ignore':
-                        rc.append(default)
-                else:
-                    rc.append(src[kk])
-            if not rc and err in [True,'err','True']:
-                return OutFormat(default,out=out)
-            return OutFormat(rc,out=out)
-        elif isinstance(src,dict) and len(src) > 0:
-            nkeys=Abs(*key,obj=src,out=list,default=[None],err=False)
-            if nkeys:
-                for kk in Abs(*key,obj=src,out=list,default=[None],err=False):
-                    rr=src.get(kk,default)
-                    if rr == default:
-                        if err != 'ignore':
-                            rc.append(rr)
-                    else:
-                        rc.append(rr)
-                if not rc and err in [True,'err','True']:
-                    return OutFormat(default,out=out)
-                return OutFormat(rc,out=out)
-            return src.get(key[0],default)
-    elif type(src).__name__ in ['instance','classobj']:
-        if isinstance(key,(list,tuple,dict)):
-            for kk in key:
-                rc.append(getattr(src,kk,default))
-            if not rc and err in [True,'err','True']:
-                return OutFormat(default,out=out)
-            return OutFormat(rc,out=out)
-        return getattr(src,key,default)
-    if err in [True,'err','True']:
-        return OutFormat(default,out=out)
-    return OutFormat(src,out=out)
-
-
 def get_value(src,key=None,default=None,check=[list,tuple,dict]):
     return Get(src,key,default=default,check=check)
 
 def krc(rt,chk='_',rtd={'GOOD':[True,'True','Good','Ok','Pass',{'OK'},0],'FAIL':[False,'False','Fail',{'FAL'}],'NONE':[None,'None','N/A',{'NA'}],'IGNO':['IGNO','Ignore',{'IGN'}],'ERRO':['ERR','Error',{'ERR'}],'WARN':['Warn',{'WAR'}],'UNKN':['Unknown','UNKN',{'UNK'}],'JUMP':['Jump',{'JUMP'}]}):
-    def trans(irt):
-        type_irt=type(irt)
-        for ii in rtd:
-            for jj in rtd[ii]:
-                if type(jj) == type_irt and ((type_irt is str and jj.lower() == irt.lower()) or jj == irt):
-                    return ii
-        return 'UNKN'
-    rtc=Get(rt,'0|rc',out='raw',err='ignore',check=(list,tuple,dict))
-    nrtc=trans(rtc)
-    if chk != '_':
-        if trans(chk) == nrtc:
-            return True
-        return False
-    return nrtc
+    if chk != '_':return Crc(rt,rc=rtd)
+    return Crc(rt,chk=chk,rc=rtd)
 
 def get_data(data,key=None,ekey=None,default=None,method=None,strip=True,find=[],out_form=str):
     if argtype(data,'Request'):
@@ -466,165 +380,6 @@ def get_data(data,key=None,ekey=None,default=None,method=None,strip=True,find=[]
                     return data[key]
         elif type_data is dict:
             return data.get(key,default)
-    return default
-
-def Abs(*inps,**opts):
-    default=opts.get('default',None)
-    out=opts.get('out','auto')
-    obj=opts.get('obj',None)
-    err=opts.get('err',True)
-    def int_idx(idx,nobj,default,err,out='auto'):
-        if idx < 0:
-            if abs(idx) <= nobj:
-                if out in ['list',list]:
-                    return [nobj+idx]
-                elif out in ['tuple',tuple]:
-                    return (nobj+idx,)
-                return nobj+idx
-            elif err not in [True,'err','True']:
-                return 0
-        else:
-            if nobj > idx:
-                if out in ['list',list]:
-                    return [idx]
-                elif out in ['tuple',tuple]:
-                    return (idx,)
-                return idx
-            elif err not in [True,'err','True']:
-                return nobj-1
-        return default
-    if len(inps) > 0:
-        ss=None
-        ee=None
-        rt=[]
-        if obj is None:
-            for i in inps:
-                if isinstance(i,int):
-                    rt.append(abs(i))
-                elif err in [True,'err','True']:
-                    rt.append(default)
-        elif isinstance(obj,dict):
-            keys=list(obj)
-            for idx in inps:
-                if isinstance(idx,int):
-                    rt.append(keys[int_idx(idx,len(keys),default,err)])
-                elif isinstance(idx,tuple) and len(idx) == 2:
-                    ss=Abs(idx[0],**opts)
-                    ee=Abs(idx[1],**opts)
-                    for i in range(ss,ee+1):
-                        rt.append(keys[i])
-                elif isinstance(idx,str):
-                    try:
-                        idx=int(idx)
-                        rt.append(int_idx(idx,len(keys),default,err))
-                    except:
-                        if len(idx.split(':')) == 2:
-                            ss,ee=tuple(idx.split(':'))
-                            if isinstance(ss,int) and isinstance(ee,int):
-                                for i in range(ss,ee+1):
-                                    rt.append(keys[i])
-                        elif len(idx.split('-')) == 2:
-                            ss,ee=tuple(idx.split('-'))
-                            if isinstance(ss,int) and isinstance(ee,int):
-                                for i in range(ss,ee+1):
-                                    rt.append(keys[i])
-                        elif len(idx.split('|')) > 1:
-                            rt=rt+idx.split('|')
-        elif isinstance(obj,(list,tuple,str)):
-            nobj=len(obj)
-            for idx in inps:
-                if isinstance(idx,list):
-                    for ii in idx:
-                        if isinstance(ii,int):
-                            if nobj > ii:
-                                rt.append(ii)
-                            else:
-                                rt.append(OutFormat(default))
-                elif isinstance(idx,int):
-                    rt.append(int_idx(idx,nobj,default,err))
-                elif isinstance(idx,tuple) and len(idx) == 2:
-                    ss=Abs(idx[0],**opts)
-                    ee=Abs(idx[1],**opts)
-                    rt=rt+list(range(ss,ee+1))
-                elif isinstance(idx,str):
-                    try:
-                        idx=int(idx)
-                        rt.append(int_idx(idx,nobj,default,err))
-                    except:
-                        if len(idx.split(':')) == 2:
-                            ss,ee=tuple(idx.split(':'))
-                            ss=Abs(ss,**opts)
-                            ee=Abs(ee,**opts)
-                            if isinstance(ss,int) and isinstance(ee,int):
-                                rt=rt+list(range(ss,ee+1))
-                        elif len(idx.split('-')) == 2:
-                            ss,ee=tuple(idx.split('-'))
-                            ss=Abs(ss,**opts)
-                            ee=Abs(ee,**opts)
-                            if isinstance(ss,int) and isinstance(ee,int):
-                                rt=rt+list(range(ss,ee+1))
-                        elif len(idx.split('|')) > 1:
-                            for i in idx.split('|'):
-                                ss=Abs(i,obj=obj,out='raw')
-                                if isinstance(ss,int):
-                                    rt.append(ss)
-                        else:
-                            rt.append(OutFormat(default))
-        return OutFormat(rt,out=out)
-    elif obj:
-        if isinstance(obj,(list,tuple,str)):
-            return len(obj)
-        elif isinstance(obj,dict):
-            return list(obj.keys())
-    return default
-
-def Delete(*inps,**opts):
-    if len(inps) >= 2:
-        obj=inps[0]
-        keys=inps[1:]
-    elif len(inps) == 1:
-        obj=inps[0]
-        keys=opts.get('key',None)
-        if isinstance(keys,list):
-            keys=tuple(keys)
-        elif keys is not None:
-            keys=(keys,)
-    default=opts.get('default',None)
-    _type=opts.get('type','index')
-   
-    if isinstance(obj,(list,tuple)):
-        nobj=len(obj)
-        rt=[]
-        if _type == 'index':
-            nkeys=Abs(*tuple(keys),obj=obj,out=list)
-            for i in range(0,len(obj)):
-                if i not in nkeys:
-                    rt.append(obj[i])
-        else:
-            for i in obj:
-                if i not in keys:
-                    rt.append(i)
-        return rt
-    elif isinstance(obj,dict):
-        if isinstance(keys,(list,tuple,dict)):
-            for key in keys:
-                obj.pop(key,default)
-        else:
-            obj.pop(keys,default)
-        return obj
-    elif isinstance(obj,str):
-        nkeys=[]
-        for i in keys:
-            if isinstance(i,(tuple,str,int)):
-                tt=Abs(i,obj=obj,out=list)
-                if tt:
-                    nkeys=nkeys+tt
-        rt=''
-        for i in range(0,len(obj)):
-            if i in nkeys:
-                continue
-            rt=rt+obj[i]
-        return rt
     return default
 
 if __name__ == "__main__":

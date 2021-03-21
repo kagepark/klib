@@ -66,14 +66,14 @@ class DICT(dict):
 #        except:
 #            found=Dict.MARKER
 #            print('__getitem__ except found:',found)
-        found=self.get(key,Dict.MARKER) # same as above code
+        found=self.get(key,DICT.MARKER) # same as above code
         if not isinstance(found,dict):
-            found=Dict({self._d_:found})
-        if found is Dict.MARKER:
-            found = Dict() # make a fake data for ignore error at Get(),Put(),.... 
+            found=DICT({self._d_:found})
+        if found is DICT.MARKER:
+            found = DICT() # make a fake data for ignore error at Get(),Put(),.... 
             # Really Generate A.B.C. .... new items
 #            print('__getitem__ generate new:',found)
-#            super(Dict, self).__setitem__(key, found)
+#            super(DICT, self).__setitem__(key, found)
 
 # Property setting issue
         # If the data is not Dict type data then convert the data to Dict type
@@ -95,18 +95,18 @@ class DICT(dict):
                 found[self._d_]=value[self._d_]
             else:
                 found[self._d_]=value
-            super(Dict, self).__setitem__(key, found)
+            super(DICT, self).__setitem__(key, found)
         else:
-            if isinstance(value, dict) and not isinstance(value, Dict):
-                value = Dict(value)
-            super(Dict, self).__setitem__(key, value)
+            if isinstance(value, dict) and not isinstance(value, DICT):
+                value = DICT(value)
+            super(DICT, self).__setitem__(key, value)
 
     # del dictionary[key]
     def __delitem__(self, key, default=False):
         if self._is_ro(self.get(key,None),key=key):
             return default
         if key in self:
-            super(Dict, self).__delitem__(key) # delete data
+            super(DICT, self).__delitem__(key) # delete data
             return True
         else:
             return default
@@ -135,14 +135,14 @@ class DICT(dict):
             if self._p_ in self:
                 self[self._p_][key]=value
                 nvalue=self[self._p_]
-                super(Dict, self).__setitem__(self._p_,nvalue)
+                super(DICT, self).__setitem__(self._p_,nvalue)
             else:
                 #nvalue={key:value}
                 if self._n_:
                     sys.stderr.write('the item have no property. if you need property then change the data to Dict type\n')
                     sys.stderr.flush()
                 return False
-            super(Dict, self).__setitem__(self._p_,nvalue)
+            super(DICT, self).__setitem__(self._p_,nvalue)
             return True
         elif key is not None:
             if self._p_ in self:
@@ -238,7 +238,7 @@ class DICT(dict):
         if isinstance(self,dict) and self._d_ in self:
             self[self._d_].update(data)
         else:
-            super(Dict, self).update(data)
+            super(DICT, self).update(data)
         return True
 
     # Good dictionary.pop(key)
@@ -255,7 +255,7 @@ class DICT(dict):
     def Del(self,key,force=False,default=False):
         #if self._is_ro(self.__getitem__(key),key=key):
         #    return False
-        #super(Dict, self).__delitem__(key) # delete data without __delitem() in this class
+        #super(DICT, self).__delitem__(key) # delete data without __delitem() in this class
         if force:
             self.__getitem__(key).Proper('force',True)
         return self.__delitem__(key,default=default) # delete data with __delitem() in this class
@@ -271,11 +271,11 @@ class DICT(dict):
                 if p in self:
                     self=self[p]
                 elif force:
-                    super(Dict, self).__setitem__(p, Dict())
+                    super(DICT, self).__setitem__(p, DICT())
                     self=self[p]
                 else:
                     if default_path=='_':
-                        return Dict()
+                        return DICT()
                     return default_path
             return self
         return default
@@ -298,7 +298,7 @@ class DICT(dict):
                 found=self.get(key,None)
                 if isinstance(found,dict):
                     if dep in found:
-                         if mode in ['value','*','all'] and (find == found[dep] or (type(found[dep]) in [Dict,dict,list,tuple] and find in found[dep]) or (type(find) is str and type(found[dep]) is str and find in found[dep])): # find in 'find' only
+                         if mode in ['value','*','all'] and (find == found[dep] or (type(found[dep]) in [DICT,dict,list,tuple] and find in found[dep]) or (type(find) is str and type(found[dep]) is str and find in found[dep])): # find in 'find' only
                               # Proper find
                               if proper:
                                   if found[dep][find] == proper:
@@ -409,5 +409,8 @@ class DICT(dict):
             else:
                 lst.sort(reverse=reverse,func=func)
             return [i[0] for i in lst]
+
+    def FirstKey(self):
+        return next(iter(self))
 
     __setattr__, __getattr__ = __setitem__, __getitem__

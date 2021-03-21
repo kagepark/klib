@@ -2,10 +2,26 @@
 import pickle
 import multiprocessing
 import fcntl,socket, struct
-from klib.MODULE import MODULE
+from klib.MODULE import *
 MODULE().Import('from klib.Type import Type')
 MODULE().Import('ssl')
 
+def _u_bytes(val,encode='utf-8'):
+    if Py3():
+        if type(val) is bytes:
+            return val
+        else:
+            return bytes(val,encode)
+    return bytes(val) # if change to decode then network packet broken
+    #return val.decode(encode)
+
+def _u_str2int(val,encode='utf-8'):
+    if Py3:
+        if type(val) is bytes:
+            return int(val.hex(),16)
+        else:
+            return int(_u_bytes(val,encode=encode).hex(),16)
+    return int(val.encode('hex'),16)
 
 def _dict(pk={},add=False,**var):
     for key in var.keys():
